@@ -138,7 +138,7 @@ function abrirFormulario(modulo, isNovo = false) {
         document.getElementById('page-context-title').innerText = `Inserir Novo Registro`;
         if (modulo === 'clientes') { document.getElementById('cli-index').value = ""; document.getElementById('cli-nome').value = ""; document.getElementById('cli-cnpj').value = ""; document.getElementById('cli-rua').value = ""; document.getElementById('cli-numero').value = ""; document.getElementById('cli-bairro').value = ""; document.getElementById('cli-cidade').value = ""; document.getElementById('cli-uf').value = ""; document.getElementById('cli-contato').value = ""; document.getElementById('cli-whatsapp').value = ""; document.getElementById('cli-email').value = ""; }
         if (modulo === 'funcionarios') { document.getElementById('func-index').value = ""; document.getElementById('func-nome').value = ""; document.getElementById('func-cpf').value = ""; document.getElementById('func-nivel').value = "administrador"; document.getElementById('func-cargo').value = "analista pleno"; document.getElementById('func-dt-inicio').value = ""; document.getElementById('func-dt-desligamento').value = ""; document.getElementById('func-dt-nascimento').value = ""; document.getElementById('func-rua').value = ""; document.getElementById('func-numero').value = ""; document.getElementById('func-bairro').value = ""; document.getElementById('func-cidade').value = ""; document.getElementById('func-uf').value = ""; document.getElementById('func-telefone').value = ""; document.getElementById('func-email').value = ""; document.getElementById('func-senha').value = ""; document.getElementById('func-cal-seg').value = "8"; document.getElementById('func-cal-ter').value = "8"; document.getElementById('func-cal-qua').value = "8"; document.getElementById('func-cal-qui').value = "8"; document.getElementById('func-cal-sex').value = "8"; funcTempHistoricoValorHora = []; renderizarTabelaHistoricoValorHora(); }
-        if (modulo === 'projetos') { alimentarDropdownsProjeto(); document.getElementById('proj-index').value = ""; document.getElementById('proj-nome').value = ""; document.getElementById('proj-prefixo').value = ""; document.getElementById('proj-cliente').value = ""; document.getElementById('proj-rua').value = ""; document.getElementById('proj-numero').value = ""; document.getElementById('proj-bairro').value = ""; document.getElementById('proj-cidade').value = ""; document.getElementById('proj-uf').value = ""; document.getElementById('proj-area').value = ""; document.getElementById('proj-pavimentos').value = ""; document.getElementById('proj-altura').value = ""; document.getElementById('proj-esbeltez').value = ""; document.getElementById('proj-dificuldade').value = "3"; document.getElementById('proj-valor').value = ""; document.getElementById('proj-pagamento').value = "Por entrega"; document.getElementById('proj-dt-inicio').value = "";
+        if (modulo === 'projetos') { alimentarDropdownsProjeto(); document.getElementById('proj-index').value = ""; document.getElementById('proj-nome-original').value = ""; document.getElementById('proj-nome').value = ""; document.getElementById('proj-prefixo').value = ""; document.getElementById('proj-cliente').value = ""; document.getElementById('proj-rua').value = ""; document.getElementById('proj-numero').value = ""; document.getElementById('proj-bairro').value = ""; document.getElementById('proj-cidade').value = ""; document.getElementById('proj-uf').value = ""; document.getElementById('proj-area').value = ""; document.getElementById('proj-pavimentos').value = ""; document.getElementById('proj-altura').value = ""; document.getElementById('proj-esbeltez').value = ""; document.getElementById('proj-dificuldade').value = "3"; document.getElementById('proj-valor').value = ""; document.getElementById('proj-pagamento').value = "Por entrega"; document.getElementById('proj-dt-inicio').value = "";
             // Item 12 (prompt_gemini.md §14): Analista/Supervisor/
             // Detalhista já vêm com o nome do usuário logado como
             // default (ainda editável, trocando na própria seleção) —
@@ -208,7 +208,9 @@ function renderizarTabelaClientes() {
     c.forEach((cli, idx) => { const nomeJs = cli.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarClienteParaEdicao('${nomeJs}')"><td>C-${String(idx + 1).padStart(3, '0')}</td><td><strong>${cli.nome}</strong></td><td>${cli.cnpj || ''}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarCliente('${nomeJs}')">🗑️</button></td></tr>`; });
 }
 function salvarCliente() {
-    const i = document.getElementById('cli-index').value; const n = document.getElementById('cli-nome').value; if (!n.trim()) return alert("Obrigatório");
+    // Item 17 (prompt_gemini.md §14, leva 4): mesmo .trim() aplicado em
+    // Projeto — evita nome salvo com espaço a mais no início/fim.
+    const i = document.getElementById('cli-index').value; const n = document.getElementById('cli-nome').value.trim(); if (!n) return alert("Obrigatório");
     const nv = { nome: n, cnpj: document.getElementById('cli-cnpj').value, rua: document.getElementById('cli-rua').value, numero: document.getElementById('cli-numero').value, bairro: document.getElementById('cli-bairro').value, cidade: document.getElementById('cli-cidade').value, uf: document.getElementById('cli-uf').value, contato: document.getElementById('cli-contato').value, whatsapp: document.getElementById('cli-whatsapp').value, email: document.getElementById('cli-email').value };
     let l = JSON.parse(localStorage.getItem('banco_clientes')) || []; if (i === "") l.push(nv); else l[i] = nv;
     localStorage.setItem('banco_clientes', JSON.stringify(l)); fecharFormulario('clientes');
@@ -250,8 +252,10 @@ function renderizarTabelaFuncionarios() {
     });
 }
 function salvarFuncionario() {
-    const i = document.getElementById('func-index').value; const n = document.getElementById('func-nome').value; const c = document.getElementById('func-cpf').value; const cod = document.getElementById('func-codinome').value.trim();
-    if (!n.trim() || !c.trim() || !validarCPF(c)) return alert("CPF ou Nome inválido!");
+    // Item 17 (prompt_gemini.md §14, leva 4): mesmo .trim() aplicado em
+    // Projeto/Cliente.
+    const i = document.getElementById('func-index').value; const n = document.getElementById('func-nome').value.trim(); const c = document.getElementById('func-cpf').value; const cod = document.getElementById('func-codinome').value.trim();
+    if (!n || !c.trim() || !validarCPF(c)) return alert("CPF ou Nome inválido!");
     if (!cod) return alert("Codinome é obrigatório!");
     // Itens 2/14 (prompt_gemini.md §14): bloqueia salvar se alguma data
     // (Início, Desligamento, Nascimento) estiver preenchida errado.
@@ -513,7 +517,14 @@ function removerEmailResponsavelProjeto(idx) {
     renderizarTabelaEmailsResponsaveisProjeto();
 }
 function salvarProjeto() {
-    const i = document.getElementById('proj-index').value; const n = document.getElementById('proj-nome').value; const c = document.getElementById('proj-cliente').value; if (!n.trim() || !c) return alert("Campos obrigatórios!");
+    // Item 17 (prompt_gemini.md §14, leva 4 — bug real confirmado):
+    // .trim() no nome antes de usar — sem isso, um espaço a mais no
+    // início/fim virava parte do NOME salvo e da CHAVE em
+    // banco_arvores_projetos, fazendo buscas por esse projeto
+    // "falharem" silenciosamente (ex: projeto salvo como " B" em vez
+    // de "B" — parecia que a árvore tinha sumido, não tinha, só
+    // estava com um nome ligeiramente diferente do esperado).
+    const i = document.getElementById('proj-index').value; const nomeOriginalNaEdicao = document.getElementById('proj-nome-original').value; const n = document.getElementById('proj-nome').value.trim(); const c = document.getElementById('proj-cliente').value; if (!n || !c) return alert("Campos obrigatórios!");
     // Itens 2/14 (prompt_gemini.md §14): bloqueia salvar se a data de
     // Início estiver preenchida errado.
     if (!validarTodasDatasDaTela()) return;
@@ -526,6 +537,18 @@ function salvarProjeto() {
     // gravado (senão qualquer edição no Cadastro re-liberaria um
     // projeto que alguém tinha voltado pra análise de propósito).
     if (i === "") {
+        // Item 17 (prompt_gemini.md §14 — decisão do usuário: colisão
+        // de nome BLOQUEIA em vez de só avisar): se já existe uma
+        // árvore sob esse nome (provavelmente órfã, de um projeto
+        // criado antes com o mesmo nome depois apagado do Cadastro
+        // sem limpar a árvore), não cria o projeto — evita reaproveitar
+        // em silêncio uma estrutura que pode não ser a esperada, como
+        // já aconteceu com dados reais (caso "OBRA B").
+        let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+        if (todasArvores[n]) {
+            alert('Não foi possível salvar: já existe uma Estrutura de Projeto (árvore) salva com o nome "' + n + '". Escolha outro nome, ou peça pra quem mantém o sistema resolver a colisão manualmente antes de criar este projeto.');
+            return;
+        }
         nv.status_liberacao = 'em_analise';
         l.push(nv);
         // Etapas Default v2 (prompt_gemini.md §12.30): grava a árvore
@@ -538,8 +561,7 @@ function salvarProjeto() {
         // criação por tipo. Projeto EDITADO (branch else abaixo) nunca
         // passa por aqui — decisão explícita do usuário, pra não
         // arriscar sobrescrever uma árvore que já tem trabalho real.
-        let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-        if (!todasArvores[n] && typeof criarEtapaDefaultAPartirDoCatalogo === 'function') {
+        if (typeof criarEtapaDefaultAPartirDoCatalogo === 'function') {
             const etapasIniciais = projTempEtapasDefault
                 .map(nome => criarEtapaDefaultAPartirDoCatalogo(nome, nv.analista))
                 .filter(etapa => etapa !== null);
@@ -551,7 +573,51 @@ function salvarProjeto() {
             localStorage.setItem('banco_arvores_projetos', JSON.stringify(todasArvores));
         }
     }
-    else { nv.status_liberacao = l[i] ? l[i].status_liberacao : undefined; l[i] = nv; }
+    else {
+        // Item 17 (prompt_gemini.md §14, leva 4 — bug real confirmado):
+        // busca o projeto que está sendo editado pelo NOME que estava
+        // salvo quando o formulário foi aberto
+        // (`proj-nome-original`), não mais pela posição (`i`) dentro
+        // do array — a posição podia ficar desatualizada se
+        // `banco_projetos` mudasse enquanto o formulário estava
+        // aberto (ex: sincronização em segundo plano), fazendo
+        // salvar por cima do projeto ERRADO. Fallback pro índice
+        // antigo só se por algum motivo o nome original não bater
+        // com nada (não deveria acontecer, mas não trava o salvamento
+        // por causa disso).
+        let index = l.findIndex(p => p.nome === nomeOriginalNaEdicao);
+        if (index === -1) index = parseInt(i, 10);
+        const nomeAntigo = l[index] ? l[index].nome : n;
+        nv.status_liberacao = l[index] ? l[index].status_liberacao : undefined;
+        l[index] = nv;
+        // Item 5/6 (prompt_gemini.md §14, leva 4): projeto renomeado
+        // precisa migrar a chave em banco_arvores_projetos também —
+        // esse banco é indexado pelo NOME do projeto. Sem isso, a
+        // árvore antiga (Etapas/Tarefas de verdade) fica órfã sob o
+        // nome antigo, some da Estrutura de Projeto (que busca pelo
+        // nome novo) mas continua aparecendo no Kanban/Atribuição de
+        // Tarefas (que hoje iteram todo banco_arvores_projetos sem
+        // cruzar com banco_projetos).
+        if (nomeAntigo && nomeAntigo !== n) {
+            let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            if (todasArvores[nomeAntigo] && !todasArvores[n]) {
+                todasArvores[n] = todasArvores[nomeAntigo];
+                todasArvores[n].nome = n;
+                delete todasArvores[nomeAntigo];
+                localStorage.setItem('banco_arvores_projetos', JSON.stringify(todasArvores));
+            } else if (todasArvores[nomeAntigo] && todasArvores[n]) {
+                // Item 17 (prompt_gemini.md §14 — decisão do usuário:
+                // colisão de nome BLOQUEIA em vez de só avisar): já
+                // existe uma árvore sob o nome NOVO — migrar por cima
+                // perderia o trabalho que já estava lá (causa raiz do
+                // caso real "OBRA B" sumindo), então agora a renomeação
+                // inteira é bloqueada (nada é salvo) em vez de só
+                // avisar e seguir sem migrar.
+                alert('Não foi possível renomear: já existe uma Estrutura de Projeto salva com o nome "' + n + '". Escolha outro nome, ou peça pra quem mantém o sistema resolver a colisão manualmente antes de renomear.');
+                return;
+            }
+        }
+    }
     localStorage.setItem('banco_projetos', JSON.stringify(l)); fecharFormulario('projetos');
 }
 function carregarProjetoParaEdicao(nome) {
@@ -560,7 +626,7 @@ function carregarProjetoParaEdicao(nome) {
     const index = l.findIndex(x => x.nome === nome);
     if (index === -1) return;
     const p = l[index]; abrirFormulario('projetos', false);
-    document.getElementById('proj-index').value = index; document.getElementById('proj-nome').value = p.nome; document.getElementById('proj-prefixo').value = p.prefixo; document.getElementById('proj-cliente').value = p.cliente; document.getElementById('proj-rua').value = p.rua || p.endereco || ''; document.getElementById('proj-numero').value = p.numero || ''; document.getElementById('proj-bairro').value = p.bairro || ''; document.getElementById('proj-cidade').value = p.cidade || ''; document.getElementById('proj-uf').value = p.uf || ''; document.getElementById('proj-area').value = p.area ? formatarNumeroBRParaExibicao(p.area) : ''; document.getElementById('proj-pavimentos').value = p.pavimentos; document.getElementById('proj-altura').value = p.altura; document.getElementById('proj-esbeltez').value = p.esbeltez; document.getElementById('proj-dificuldade').value = p.dificuldade; document.getElementById('proj-valor').value = p.valor ? formatarNumeroBRParaExibicao(p.valor) : ''; document.getElementById('proj-pagamento').value = p.pagamento; document.getElementById('proj-dt-inicio').value = p.dt_inicio; document.getElementById('proj-analista').value = p.analista; document.getElementById('proj-supervisor').value = p.supervisor; document.getElementById('proj-detalhista').value = p.detalhista || '';
+    document.getElementById('proj-index').value = index; document.getElementById('proj-nome-original').value = p.nome; document.getElementById('proj-nome').value = p.nome; document.getElementById('proj-prefixo').value = p.prefixo; document.getElementById('proj-cliente').value = p.cliente; document.getElementById('proj-rua').value = p.rua || p.endereco || ''; document.getElementById('proj-numero').value = p.numero || ''; document.getElementById('proj-bairro').value = p.bairro || ''; document.getElementById('proj-cidade').value = p.cidade || ''; document.getElementById('proj-uf').value = p.uf || ''; document.getElementById('proj-area').value = p.area ? formatarNumeroBRParaExibicao(p.area) : ''; document.getElementById('proj-pavimentos').value = p.pavimentos; document.getElementById('proj-altura').value = p.altura; document.getElementById('proj-esbeltez').value = p.esbeltez; document.getElementById('proj-dificuldade').value = p.dificuldade; document.getElementById('proj-valor').value = p.valor ? formatarNumeroBRParaExibicao(p.valor) : ''; document.getElementById('proj-pagamento').value = p.pagamento; document.getElementById('proj-dt-inicio').value = p.dt_inicio; document.getElementById('proj-analista').value = p.analista; document.getElementById('proj-supervisor').value = p.supervisor; document.getElementById('proj-detalhista').value = p.detalhista || '';
     projTempEmailsResponsaveis = Array.isArray(p.emails_responsaveis) ? p.emails_responsaveis.slice() : [];
     renderizarTabelaEmailsResponsaveisProjeto();
 }
@@ -569,5 +635,15 @@ function deletarProjeto(nome) {
     let l = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     const index = l.findIndex(x => x.nome === nome);
     if (index === -1) return;
-    l.splice(index, 1); localStorage.setItem('banco_projetos', JSON.stringify(l)); renderizarTabelaProjetos();
+    l.splice(index, 1); localStorage.setItem('banco_projetos', JSON.stringify(l));
+    // Item 5/6 (prompt_gemini.md §14, leva 4): sem isso, a árvore do
+    // projeto (Etapas/Tarefas de verdade, em banco_arvores_projetos)
+    // ficava órfã e continuava aparecendo no Kanban e na Atribuição de
+    // Tarefas mesmo depois do projeto "deletado" no Cadastro.
+    let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    if (todasArvores[nome]) {
+        delete todasArvores[nome];
+        localStorage.setItem('banco_arvores_projetos', JSON.stringify(todasArvores));
+    }
+    renderizarTabelaProjetos();
 }

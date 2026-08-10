@@ -6534,3 +6534,79 @@ TUDO que já foi implementado — o lote de Cadastro (14 itens) e a leva
 correção crítica do item 17); (2) confirmar/resolver "OBRA A" e "OBRA
 C" (mesmo padrão de órfã que "OBRA B", só que ainda não confirmado);
 (3) itens 8, 14, e o resto do item 17, quando for a vez deles.
+
+## Retomada em 2026-08-10
+
+Seguindo a prioridade natural registrada acima, nesta sessão:
+
+1. **Teste real no navegador** (lote de Cadastro + leva 4 inteira,
+   incluindo a cascata de verba do item 10) — **validado pelo
+   usuário**, sem regressão reportada.
+2. **"OBRA A" e "OBRA C"** — confirmadas pelo usuário como **sem
+   órfãs**. Só "OBRA B" (já corrigida antes) teve o problema; não foi
+   preciso rodar recuperação em massa pra mais nenhum caso.
+3. **Item 8** (pontos zerados na Atribuição) — usuário reconfirmou:
+   **não reproduz mais**. Fechado sem mudança de código (provavelmente
+   resolvido de tabela por alguma correção da leva 4, ou era falso
+   alarme).
+4. **Item 17, parte final (proteção de colisão de nome)** — decisão do
+   usuário: **bloquear**, não fundir automaticamente nem manter só o
+   aviso. Implementado em `js/cadastros.js`, função `salvarProjeto()`,
+   nos dois pontos de colisão:
+   - Criar projeto novo com nome que já tem árvore salva em
+     `banco_arvores_projetos` → agora `return` antes de criar o
+     projeto ou tocar na árvore, com `alert()` explicando o motivo
+     (antes: reaproveitava a árvore existente em silêncio, só com
+     aviso).
+   - Renomear projeto pra um nome que já tem árvore de outro projeto →
+     agora `return` antes de persistir `banco_projetos`, bloqueando a
+     renomeação inteira (antes: salvava o nome novo mesmo assim e só
+     pulava a migração da árvore, com aviso).
+   Lógica validada com testes isolados equivalentes em Python (Node
+   não está disponível neste ambiente de execução — sem `node --check`
+   nesta sessão; rodar essa validação de sintaxe na máquina de quem
+   for aplicar o `.zip`). Replicado no módulo isolado
+   (`modulos_isolados/cadastros/js/cadastros.js` + campo oculto
+   `proj-nome-original` que faltava no `index.html` do módulo,
+   dependência da correção anterior do item 17 que nunca tinha sido
+   sincronizada).
+
+5. **Item 14 (drag-and-drop em Setor/Pavimento/Tarefa)** — decisão do
+   usuário sobre o escopo: **todos os níveis** ganham arrastar-e-soltar
+   (antes só Etapa), reordenando **apenas entre irmãos** (mesmo pai);
+   mover um nó pra debaixo de um pai diferente (reparenting) ficou
+   fora, de propósito. Implementado em `js/arvore.js`:
+   `iniciarArrastoEtapa`/`soltarEtapa` (que só entendiam índice simples
+   no array `arv.etapas`) viraram `iniciarArrastoNo`/`soltarNo`,
+   genéricos por `path` (mesmo formato de `resolverNoPorPath()`,
+   ex.: `"0-1-2"`) — comparam todos os segmentos do path menos o
+   último pra confirmar que origem e destino têm o mesmo pai antes de
+   reordenar; se os pais forem diferentes, o drop é ignorado em
+   silêncio (não é erro, é o comportamento combinado). Toda linha da
+   árvore agora é `draggable`, não só a de Etapa. Lógica de
+   reordenação (splice+insert, mesma semântica que já valia pra Etapa)
+   validada com 5 casos equivalentes em Python (Node segue
+   indisponível neste ambiente).
+   Replicado em `modulos_isolados/arvore/js/arvore.js` — mas **só a
+   generalização do drag-and-drop**, decisão explícita do usuário: esse
+   módulo já estava desatualizado antes desta rodada em outras frentes
+   sem relação (itens 2, 10, 16 — inclusive faltando campos de HTML
+   como `l-setor-area`/`l-setor-peso`), e sincronizar tudo isso ficou
+   de fora de propósito, pra não misturar com a mudança de hoje.
+   **Teste real** (além dos casos em Python): rodado no app de verdade
+   via `http://localhost` (servidor Python, `npx serve`/Node
+   indisponível neste ambiente), chamando `iniciarArrastoNo`/`soltarNo`
+   direto sobre a árvore real do projeto "R" — reordenar tarefas dentro
+   do mesmo Pavimento, reordenar Pavimentos dentro da mesma Etapa, e
+   tentar mover entre pais diferentes (bloqueado corretamente) — os 3
+   passaram, com a árvore re-renderizando certo. Simulação de arrasto
+   por mouse (ponteiro) não deu pra confirmar com certeza nesta sessão
+   (viewport do navegador automatizado mudou de tamanho entre prints,
+   desalinhando as coordenadas do clique) — vale um arrasto manual
+   rápido na sua máquina pra fechar essa ponta de UX.
+
+**Ainda em aberto**: recuperação em massa de árvores órfãs (não
+necessária agora, mas segue disponível se aparecer um caso novo);
+débito de sincronização do módulo isolado de árvore com os itens
+2/10/16 do arquivo principal (registrado no item 5 acima, não
+resolvido de propósito).

@@ -537,6 +537,18 @@ function salvarProjeto() {
     // gravado (senão qualquer edição no Cadastro re-liberaria um
     // projeto que alguém tinha voltado pra análise de propósito).
     if (i === "") {
+        // Item 17 (prompt_gemini.md §14 — decisão do usuário: colisão
+        // de nome BLOQUEIA em vez de só avisar): se já existe uma
+        // árvore sob esse nome (provavelmente órfã, de um projeto
+        // criado antes com o mesmo nome depois apagado do Cadastro
+        // sem limpar a árvore), não cria o projeto — evita reaproveitar
+        // em silêncio uma estrutura que pode não ser a esperada, como
+        // já aconteceu com dados reais (caso "OBRA B").
+        let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+        if (todasArvores[n]) {
+            alert('Não foi possível salvar: já existe uma Estrutura de Projeto (árvore) salva com o nome "' + n + '". Escolha outro nome, ou peça pra quem mantém o sistema resolver a colisão manualmente antes de criar este projeto.');
+            return;
+        }
         nv.status_liberacao = 'em_analise';
         l.push(nv);
         // Etapas Default v2 (prompt_gemini.md §12.30): grava a árvore
@@ -549,8 +561,7 @@ function salvarProjeto() {
         // criação por tipo. Projeto EDITADO (branch else abaixo) nunca
         // passa por aqui — decisão explícita do usuário, pra não
         // arriscar sobrescrever uma árvore que já tem trabalho real.
-        let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-        if (!todasArvores[n] && typeof criarEtapaDefaultAPartirDoCatalogo === 'function') {
+        if (typeof criarEtapaDefaultAPartirDoCatalogo === 'function') {
             const etapasIniciais = projTempEtapasDefault
                 .map(nome => criarEtapaDefaultAPartirDoCatalogo(nome, nv.analista))
                 .filter(etapa => etapa !== null);
@@ -560,15 +571,6 @@ function salvarProjeto() {
                 etapas: etapasIniciais
             };
             localStorage.setItem('banco_arvores_projetos', JSON.stringify(todasArvores));
-        } else if (todasArvores[n]) {
-            // Item 17 (prompt_gemini.md §14, leva 4): já existe uma
-            // árvore sob esse nome (provavelmente vazia, de um
-            // projeto criado antes com o mesmo nome depois apagado do
-            // Cadastro sem limpar a árvore — cenário anterior a esta
-            // correção). Avisa em vez de ficar quieto: evita a
-            // confusão "onde foram parar minhas etapas" que já
-            // aconteceu antes.
-            alert('Aviso: já existe uma estrutura de projeto (árvore) salva com o nome "' + n + '". Ela será reaproveitada automaticamente — se não for o que você esperava, confira a Estrutura de Projeto deste projeto.');
         }
     }
     else {
@@ -604,17 +606,15 @@ function salvarProjeto() {
                 delete todasArvores[nomeAntigo];
                 localStorage.setItem('banco_arvores_projetos', JSON.stringify(todasArvores));
             } else if (todasArvores[nomeAntigo] && todasArvores[n]) {
-                // Item 17 (prompt_gemini.md §14, leva 4 — bug real
-                // confirmado, causa raiz do caso "OBRA B" sumindo):
-                // já existe uma árvore sob o nome NOVO — migrar por
-                // cima perderia o trabalho que já estava lá, então a
-                // migração é pulada de propósito (mesmo
-                // comportamento de antes). A diferença agora é que o
-                // usuário É AVISADO — antes isso acontecia em
-                // silêncio, e só descobrimos com investigação manual
-                // via Console que os dados reais ficaram presos sob o
-                // nome antigo.
-                alert('Atenção: o projeto foi renomeado de "' + nomeAntigo + '" para "' + n + '", mas já existe uma Estrutura de Projeto salva sob o nome novo. Para não sobrescrever, a estrutura ANTIGA (com as Etapas de "' + nomeAntigo + '") NÃO foi movida automaticamente — ela continua acessível apenas pelo nome antigo. Avise quem está mantendo o sistema pra resolver isso manualmente, se precisar recuperar esse conteúdo.');
+                // Item 17 (prompt_gemini.md §14 — decisão do usuário:
+                // colisão de nome BLOQUEIA em vez de só avisar): já
+                // existe uma árvore sob o nome NOVO — migrar por cima
+                // perderia o trabalho que já estava lá (causa raiz do
+                // caso real "OBRA B" sumindo), então agora a renomeação
+                // inteira é bloqueada (nada é salvo) em vez de só
+                // avisar e seguir sem migrar.
+                alert('Não foi possível renomear: já existe uma Estrutura de Projeto salva com o nome "' + n + '". Escolha outro nome, ou peça pra quem mantém o sistema resolver a colisão manualmente antes de renomear.');
+                return;
             }
         }
     }

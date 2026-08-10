@@ -137,29 +137,55 @@
         // versão — simplificação deliberada, dado que agora podem ser
         // de níveis diferentes convivendo na mesma lista (ver
         // prompt_gemini.md §12.31 pra nota completa).
-        let etapaArrastada = null;
+        // Item 14 (prompt_gemini.md §14 — decisão do usuário: todos os
+        // níveis, só reordenar entre irmãos, sem reparenting):
+        // generalização do que já existia só pra Etapa. `path` é o
+        // mesmo formato usado por resolverNoPorPath() ("0", "0-1",
+        // "0-1-2"...) — o último segmento é o índice do nó dentro da
+        // lista de irmãos (arv.etapas na raiz, ou .filhos do pai em
+        // qualquer profundidade); os segmentos anteriores identificam
+        // o pai. Arrastar pra dentro de um pai DIFERENTE do de origem
+        // é ignorado de propósito (fora do escopo combinado).
+        let noArrastado = null;
 
-        function iniciarArrastoEtapa(event, fIdx) {
-            etapaArrastada = fIdx;
+        function iniciarArrastoNo(event, path) {
+            noArrastado = path;
             event.dataTransfer.effectAllowed = 'move';
         }
 
-        function soltarEtapa(event, fIdxDestino) {
-            if (etapaArrastada === null) return;
-            if (etapaArrastada === fIdxDestino) { etapaArrastada = null; return; }
+        function resolverListaIrmaos(arv, partesPath) {
+            if (partesPath.length === 1) return arv.etapas;
+            const noPai = resolverNoPorPath(arv, partesPath.slice(0, -1).join('-'));
+            return noPai && Array.isArray(noPai.filhos) ? noPai.filhos : null;
+        }
+
+        function soltarNo(event, pathDestino) {
+            if (noArrastado === null) return;
+            const pathOrigem = noArrastado;
+            noArrastado = null;
+            if (pathOrigem === pathDestino) return;
+
+            const origemPartes = pathOrigem.split('-').map(s => parseInt(s, 10));
+            const destinoPartes = pathDestino.split('-').map(s => parseInt(s, 10));
+
+            // Mesmo pai? (todos os segmentos menos o último precisam bater)
+            if (origemPartes.length !== destinoPartes.length) return;
+            for (let i = 0; i < origemPartes.length - 1; i++) {
+                if (origemPartes[i] !== destinoPartes[i]) return;
+            }
 
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos'));
             let arv = todas[projetoSelecionadoAtivo];
-            let lista = arv.etapas;
+            let lista = resolverListaIrmaos(arv, origemPartes);
+            if (!lista) return;
 
-            let origem = etapaArrastada;
+            let origem = origemPartes[origemPartes.length - 1];
+            let destino = destinoPartes[destinoPartes.length - 1];
             let [item] = lista.splice(origem, 1);
-            let destino = fIdxDestino;
-            if (origem < fIdxDestino) destino -= 1;
+            if (origem < destino) destino -= 1;
             lista.splice(destino, 0, item);
 
             localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-            etapaArrastada = null;
             carregarArvoreProjetoAtual();
         }
 
@@ -215,11 +241,13 @@
 
             let html = '<div style="margin-top:'+(isEtapa?'6px':'4px')+';">' +
                     '<div style="display:flex; align-items:center; gap:4px; padding:'+(isEtapa?'3px':'2px')+'; cursor:pointer; border-top:2px solid transparent;" ' +
-                    (isEtapa
-                        ? 'draggable="true" ondragstart="event.stopPropagation(); iniciarArrastoEtapa(event, '+path+')" ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.style.borderTopColor=\'#10b981\';" ondragleave="event.currentTarget.style.borderTopColor=\'transparent\';" ondrop="event.stopPropagation(); event.currentTarget.style.borderTopColor=\'transparent\'; soltarEtapa(event, '+path+')" '
-                        : '') +
+                    // Item 14: arrastar-e-soltar agora vale pra qualquer
+                    // nível (antes só Etapa) — reordena só entre irmãos,
+                    // soltarNo() ignora silenciosamente se o pai for
+                    // diferente do de origem.
+                    'draggable="true" ondragstart="event.stopPropagation(); iniciarArrastoNo(event, \''+path+'\')" ondragover="event.preventDefault(); event.stopPropagation(); event.currentTarget.style.borderTopColor=\'#10b981\';" ondragleave="event.currentTarget.style.borderTopColor=\'transparent\';" ondrop="event.stopPropagation(); event.currentTarget.style.borderTopColor=\'transparent\'; soltarNo(event, \''+path+'\')" ' +
                     'onclick="event.stopPropagation(); visualizarNo(\''+path+'\')">' +
-                    (isEtapa ? '<span style="cursor:grab; color:#94a3b8; font-size:11px;" title="Arraste para reordenar">⠿</span>' : '') +
+                    '<span style="cursor:grab; color:#94a3b8; font-size:11px;" title="Arraste para reordenar">⠿</span>' +
                     (ehFolha
                         ? '<span class="tree-toggle-icon" style="color:#cbd5e1;">' + seta + '</span>'
                         : '<span onclick="event.stopPropagation(); alternarRecolhimentoNo(\''+nKey+'\')" class="tree-toggle-icon">' + seta + '</span>') +
