@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo isolado: Catálogo (Etapas / Setores / Pavimentos / Tarefas)</title>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        body { display:block; padding: 20px; }
+        .harness-header { background:#0a192f; color:#fff; padding:14px 20px; border-radius:8px; margin-bottom:16px; font-weight:bold; }
+        .harness-nav { display:flex; gap:10px; margin-bottom:20px; }
+        .harness-nav .menu-item { background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:6px; cursor:pointer; }
+        .harness-nav .menu-item:hover { background:#e2e8f0; }
+        .content-panel { display:none; flex-direction:column; gap:14px; background:#fff; padding:20px; border-radius:8px; min-height:400px; }
+        #page-context-title { font-weight:bold; margin-bottom:10px; }
+    </style>
+</head>
+<body>
+    <div style="max-width:1100px; margin:0 auto;">
+        <div class="harness-header">🧪 Módulo isolado: Catálogo (Etapas / Setores / Pavimentos / Tarefas) — testado isoladamente, fora da integração completa</div>
+        <div id="page-context-title"></div>
+        <div class="harness-nav">
+                    <div class="menu-item" onclick="alternarModulo('etapas')">Etapas</div>
+                    <div class="menu-item" onclick="alternarModulo('setores')">Setores</div>
+                    <div class="menu-item" onclick="alternarModulo('pavimentos')">Pavimentos</div>
+                    <div class="menu-item" onclick="alternarModulo('tarefas')">Tarefas</div>
+        </div>
+
+        <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
+
+<div id="panel-etapas-lista" class="content-panel">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Etapa</th><th style="width:110px;">% Sugerido</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-etapas-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-etapas-nome" placeholder="Nova Etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('etapas')">Fabricar</button></div>
+                </div>
+
+<div id="panel-setores-lista" class="content-panel">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Setor</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-setores-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-setores-nome" placeholder="Nova Setor..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('setores')">Fabricar</button></div>
+                </div>
+
+<div id="panel-pavimentos-lista" class="content-panel">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Pavimento</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Nova Pavimento..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
+                </div>
+
+<div id="panel-tarefas-lista" class="content-panel">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Tarefa</th><th style="width:90px;">Pontos</th><th style="width:150px;">Unidade Física</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-tarefas-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-tarefas-nome" placeholder="Nova Tarefa..." style="width:230px; padding:6px; margin-right:10px;"><input type="number" id="add-tarefas-pontos" placeholder="Pontos" step="0.1" value="1.0" style="width:80px; padding:6px; margin-right:10px;"><input type="text" id="add-tarefas-unidade" placeholder="Unidade (m², kg, m³, un)" style="width:170px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('tarefas')">Fabricar</button></div>
+                </div>
+    </div>
+
+    <script src="js/core.js"></script>
+    <script src="js/catalogo-lego.js"></script>
+    <script>
+        document.getElementById('panel-blank-state').style.display = 'none';
+        alternarModulo('etapas');
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo isolado: Atribuição de Tarefas</title>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        body { display:block; padding: 20px; }
+        .harness-header { background:#0a192f; color:#fff; padding:14px 20px; border-radius:8px; margin-bottom:16px; font-weight:bold; }
+        .harness-nav { display:flex; gap:10px; margin-bottom:20px; }
+        .harness-nav .menu-item { background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:6px; cursor:pointer; }
+        .harness-nav .menu-item:hover { background:#e2e8f0; }
+        .content-panel { display:none; flex-direction:column; gap:14px; background:#fff; padding:20px; border-radius:8px; min-height:400px; }
+        #page-context-title { font-weight:bold; margin-bottom:10px; }
+    </style>
+</head>
+<body>
+    <div style="max-width:1200px; margin:0 auto;">
+        <div class="harness-header">🧪 Módulo isolado: Atribuição de Tarefas — testado isoladamente, fora da integração completa</div>
+        <div id="page-context-title"></div>
+        <div class="harness-nav">
+                    <div class="menu-item" onclick="alternarModulo('atribuicao_tarefas')">Atribuição de Tarefas</div>
+        </div>
+
+        <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
+
+<div id="panel-atribuicao-tarefas" class="content-panel">
+                    <div id="at-aviso-verificacao" style="display:none; background:#fffbeb; border:1px solid #f59e0b; color:#92400e; font-weight:600; padding:10px 14px; border-radius:6px; font-size:13px;"></div>
+                    <div style="display:flex; align-items:center; gap:8px; padding:8px 4px; font-size:13px; color:#334155;">
+                        <span style="font-weight:600;">📅 Período (Data de Início):</span>
+                        <span>De</span>
+                        <input type="date" id="at-filtro-periodo-de" onchange="aplicarFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; border-radius:4px; padding:3px 6px; font-size:12px;">
+                        <span>Até</span>
+                        <input type="date" id="at-filtro-periodo-ate" onchange="aplicarFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; border-radius:4px; padding:3px 6px; font-size:12px;">
+                        <button type="button" onclick="limparFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; background:#f8fafc; border-radius:4px; padding:3px 10px; font-size:12px; cursor:pointer;">Limpar</button>
+                    </div>
+                    <div class="table-wrapper" style="max-height:500px;">
+                        <table class="tabela-compacta">
+                            <thead><tr>
+                                <th id="at-th-projeto" style="width:60px;">Projeto <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'projeto')">▾</span></th>
+                                <th style="width:110px;">Localização <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'localizacao')">▾</span></th>
+                                <th style="width:50px;">Data de Início</th>
+                                <th style="width:100px;">Data Limite</th>
+                                <th id="at-th-tarefa">Tarefa <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'tarefa')">▾</span></th>
+                                <th class="col-centralizada" style="width:60px;">Pontos</th>
+                                <th class="col-centralizada" style="width:80px;">Pontos Máximo</th>
+                                <th id="at-th-executor" style="width:260px;">Executor <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'executor')">▾</span></th>
+                                <th style="width:260px;">Responsável <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'responsavel')">▾</span></th>
+                                <th style="width:120px; padding-left:24px;">Status <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'status')">▾</span></th>
+                                <th class="col-centralizada" style="width:70px;">Horas Apontadas</th>
+                            </tr></thead>
+                            <tbody id="at-tabela-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="paginacao" id="at-paginacao"></div>
+                    <div id="at-filtro-flutuante" class="at-filtro-painel" style="display:none;"></div>
+                    <div id="at-sessoes-flutuante" class="at-filtro-painel" style="display:none; min-width:340px;"></div>
+                </div>
+    </div>
+
+    <script src="js/core.js"></script>
+    <script src="js/distribuicao-custos.js"></script>
+    <script src="js/feriados.js"></script>
+    <script src="js/apontamento.js"></script>
+    <script src="js/atribuicao-tarefas.js"></script>
+    <script>
+        document.getElementById('panel-blank-state').style.display = 'none';
+        alternarModulo('atribuicao_tarefas');
+    </script>
+</body>
+</html>

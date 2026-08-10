@@ -1,0 +1,285 @@
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 2.5cm; box-sizing: border-box; }
+        
+        .browser-window { width: 100%; height: calc(100vh - 5cm); background: #ffffff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #d1d5db; }
+        .browser-header { background: #e5e7eb; padding: 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d1d5db; }
+        .circle { width: 12px; height: 12px; border-radius: 50%; }
+        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
+        .browser-tab { background: #ffffff; padding: 6px 20px; border-radius: 6px 6px 0 0; font-size: 11px; color: #4b5563; margin-left: 10px; border: 1px solid #d1d5db; border-bottom: none; }
+        
+        .app-header { background: #0a192f; color: #ffffff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #00b4d8; }
+        .app-title { font-size: 16px; font-weight: 600; }
+        
+        .app-body { display: flex; flex: 1; overflow: hidden; }
+        
+        .sidebar { width: 216px; background: #0f223f; padding-top: 15px; display: flex; flex-direction: column; justify-content: space-between; }
+        .menu-item { padding: 12px 20px; color: #94a3b8; font-size: 13px; text-decoration: none; display: block; cursor: pointer; user-select: none; }
+        .menu-item:hover { background: #132a4e; color: #ffffff; }
+        .menu-item.active { background: #1e3a66; color: #ffffff; font-weight: 600; }
+        
+        .submenu { background: #0b1a30; padding-left: 15px; display: none; }
+        .submenu .menu-item { padding: 10px 20px; font-size: 12px; }
+        .submenu .menu-item.active { color: #00b4d8; font-weight: bold; background: transparent; }
+        
+        .main-content { flex: 1; background: #f4f6f9; padding: 24px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .context-title { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 16px; letter-spacing: 0.5px; }
+        
+        .content-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+        /* Cadastro em abas (pedido do usuário) — os 10 sub-painéis
+           (Clientes/Funcionários/Projetos "-lista"/"-form" + Etapas/
+           Setores/Pavimentos/Tarefas "-lista") ficam DENTRO de
+           #panel-cadastro, mas NÃO usam a classe .content-panel — se
+           usassem, a varredura genérica "esconde tudo" de
+           alternarModulo() (document.querySelectorAll('.content-panel'))
+           também mexeria neles toda vez que qualquer outro módulo do
+           sistema fosse aberto, sem necessidade (são controlados só
+           por alternarModulo() quando o próprio módulo é um desses 7). */
+        .sub-panel-cadastro { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+        .content-panel.active { display: flex; }
+        
+        .workspace-blank { display: flex; flex-direction: column; flex: 1; justify-content: center; align-items: center; color: #94a3b8; gap: 12px; text-align: center; }
+        .workspace-blank-icon { font-size: 48px; opacity: 0.4; }
+        
+        .search-container { margin-bottom: 14px; position: relative; }
+        .search-input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #ffffff; }
+        
+        .table-wrapper { flex: 1; overflow-y: auto; overflow-x: auto; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; max-height: 480px; }
+
+        /* Verba por Tarefa (Distribuição de Custos): a coluna Executor
+           precisa caber nome completo (pode passar de 30 caracteres) —
+           forçar a tabela em width:100% (regra global de `table` acima)
+           espremia tudo pra caber num espaço fixo, cortando o nome. Aqui
+           a tabela usa a largura que precisa de verdade (min-width:100%
+           só garante que não fica MENOR que o espaço disponível quando
+           os nomes são curtos) — se ficar mais larga que o painel, o
+           wrapper já tem overflow-x:auto pra rolar horizontalmente em
+           vez de espremer. */
+        #conteudo-verba-por-tarefa table { width: auto; min-width: 100%; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th { background: #f8fafc; padding: 14px 16px; color: #334155; font-weight: 600; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
+        td { padding: 14px 16px; color: #475569; border-bottom: 1px solid #f1f5f9; }
+        .clickable-row { cursor: pointer; transition: background 0.2s; }
+        .clickable-row:hover td { background: #e0f2fe; color: #0a192f; }
+        .btn-delete { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 8px; border-radius: 4px; }
+        .btn-delete:hover { background: #fee2e2; }
+        
+        .form-panel { background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; padding: 24px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto; }
+        .form-section { border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 10px; }
+        .form-section-title { font-size: 13px; font-weight: 700; color: #0a192f; margin-bottom: 14px; text-transform: uppercase; }
+        .form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+        .form-grid .form-group { display: flex; flex-direction: column; gap: 6px; }
+        
+        .col-2 { grid-column: span 2; } .col-3 { grid-column: span 3; } .col-4 { grid-column: span 4; } 
+        .col-5 { grid-column: span 5; } .col-6 { grid-column: span 6; } .col-8 { grid-column: span 8; } .col-12 { grid-column: span 12; }
+        
+        label { font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; }
+        input, textarea, select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #f8fafc; width: 100%; }
+        
+        .footer-actions { display: flex; justify-content: space-between; align-items: center; padding-top: 14px; gap: 10px; flex-wrap: wrap; }
+        .btn-primary { background: #00b4d8; color: #ffffff; border: none; padding: 12px 24px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        .btn-primary:hover { background: #0096b4; }
+        .btn-success { background: #10b981; color: white; border: none; padding: 10px 24px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        .btn-success:hover { background: #059669; }
+        .btn-secondary { background: #64748b; color: white; border: none; padding: 10px 24px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        
+        .badge-status { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .status-apontada { background: #e2e8f0; color: #475569; }
+        .status-desenvolvimento { background: #fef08a; color: #854d0e; }
+        .status-verificacao { background: #fed7aa; color: #c2410c; }
+        .status-emissao { background: #bfdbfe; color: #1e40af; }
+        .status-finalizada { background: #bbf7d0; color: #166534; }
+        .status-validacao { background: #fca5a5; color: #991b1b; font-weight: bold; }
+
+        .tree-toggle-icon { font-size: 10px; color: #64748b; cursor: pointer; padding: 2px; transition: transform 0.1s; display: inline-block; width: 14px; }
+        .tree-branch { display: block; }
+
+        .tab-bar { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
+        .tab-selector { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab-selector:hover { color: #0a192f; }
+        .tab-selector.active { color: #0a192f; border-bottom-color: #00b4d8; }
+        .tab-content { display: block; }
+        .tab-projeto-header { font-size: 12px; color: #64748b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+        .tab-projeto-header b { color: #0a192f; }
+
+        .at-filtro-seta { cursor:pointer; margin-left:4px; color:#94a3b8; font-size:10px; user-select:none; }
+        /* Zebra striping (linhas alternadas), pedido do usuário — 2ª
+           rodada, escurecido bem mais (o pedido original #f8fafc
+           estava "clara demais"). Não briga com a bolinha do semáforo
+           de prioridade (elemento pequeno, não é fundo de linha) nem
+           com os destaques já existentes (alerta vermelho,
+           "Aguardando Verificação" em amber — ambos usam `style`
+           inline no `<tr>`, que sempre vence sobre esta regra). */
+        #at-tabela-body tr:nth-child(even) { background: #e2e8f0; }
+        /* Melhoria #28 (prompt_gemini.md §12.12): campo Pontos, coluna
+           Atribuição de Tarefas — só edita digitando/reescrevendo, sem
+           as setinhas de incremento do <input type="number"> padrão. */
+        .at-input-pontos::-webkit-outer-spin-button,
+        .at-input-pontos::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+        .at-input-pontos { -moz-appearance:textfield; }
+        .at-filtro-seta:hover { color:#f97316; }
+        .at-filtro-seta.ativo { color:#f97316; font-weight:bold; }
+        .at-filtro-painel { position:fixed; background:white; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.18); padding:4px; max-height:280px; overflow-y:auto; z-index:1000; min-width:150px; font-size:12px; }
+        .at-filtro-painel .at-filtro-acoes-topo { display:flex; justify-content:space-between; padding:3px 4px 6px; border-bottom:1px solid #e2e8f0; margin-bottom:3px; }
+        .at-filtro-painel .at-filtro-acoes-topo a { color:#f97316; cursor:pointer; text-decoration:underline; font-size:11px; }
+        .at-filtro-painel label { display:grid; grid-template-columns: 16px 1fr; align-items:center; gap:6px; padding:2px 4px; cursor:pointer; white-space:nowrap; border-radius:3px; text-align:left; direction:ltr; }
+        .at-filtro-painel label:hover { background:#fff7ed; }
+        .at-filtro-painel input { margin:0; width:14px; height:14px; justify-self:start; }
+
+        /* Modal genérico (centralizado, com fundo escurecido) — usado
+           pelo "Meu Calendário" do Kanban. Não existia um padrão de
+           modal no CSS antes disso; os formulários de Cadastros usam
+           painel lateral (trocando display entre lista/form), o que não
+           fazia sentido aqui porque o Kanban continua visível atrás. */
+        .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.45); display:flex; align-items:center; justify-content:center; z-index:2000; }
+        .modal-caixa { background:white; border-radius:8px; padding:20px; width:560px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+        .modal-caixa .modal-fechar { cursor:pointer; font-size:22px; color:#64748b; line-height:1; }
+        .badge-menu-pendencia { background:#ef4444; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:bold; margin-left:6px; }
+
+        .kb-coluna { background:#f1f5f9; border-radius:8px; padding:10px; width:230px; min-width:230px; display:flex; flex-direction:column; }
+        .kb-coluna-titulo { font-size:12px; font-weight:bold; color:#334155; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid; display:flex; justify-content:space-between; }
+        .kb-cartoes { flex:1; min-height:60px; overflow-y:auto; }
+        .kb-cartao { background:white; border:1px solid #e2e8f0; border-radius:6px; padding:10px; margin-bottom:8px; cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .kb-cartao:active { cursor:grabbing; }
+        .kb-cartao-tarefa { font-size:13px; font-weight:600; color:#0f223f; }
+        .kb-cartao-executor-revisao { font-size:11px; color:#7c3aed; font-weight:600; margin-top:2px; }
+        .kb-cartao-pontos { font-size:11px; color:#64748b; margin-top:4px; }
+        .kb-cartao-data { font-size:11px; color:#0ea5e9; margin-top:4px; font-weight:600; }
+        .kb-cartao-cronometro { display:flex; align-items:center; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid #f1f5f9; }
+        .kb-cronometro-tempo { font-size:11px; color:#64748b; font-weight:600; }
+        .kb-cartao-cronometro-ativo .kb-cronometro-tempo { color:#ef4444; }
+        .kb-btn-cronometro { font-size:10px; padding:3px 8px; border-radius:4px; border:1px solid #cbd5e1; background:white; cursor:pointer; }
+        .kb-btn-cronometro:hover { background:#f1f5f9; }
+        .kb-coluna.kb-arrastando-sobre { background:#e0f2fe; }
+        .kb-coluna.kb-coluna-bloqueada { opacity:0.6; cursor:not-allowed; }
+        .kb-cartao-apontamento-manual { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid #f1f5f9; flex-wrap:wrap; }
+        .kb-btn-apontamento-manual { font-size:10px; padding:3px 8px; border-radius:4px; border:1px solid #cbd5e1; background:white; cursor:pointer; }
+        .kb-btn-apontamento-manual:hover { background:#f1f5f9; }
+        .kb-badge-apontamento-pendente { font-size:10px; color:#b45309; background:#fef3c7; border-radius:4px; padding:2px 6px; font-weight:600; }
+
+        .aprov-abas { display:flex; gap:4px; margin-bottom:14px; border-bottom:2px solid #e2e8f0; }
+        .aprov-aba { padding:8px 16px; border:none; background:none; cursor:pointer; font-size:13px; font-weight:600; color:#64748b; border-bottom:2px solid transparent; margin-bottom:-2px; }
+        .aprov-aba:hover { color:#334155; }
+        .aprov-aba.aprov-aba-ativa { color:#0ea5e9; border-bottom-color:#0ea5e9; }
+
+        /* --- Tela de Relatórios (motor genérico: filtro + colunas +
+           agrupar + visões salvas — desenho validado com o usuário em 2
+           protótipos HTML antes de escrever este CSS) ---
+           Correção pós-teste: `.campo` nunca tinha sido definida no CSS
+           global (só a combinação `.grid-filtros .campo select/input`
+           pra largura), e o `label` global do projeto não tem
+           `display:block` — label e campo ficavam espremidos na mesma
+           linha em vez de empilhados. Escopado só a #panel-relatorios,
+           pra não mudar o comportamento de `label`/`.campo` em nenhuma
+           outra tela do sistema. */
+        #panel-relatorios label { display:block; margin-bottom:4px; }
+        #panel-relatorios .campo { display:flex; flex-direction:column; }
+
+        .barra-visoes { background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:12px 16px; margin-bottom:14px; display:flex; align-items:flex-end; gap:12px; flex-shrink:0; }
+
+        /* O painel de Filtro Avançado de Relatórios é bem mais alto que
+           o de outras telas (Nível + 6 campos + colunas + agrupar +
+           botões, tudo junto quando aberto) — em telas menores, filtro
+           + tabela juntos podem não caber na altura fixa que
+           `.content-panel` normalmente usa (overflow:hidden, do jeito
+           que as outras telas fazem, cada uma rolando só a própria
+           tabela por dentro). Pra Relatórios especificamente, deixa o
+           PAINEL INTEIRO rolar (filtro + tabela juntos) quando não
+           couber — mais simples e prevê qualquer combinação de altura
+           de filtro aberto/fechado + tamanho de relatório, sem
+           depender de cálculo fino de flexbox pra "sobrar" espaço certo
+           pra tabela. */
+        #panel-relatorios { overflow-y: auto; }
+        #rel-area-resultado .table-wrapper { max-height: none; }
+
+        /* Mesma proteção da tela de Relatórios (ver nota lá acima) —
+           achada durante investigação do item 9 da Rodada de Comentários
+           da Gerência: o botão "Salvar Pontos" (removido depois, virou
+           auto-salvar) ficava inalcançável em telas menores porque
+           `.content-panel` usa `overflow:hidden` sem nenhuma rota de
+           rolagem. Aplicado por precaução em toda a Distribuição de
+           Custos, não só na aba onde o problema foi notado — as outras
+           4 abas têm o mesmo risco estrutural. */
+        #panel-distribuicao-custos { overflow-y: auto; }
+        .barra-visoes select { min-width:240px; }
+        .separador-vertical { width:1px; height:24px; background:#e2e8f0; }
+
+        .painel-filtro { background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:14px; overflow:hidden; flex-shrink:0; }
+        .painel-filtro-cabecalho { display:flex; align-items:center; gap:8px; padding:14px 16px; cursor:pointer; user-select:none; }
+        .painel-filtro-cabecalho .titulo { font-weight:600; font-size:13px; color:#0a192f; flex:1; }
+        .painel-filtro-cabecalho .seta { font-size:11px; color:#94a3b8; transition:transform 0.15s; }
+        .painel-filtro-cabecalho .seta.aberto { transform:rotate(180deg); }
+        .painel-filtro-corpo { padding:0 16px 16px; border-top:1px solid #f1f5f9; display:none; }
+        .painel-filtro-corpo.aberto { display:block; padding-top:16px; }
+
+        .linha-nivel { display:flex; gap:8px; margin-bottom:16px; }
+        .nivel-opcao { flex:1; border:2px solid #e2e8f0; border-radius:6px; padding:10px 14px; cursor:pointer; text-align:center; font-size:13px; font-weight:600; color:#64748b; }
+        .nivel-opcao:hover { border-color:#cbd5e1; }
+        .nivel-opcao.ativo { border-color:#00b4d8; background:#e0f7fb; color:#0a192f; }
+        .nivel-opcao small { display:block; font-weight:400; text-transform:none; font-size:11px; color:#94a3b8; margin-top:2px; }
+
+        .grid-filtros { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; margin-bottom:16px; }
+        .grid-filtros .campo select, .grid-filtros .campo input { width:100%; }
+
+        .secao-titulo { font-size:11px; font-weight:700; color:#0a192f; text-transform:uppercase; margin-bottom:8px; }
+        .lista-colunas { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+        .coluna-chip { border:1px solid #cbd5e1; border-radius:20px; padding:6px 14px; font-size:12px; cursor:pointer; color:#475569; background:#f8fafc; user-select:none; }
+        .coluna-chip.ativo { background:#0a192f; color:#ffffff; border-color:#0a192f; }
+
+        .linha-agrupar { display:flex; align-items:flex-end; gap:14px; margin-bottom:6px; }
+        .rodape-filtro { display:flex; justify-content:space-between; align-items:center; padding-top:14px; border-top:1px solid #f1f5f9; margin-top:4px; }
+
+        .aviso-selecione { background:#f97316; color:#fff; font-weight:600; padding:14px 18px; border-radius:6px; font-size:13px; margin-bottom:14px; }
+
+        tr.linha-total td { font-weight:700; color:#0a192f; background:#f8fafc; border-top:2px solid #cbd5e1; }
+        tr.linha-outlier td { background:#fef2f2; }
+        tr.linha-outlier td:first-child { border-left:4px solid #ef4444; }
+
+        @media print {
+            .app-header, .sidebar, .barra-visoes, .painel-filtro { display:none !important; }
+            .main-content { padding:0 !important; overflow:visible !important; }
+            /* Causa real do bug "só aparece um pedaço, sem cabeçalho"
+               (achado testando #20): .content-panel tem overflow:hidden
+               fixo (pensado pra uma tela única, não pra um documento
+               fluindo em várias páginas impressas) — sem isso liberado
+               aqui, o navegador só consegue capturar o que cabia
+               "visível" dentro dessa área escondida. */
+            .content-panel { overflow:visible !important; height:auto !important; }
+            .table-wrapper { border:none !important; max-height:none !important; overflow:visible !important; }
+
+            /* Melhoria #20 (prompt_gemini.md §12.14): Relatórios
+               impressos em formato de planilha — título de coluna
+               visível, bordas em toda célula, linhas compactas
+               dimensionadas pra caber numa folha A4 em paisagem.
+               Escopado só ao painel de Relatórios (#panel-relatorios)
+               pra não afetar impressão de outras telas do sistema. */
+            @page { size: A4 landscape; margin: 12mm; }
+
+            #panel-relatorios table { border-collapse: collapse; width: 100%; }
+            #panel-relatorios th, #panel-relatorios td {
+                border: 1px solid #94a3b8 !important;
+                padding: 4px 8px !important;
+                font-size: 10px !important;
+                line-height: 1.3 !important;
+                color: #000 !important;
+                background: #fff !important;
+            }
+            #panel-relatorios th {
+                background: #e2e8f0 !important;
+                font-weight: 700 !important;
+                position: static !important; /* sticky não faz sentido impresso */
+            }
+            /* Repete o cabeçalho da tabela em cada página nova —
+               comportamento padrão de <thead>, só reforçando aqui. */
+            #panel-relatorios thead { display: table-header-group; }
+            #panel-relatorios tr { page-break-inside: avoid; }
+            #panel-relatorios tr.linha-total td { background:#f1f5f9 !important; font-weight:700 !important; }
+            #panel-relatorios tr.linha-outlier td { background:#fff !important; } /* destaque de tela não faz sentido impresso em P&B */
+        }
+
+        .tabela-compacta th, .tabela-compacta td { padding: 2px 8px; font-size: 12px; line-height: 1.1; }
+        .tabela-compacta td { border-bottom-width: 0.5px; }
+        .tabela-compacta .col-centralizada { text-align: center; }
+        .paginacao { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px; font-size:12px; color:#475569; }
+        .paginacao button { padding:6px 14px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer; font-size:12px; }
+        .paginacao button:disabled { opacity:0.4; cursor:default; }
+        

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo isolado: Kanban do Executor</title>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        body { display:block; padding: 20px; }
+        .harness-header { background:#0a192f; color:#fff; padding:14px 20px; border-radius:8px; margin-bottom:16px; font-weight:bold; }
+        .harness-nav { display:flex; gap:10px; margin-bottom:20px; }
+        .harness-nav .menu-item { background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:6px; cursor:pointer; }
+        .harness-nav .menu-item:hover { background:#e2e8f0; }
+        .content-panel { display:none; flex-direction:column; gap:14px; background:#fff; padding:20px; border-radius:8px; min-height:400px; }
+        #page-context-title { font-weight:bold; margin-bottom:10px; }
+    </style>
+</head>
+<body>
+    <div style="max-width:1200px; margin:0 auto;">
+        <div class="harness-header">🧪 Módulo isolado: Kanban do Executor — testado isoladamente, fora da integração completa</div>
+        <div id="page-context-title"></div>
+        <div class="harness-nav">
+                    <div class="menu-item" onclick="alternarModulo('kanban')">Kanban</div>
+        </div>
+
+        <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
+
+<div id="panel-kanban" class="content-panel">
+                    <div class="aprov-abas">
+                        <button type="button" id="kb-aba-meu" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaKanban('meu')">🧍 Meu Kanban</button>
+                        <button type="button" id="kb-aba-outros" class="aprov-aba" onclick="alternarAbaKanban('outros')">🗂️ Kanban</button>
+                        <button type="button" id="kb-aba-ranking" class="aprov-aba" onclick="alternarAbaKanban('ranking')">🏆 Ranking</button>
+                    </div>
+                    <div id="kb-area-quadro">
+                        <div class="search-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end;">
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Projeto</label>
+                                <select id="kb-filtro-projeto" onchange="renderizarQuadroKanban()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:white;">
+                                    <option value="">-- Todos os Projetos --</option>
+                                </select>
+                            </div>
+                            <div id="kb-filtro-executor-coluna" style="display:none;">
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Executor</label>
+                                <select id="kb-filtro-executor" onchange="renderizarQuadroKanban()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:white;">
+                                    <option value="">-- Todos os Executores --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Status</label>
+                                <select id="kb-filtro-status" onchange="renderizarQuadroKanban()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:white;">
+                                    <option value="">-- Todos os Status --</option>
+                                    <option>Apontada</option>
+                                    <option>Em Desenvolvimento</option>
+                                    <option>Aguardando Verificação</option>
+                                    <option>Para revisão</option>
+                                    <option>Finalizada</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Data Inicial</label>
+                                <input type="date" id="kb-filtro-data-inicio" onchange="renderizarQuadroKanban()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Data Final</label>
+                                <input type="date" id="kb-filtro-data-fim" onchange="renderizarQuadroKanban()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                            </div>
+                            <div>
+                                <button type="button" onclick="limparFiltrosKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;">✖ Limpar filtros</button>
+                            </div>
+                            <div>
+                                <button type="button" id="kb-btn-meu-calendario" onclick="abrirModalCalendarioKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;">⚙️ Meu Calendário</button>
+                            </div>
+                        </div>
+                        <div id="kb-aviso-finalizacoes-pendentes" style="display:none; margin-top:12px; padding:10px 14px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; color:#92400e; font-size:13px; cursor:pointer;" onclick="alternarModulo('aprovacoes_calendario')"></div>
+                        <div id="kb-quadro" style="display:flex; gap:12px; margin-top:16px; overflow-x:auto; flex:1;"></div>
+                    </div>
+                    <div id="kb-ranking-area" style="display:none;">
+                        <div style="display:flex; gap:8px; margin:14px 0 6px;">
+                            <button type="button" id="kb-ranking-ordenar-produtividade" class="aprov-aba aprov-aba-ativa" onclick="alternarOrdemRanking('produtividade')" style="font-size:12px; padding:6px 12px;">Ordenar por Produtividade</button>
+                            <button type="button" id="kb-ranking-ordenar-pontos" class="aprov-aba" onclick="alternarOrdemRanking('pontos')" style="font-size:12px; padding:6px 12px;">Ordenar por Pontos</button>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin:0 0 12px;">
+                            Considera só tarefas <b>Finalizadas</b>. <b>Produtividade</b> = Pontos das
+                            tarefas finalizadas ÷ Horas gastas para finalizá-las (taxa — quanto maior,
+                            mais eficiente). <b>Pontos</b> = soma dos Pontos de todas as tarefas que o
+                            executor finalizou.
+                        </p>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width:60px; text-align:center;">Pos.</th>
+                                        <th>Executor</th>
+                                        <th style="text-align:center;">Pontos</th>
+                                        <th style="text-align:center;">Horas</th>
+                                        <th style="text-align:center;">Produtividade (pts/h)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kb-ranking-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="kb-modal-calendario" class="modal-overlay" style="display:none;">
+                    <div class="modal-caixa">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h3 style="margin:0;">⚙️ Meu Calendário — <span id="kb-modal-cal-nome-executor"></span></h3>
+                            <span class="modal-fechar" onclick="fecharModalCalendarioKanban()">&times;</span>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin-top:0;">
+                            Marque um período de ausência (0 horas/dia) ou hora extra (horas num dia que
+                            normalmente não teria). A mudança só passa a valer no cálculo de prazos depois
+                            que um administrador aprovar.
+                        </p>
+                        <div class="form-section-title">Nova exceção</div>
+                        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                            <div><label style="font-size:11px; color:#64748b; display:block;">De</label><input type="date" id="kb-cal-nova-de" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Até</label><input type="date" id="kb-cal-nova-ate" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Horas/dia</label><input type="number" step="0.5" min="0" id="kb-cal-nova-horas" placeholder="0" style="width:70px; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div style="flex:1; min-width:160px;"><label style="font-size:11px; color:#64748b; display:block;">Motivo (opcional)</label><input type="text" id="kb-cal-nova-motivo" placeholder="Ex: viagem, consulta médica..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <button class="btn-primary" id="kb-cal-btn-enviar" onclick="criarExcecaoCalendarioKanban()">+ Enviar pra aprovação</button>
+                        </div>
+                        <div class="form-section-title">Exceções já registradas</div>
+                        <div class="table-wrapper" style="max-height:220px;">
+                            <table><thead><tr><th>Período</th><th style="width:80px;">Horas/dia</th><th>Motivo</th><th style="width:110px;">Status</th></tr></thead>
+                            <tbody id="kb-cal-tabela-excecoes-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="kb-modal-apontamento" class="modal-overlay" style="display:none;">
+                    <div class="modal-caixa">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h3 style="margin:0;">📝 Apontar horas — <span id="kb-apo-modal-nome-tarefa"></span></h3>
+                            <span class="modal-fechar" onclick="fecharModalApontamentoManualKanban()">&times;</span>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin-top:0;">
+                            Registre um dia e a quantidade de horas trabalhadas nessa tarefa (ex: esqueceu de
+                            apertar "Iniciar"). Só entra no total de horas da tarefa depois que um
+                            administrador/analista/supervisor aprovar.
+                        </p>
+                        <div class="form-section-title">Novo apontamento</div>
+                        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Data</label><input type="date" id="kb-apo-nova-data" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Horas</label><input type="number" step="0.5" min="0" id="kb-apo-nova-horas" placeholder="0" style="width:70px; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div style="flex:1; min-width:160px;"><label style="font-size:11px; color:#64748b; display:block;">Motivo (opcional)</label><input type="text" id="kb-apo-nova-motivo" placeholder="Ex: esqueci de apertar Iniciar..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <button class="btn-primary" onclick="criarApontamentoManualKanban()">+ Enviar pra aprovação</button>
+                        </div>
+                        <div class="form-section-title">Apontamentos já registrados nesta tarefa</div>
+                        <div class="table-wrapper" style="max-height:220px;">
+                            <table><thead><tr><th>Data</th><th style="width:70px;">Horas</th><th>Motivo</th><th style="width:110px;">Status</th></tr></thead>
+                            <tbody id="kb-apo-tabela-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+    </div>
+
+    <script src="js/core.js"></script>
+    <script src="js/feriados.js"></script>
+    <script src="js/apontamento.js"></script>
+    <script src="js/aprovacoes-calendario.js"></script>
+    <script src="js/kanban.js"></script>
+    <script>
+        document.getElementById('panel-blank-state').style.display = 'none';
+        alternarModulo('kanban');
+    </script>
+</body>
+</html>

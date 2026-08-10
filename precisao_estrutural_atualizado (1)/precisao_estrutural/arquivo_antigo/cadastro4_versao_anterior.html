@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precisão Estrutural - Controle de Produção</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        
+        .browser-window { width: 100%; max-width: 1300px; height: 800px; background: #ffffff; border-radius: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #d1d5db; }
+        .browser-header { background: #e5e7eb; padding: 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d1d5db; }
+        .circle { width: 12px; height: 12px; border-radius: 50%; }
+        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
+        .browser-tab { background: #ffffff; padding: 6px 20px; border-radius: 6px 6px 0 0; font-size: 11px; color: #4b5563; margin-left: 10px; border: 1px solid #d1d5db; border-bottom: none; }
+        
+        .app-header { background: #0a192f; color: #ffffff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #00b4d8; }
+        .app-title { font-size: 16px; font-weight: 600; }
+        
+        .app-body { display: flex; flex: 1; overflow: hidden; }
+        
+        .sidebar { width: 240px; background: #0f223f; padding-top: 15px; display: flex; flex-direction: column; }
+        .menu-item { padding: 12px 20px; color: #94a3b8; font-size: 13px; text-decoration: none; display: block; cursor: pointer; user-select: none; }
+        .menu-item:hover { background: #132a4e; color: #ffffff; }
+        .menu-item.active { background: #1e3a66; color: #ffffff; font-weight: 600; }
+        
+        .submenu { background: #0b1a30; padding-left: 15px; display: none; }
+        .submenu .menu-item { padding: 10px 20px; font-size: 12px; }
+        .submenu .menu-item.active { color: #00b4d8; font-weight: bold; background: transparent; }
+        
+        .main-content { flex: 1; background: #f4f6f9; padding: 24px; display: flex; flex-direction: column; overflow: hidden; }
+        .context-title { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 16px; letter-spacing: 0.5px; }
+        
+        .content-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+        .content-panel.active { display: flex; }
+        
+        .workspace-blank { display: flex; flex-direction: column; flex: 1; justify-content: center; align-items: center; color: #94a3b8; gap: 12px; text-align: center; }
+        .workspace-blank-icon { font-size: 48px; opacity: 0.4; }
+        
+        .search-container { margin-bottom: 14px; position: relative; }
+        .search-input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #ffffff; }
+        
+        .table-wrapper { flex: 1; overflow-y: auto; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; max-height: 480px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th { background: #f8fafc; padding: 14px 16px; color: #334155; font-weight: 600; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
+        td { padding: 14px 16px; color: #475569; border-bottom: 1px solid #f1f5f9; }
+        .clickable-row { cursor: pointer; transition: background 0.2s; }
+        .clickable-row:hover td { background: #e0f2fe; color: #0a192f; }
+        .btn-delete { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 8px; border-radius: 4px; }
+        .btn-delete:hover { background: #fee2e2; }
+        
+        .form-panel { background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; padding: 24px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto; }
+        .form-section { border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 10px; }
+        .form-section-title { font-size: 13px; font-weight: 700; color: #0a192f; margin-bottom: 14px; text-transform: uppercase; }
+        .form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+        .form-grid .form-group { display: flex; flex-direction: column; gap: 6px; }
+        
+        .col-2 { grid-column: span 2; } .col-3 { grid-column: span 3; } .col-4 { grid-column: span 4; } 
+        .col-5 { grid-column: span 5; } .col-6 { grid-column: span 6; } .col-8 { grid-column: span 8; } .col-12 { grid-column: span 12; }
+        
+        label { font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; }
+        input, textarea, select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #f8fafc; width: 100%; }
+        
+        .footer-actions { display: flex; justify-content: space-between; align-items: center; padding-top: 14px; gap: 10px; flex-wrap: wrap; }
+        .action-group-right { display: flex; gap: 10px; align-items: center; }
+        .btn-primary { background: #00b4d8; color: #ffffff; border: none; padding: 12px 24px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        .btn-primary:hover { background: #0096b4; }
+        .btn-success { background: #10b981; color: white; border: none; padding: 10px 24px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        .btn-success:hover { background: #059669; }
+        .btn-secondary { background: #64748b; color: white; border: none; padding: 10px 24px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        .btn-excel { background: #15803d; color: white; border: none; padding: 12px 18px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+        .btn-excel:hover { background: #166534; }
+        .file-import-label { background: #475569; color: white; padding: 12px 18px; font-size: 13px; font-weight: 600; border-radius: 4px; cursor: pointer; display: inline-block; }
+        .file-import-label:hover { background: #334155; }
+        .input-file-hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="browser-window">
+        <div class="browser-header">
+            <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+            <div class="browser-tab" id="browser-tab-title">Precisão Estrutural - Sistema</div>
+        </div>
+        
+        <header class="app-header">
+            <div class="app-title">🏙️ PRECISÃO ESTRUTURAL &bull; Controle de Produção</div>
+            <div style="font-size: 13px; color: #94a3b8;">👤 Computador do Administrador</div>
+        </header>
+        
+        <div class="app-body">
+            <aside class="sidebar">
+                <div class="menu-item" onclick="limparWorkspace()">📊 Dashboard</div>
+                
+                <div class="menu-item" id="btn-cadastro-toggle" onclick="toggleArvoreCadastro()" style="font-weight: 600; color: #ffffff;">📝 Cadastros <span id="seta-cadastro" style="margin-left:auto; float:right;">▸</span></div>
+                
+                <div class="submenu" id="arvore-cadastro">
+                    <div id="nav-clientes" class="menu-item" onclick="alternarModulo('clientes')">👥 Clientes</div>
+                    <div id="nav-funcionarios" class="menu-item" onclick="alternarModulo('funcionarios')">🪪 Funcionários</div>
+                    <div id="nav-projetos" class="menu-item" onclick="alternarModulo('projetos')">📁 Progetos</div>
+                    <div id="nav-fases" class="menu-item" onclick="alternarModulo('fases')">🧱 Fases (Lego)</div>
+                    <div id="nav-etapas" class="menu-item" onclick="alternarModulo('etapas')">📐 Etapas (Lego)</div>
+                    <div id="nav-subetapas" class="menu-item" onclick="alternarModulo('subetapas')">🧮 Sub-etapas (Lego)</div>
+                    <div id="nav-tarefas" class="menu-item" onclick="alternarModulo('tarefas')">⚙️ Tarefas (Lego)</div>
+                </div>
+                
+                <div class="menu-item" onclick="limparWorkspace()">🔒 Configurações</div>
+            </aside>
+            
+            <main class="main-content">
+                <div class="context-title" id="page-context-title">Aguardando Ação</div>
+                
+                <div id="panel-blank-state" class="workspace-blank active">
+                    <div class="workspace-blank-icon">🖥️</div>
+                    <h2>Escolha sua ação no menu lateral</h2>
+                    <p style="font-size: 13px;">Selecione uma categoria de cadastro para gerenciar ou carregar os registros.</p>
+                </div>
+
+                <div id="panel-clientes-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-clientes" placeholder="🔍 Pesquisar por Razão Social, CNPJ ou Contato..." oninput="filtrarTabela('clientes')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Razão Social / Nome</th><th>CNPJ / CPF</th><th style="text-align: center; width: 80px;">Ações</th></tr></thead><tbody id="tabela-clientes-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('clientes', true)">+ Incluir Novo Cliente</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'clientes')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('clientes')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-clientes-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="cli-index">
+                        <div class="form-section"><div class="form-section-title">1. Dados Institucionais</div><div class="form-grid"><div class="form-group col-6"><label>Razão Social / Nome *:</label><input type="text" id="cli-nome"></div><div class="form-group col-6"><label>CNPJ / CPF:</label><input type="text" id="cli-cnpj"></div></div></div>
+                        <div class="form-section"><div class="form-section-title">2. Endereço Completo</div><div class="form-grid"><div class="form-group col-8"><label>Logradouro:</label><input type="text" id="cli-logradouro"></div><div class="form-group col-4"><label>Cidade / UF:</label><input type="text" id="cli-cidade"></div></div></div>
+                        <div class="form-section"><div class="form-section-title">3. Contatos da Obra</div><div class="form-grid"><div class="form-group col-4"><label>Contato:</label><input type="text" id="cli-contato"></div><div class="form-group col-4"><label>WhatsApp:</label><input type="text" id="cli-whatsapp"></div><div class="form-group col-4"><label>E-mail:</label><input type="text" id="cli-email"></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('clientes')">Voltar</button><button class="btn-success" onclick="salvarCliente()">Salvar</button></div></div>
+                </div>
+
+                <div id="panel-funcionarios-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-funcionarios" placeholder="🔍 Pesquisar por Nome, CPF ou Cargo..." oninput="filtrarTabela('funcionarios')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th style="width: 150px;">CPF</th><th>Nome do Funcionário</th><th>Cargo / Função</th><th>Nível de Acesso</th><th style="text-align: center; width: 80px;">Ações</th></tr></thead><tbody id="tabela-funcionarios-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('funcionarios', true)">+ Incluir Novo Funcionário</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'funcionarios')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('funcionarios')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-funcionarios-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="func-index">
+                        <div class="form-section"><div class="form-section-title">1. Identificação Contratual</div><div class="form-grid"><div class="form-group col-6"><label>Nome *:</label><input type="text" id="func-nome"></div><div class="form-group col-3"><label>CPF *:</label><input type="text" id="func-cpf" placeholder="xxx.xxx.xxx-34"></div><div class="form-group col-3"><label>Acesso *:</label><select id="func-nivel"><option>administrador</option><option>supervisor</option><option>analista</option><option>executor</option></select></div><div class="form-group col-4"><label>Cargo *:</label><select id="func-cargo"><option>analista plano</option><option>analista senior</option><option>analista junior</option><option>detalhista plano</option><option>detalhista senior</option><option>detalhista junior</option><option>estagiário plemo</option><option>estagiário senior</option><option>estagiário júnior</option></select></div><div class="form-group col-2"><label>Valor Hora:</label><input type="text" id="func-hora"></div><div class="form-group col-3"><label>Início:</label><input type="text" id="func-dt-inicio" class="input-data-mask"></div><div class="form-group col-3"><label>Desligamento:</label><input type="text" id="func-dt-desligamento" class="input-data-mask"></div></div></div>
+                        <div class="form-section"><div class="form-section-title">2. Dados Pessoais</div><div class="form-grid"><div class="form-group col-3"><label>Nascimento:</label><input type="text" id="func-dt-nascimento" class="input-data-mask"></div><div class="form-group col-6"><label>Endereço:</label><input type="text" id="func-endereco"></div><div class="form-group col-3"><label>Telefone:</label><input type="text" id="func-telefone"></div><div class="form-group col-6"><label>E-mail:</label><input type="text" id="func-email"></div><div class="form-group col-6"><label>Senha:</label><input type="password" id="func-senha"></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('funcionarios')">Voltar</button><button class="btn-success" onclick="salvarFuncionario()">Salvar</button></div></div>
+                </div>
+
+                <div id="panel-projetos-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-projetos" placeholder="🔍 Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th style="width: 140px;">Prefixo</th><th>Nome da Obra</th><th>Cliente</th><th>Valor Contrato</th><th style="text-align: center; width: 80px;">Ações</th></tr></thead><tbody id="tabela-projetos-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('projetos', true)">+ Incluir Novo Projeto</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'projetos')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('projetos')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-projetos-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="proj-index">
+                        <div class="form-section"><div class="form-section-title">1. Dados Estruturais</div><div class="form-grid"><div class="form-grid col-12" style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px;"><div class="form-group col-6"><label>Nome Obra *:</label><input type="text" id="proj-nome"></div><div class="form-group col-3"><label>Prefixo:</label><input type="text" id="proj-prefixo"></div><div class="form-group col-3"><label>Cliente *:</label><select id="proj-cliente"></select></div></div><div class="form-group col-12" style="margin-top:15px;"><label>Endereço:</label><input type="text" id="proj-endereco"></div><div class="form-grid col-12" style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-top:15px;"><div class="form-group col-3"><label>Área:</label><input type="text" id="proj-area"></div><div class="form-group col-3"><label>Pavimentos:</label><input type="text" id="proj-pavimentos"></div><div class="form-group col-3"><label>Altura:</label><input type="text" id="proj-altura"></div><div class="form-group col-3"><label>Esbeltez:</label><input type="text" id="proj-esbeltez"></div></div></div></div>
+                        <div class="form-section"><div class="form-section-title">2. Gerenciamento</div><div class="form-grid"><div class="form-group col-3"><label>Dificuldade:</label><input type="text" id="proj-dificuldade"></div><div class="form-group col-3"><label>Valor:</label><input type="text" id="proj-valor"></div><div class="form-group col-3"><label>Pagamento *:</label><select id="proj-pagamento"><option>Por entrega</option><option>Mensal</option><option>Permuta</option><option>Permuta e mensal</option><option>Permuta e entrega</option></select></div><div class="form-group col-3"><label>Início:</label><input type="text" id="proj-dt-inicio" class="input-data-mask"></div><div class="form-group col-6"><label>Analista:</label><select id="proj-analista"></select></div><div class="form-group col-6"><label>Supervisor:</label><select id="proj-supervisor"></select></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('projetos')">Voltar</button><button class="btn-success" onclick="salvarProjeto()">Salvar</button></div></div>
+                </div>
+
+                <div id="panel-fases-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-fases" placeholder="🔍 Pesquisar Fase..." oninput="filtrarTabela('fases')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th style="width: 120px;">ID Peça</th><th>Nome da Fase Cadastrada (Padrão Global)</th><th style="text-align: center; width: 100px;">Ações</th></tr></thead><tbody id="tabela-fases-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('fases', true)">+ Fabricar Nova Fase (Lego)</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'fases')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('fases')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-fases-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="fases-index">
+                        <div class="form-section"><div class="form-section-title">Fabricação de Fase Geral</div><div class="form-grid"><div class="form-group col-12"><label>Nome da Fase *:</label><input type="text" id="fases-nome" placeholder="Ex: Detalhamento, Revisão, etc."></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('fases')">Cancelar</button><button class="btn-success" onclick="salvarFase()">Gravar Peça de Fase</button></div></div>
+                </div>
+
+                <div id="panel-etapas-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-etapas" placeholder="🔍 Pesquisar Etapa..." oninput="filtrarTabela('etapas')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th style="width: 120px;">ID Peça</th><th>Nome da Etapa Cadastrada (Padrão Global)</th><th style="text-align: center; width: 100px;">Ações</th></tr></thead><tbody id="tabela-etapas-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('etapas', true)">+ Fabricar Nova Etapa (Lego)</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'etapas')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('etapas')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-etapas-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="etapas-index">
+                        <div class="form-section"><div class="form-section-title">Fabricação de Etapa Geral</div><div class="form-grid"><div class="form-group col-12"><label>Nome da Etapa Construtiva *:</label><input type="text" id="etapas-nome" placeholder="Ex: Pavimento Térreo, Garagem 1"></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('etapas')">Cancelar</button><button class="btn-success" onclick="salvarEtapa()">Gravar Peça de Etapa</button></div></div>
+                </div>
+
+                <div id="panel-subetapas-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-subetapas" placeholder="🔍 Pesquisar Sub-etapa..." oninput="filtrarTabela('subetapas')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th style="width: 120px;">ID Peça</th><th>Nome da Sub-etapa Cadastrada (Padrão Global)</th><th style="text-align: center; width: 100px;">Ações</th></tr></thead><tbody id="tabela-subetapas-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('subetapas', true)">+ Fabricar Nova Sub-etapa (Lego)</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'subetapas')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('subetapas')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-subetapas-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="subetapas-index">
+                        <div class="form-section"><div class="form-section-title">Fabricação de Sub-etapa Geral</div><div class="form-grid"><div class="form-group col-12"><label>Nome da Sub-etapa Estrutural *:</label><input type="text" id="subetapas-nome" placeholder="Ex: Locação de Vigas, Armação Superior"></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('subetapas')">Cancelar</button><button class="btn-success" onclick="salvarSubetapa()">Gravar Peça de Sub-etapa</button></div></div>
+                </div>
+
+                <div id="panel-tarefas-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-tarefas" placeholder="🔍 Pesquisar Tarefa..." oninput="filtrarTabela('tarefas')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th style="width: 120px;">ID Peça</th><th>Nome da Tarefa Cadastrada (Padrão Global)</th><th style="text-align: center; width: 100px;">Ações</th></tr></thead><tbody id="tabela-tarefas-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('tarefas', true)">+ Fabricar Nova Tarefa (Lego)</button>
+                        <div class="action-group-right">
+                            <label class="file-import-label">⬇️ Importar Planilha <input type="file" class="input-file-hidden" onchange="detectarEImportarPlanilha(this, 'tarefas')"></label>
+                            <button class="btn-excel" onclick="exportarPlanilhaElaborada('tarefas')">⬆️ Exportar Planilha</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="panel-tarefas-form" class="content-panel">
+                    <div class="form-panel"><input type="hidden" id="tarefas-index">
+                        <div class="form-section"><div class="form-section-title">Fabricação de Tarefa Geral</div><div class="form-grid"><div class="form-group col-12"><label>Nome da Tarefa Técnica *:</label><input type="text" id="tarefas-nome" placeholder="Ex: Detalhamento de lajes, Desenho de Forma"></div></div></div>
+                        <div class="form-footer"><button class="btn-secondary" onclick="fecharFormulario('tarefas')">Cancelar</button><button class="btn-success" onclick="salvarTarefa()">Gravar Peça de Tarefa</button></div></div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Cargas Iniciais Globais
+        const empresasIniciais = [{ nome: "Pasqualotto & GT Empreendimentos", cnpj: "17.234.567/0001-80", logradouro: "Av. Atlântica, nº 4000", cidade: "Balneário Camboriú - SC", contato: "Eng. Lindomar Pasqualotto", whatsapp: "(47) 3361-0000", email: "engenharia@pasqualottoegt.com.br" }];
+        const funcionariosIniciais = [{ nome: "Carlos Eduardo Souza", cpf: "111.222.333-44", nivel: "analista", cargo: "analista senior", hora: "75.00", dt_inicio: "15/01/2024", dt_desligamento: "", dt_nascimento: "22/08/1988", endereco: "Rua das Palmeiras, 150 - Centro", telefone: "47988885566", email: "carlos.estrutura@precisao.com", senha: "123" }];
+        const projetosIniciais = [{ nome: "Residencial Excellence", prefixo: "PRJ-2026-01", cliente: "Pasqualotto & GT Empreendimentos", endereco: "Av. Atlântica", area: "2450.00", pavimentos: "18", altura: "54.00", esbeltez: "4.2", difficulty: "Alto", valor: "145000", pagamento: "Por entrega", dt_inicio: "01/03/2026", analista: "Carlos Eduardo Souza", supervisor: "Carlos Eduardo Souza" }];
+        
+        const fasesLegoIniciais = [{ nome: "Contratação" }, { nome: "Análise" }, { nome: "Detalhamento" }, { nome: "Revisão" }, { nome: "Supervisão" }];
+        const etapasLegoIniciais = [{ nome: "Pavimento Térreo" }, { nome: "Garagem G1" }, { nome: "Tipo Padrão" }];
+        const subEtapasLegoIniciais = [{ nome: "Fôrmas e Escoramentos" }, { nome: "Armação de Lajes" }, { nome: "Lançamento de Concreto" }];
+        const tarefasLegoIniciais = [{ nome: "Desenho de Forma" }, { nome: "Detalhamento de lajes" }, { nome: "Detalhamento de vigas" }];
+
+        if (!localStorage.getItem('banco_clientes')) localStorage.setItem('banco_clientes', JSON.stringify(empresasIniciais));
+        if (!localStorage.getItem('banco_funcionarios')) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionariosIniciais));
+        if (!localStorage.getItem('banco_projetos')) localStorage.setItem('banco_projetos', JSON.stringify(projetosIniciais));
+        if (!localStorage.getItem('banco_fases_lego')) localStorage.setItem('banco_fases_lego', JSON.stringify(fasesLegoIniciais));
+        if (!localStorage.getItem('banco_etapas_lego')) localStorage.setItem('banco_etapas_lego', JSON.stringify(etapasLegoIniciais));
+        if (!localStorage.getItem('banco_subetapas_lego')) localStorage.setItem('banco_subetapas_lego', JSON.stringify(subEtapasLegoIniciais));
+        if (!localStorage.getItem('banco_tarefas_lego')) localStorage.setItem('banco_tarefas_lego', JSON.stringify(tarefasLegoIniciais));
+
+        function toggleArvoreCadastro() {
+            const submenu = document.getElementById('arvore-cadastro');
+            const seta = document.getElementById('seta-cadastro');
+            submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';
+            seta.innerText = (submenu.style.display === 'block') ? '▾' : '▸';
+            if(submenu.style.display === 'none') limparWorkspace();
+        }
+
+        function limparWorkspace() {
+            document.querySelectorAll('.submenu .menu-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+            document.getElementById('panel-blank-state').style.display = 'flex';
+            document.getElementById('page-context-title').innerText = "Aguardando Ação";
+            document.getElementById('browser-tab-title').innerText = "Precisão Estrutural - Sistema";
+        }
+
+        function formatarNumeroTelefone(t) { t=String(t).replace(/\D/g,""); if(t.length>11) t=t.substring(0,11); if(t.length>2) t="("+t.substring(0,2)+") "+t.substring(2); if(t.length>9) t=t.substring(0,10)+"-"+t.substring(10); return t; }
+        function formatarDataSlashes(d) { d=String(d).replace(/\D/g,""); if(d.length>8) d=d.substring(0,8); if(d.length>2) d=d.substring(0,2)+"/"+d.substring(2); if(d.length>5) d=d.substring(0,5)+"/"+d.substring(5); return d; }
+        function validarCPF(c) { c=c.replace(/[^\d]+/g,''); if(c.length!==11 || !!c.match(/(\d)\1{10}/)) return false; let s=0,r; for(let i=1;i<=9;i++) s+=parseInt(c.substring(i-1,i))*(11-i); r=(s*10)%11; if(r===10||r===11) r=0; if(r!==parseInt(c.substring(9,10))) return false; s=0; for(let i=1;i<=10;i++) s+=parseInt(c.substring(i-1,i))*(12-i); r=(s*10)%11; if(r===10||r===11) r=0; return r===parseInt(c.substring(10,11)); }
+
+        document.getElementById('func-cpf').addEventListener('input', function(e) { let v=e.target.value.replace(/\D/g,""); if(v.length>11) v=v.substring(0,11); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); e.target.value=v; });
+        document.getElementById('func-telefone').addEventListener('input', function(e) { e.target.value = formatarNumeroTelefone(e.target.value); });
+        document.querySelectorAll('.input-data-mask').forEach(i => { i.addEventListener('input', function(e) { e.target.value = formatarDataSlashes(e.target.value); }); });
+
+        function filtrarTabela(modulo) {
+            const input = document.getElementById(`search-${modulo}`);
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById(`tabela-${modulo}-body`);
+            const rows = tbody.getElementsByTagName('tr');
+            for (let i = 0; i < rows.length; i++) {
+                let match = false;
+                let cells = rows[i].getElementsByTagName('td');
+                for(let j = 0; j < cells.length - 1; j++) {
+                    if (cells[j] && cells[j].innerText.toLowerCase().indexOf(filter) > -1) match = true;
+                }
+                rows[i].style.display = match ? "" : "none";
+            }
+        }
+
+        const mapMapeamentoColunas = {
+            'clientes': ['nome', 'cnpj', 'logradouro', 'cidade', 'contato', 'whatsapp', 'email'],
+            'funcionarios': ['nome', 'cpf', 'nivel', 'cargo', 'hora', 'dt_inicio', 'dt_desligamento', 'dt_nascimento', 'endereco', 'telefone', 'email', 'senha'],
+            'projetos': ['nome', 'prefixo', 'cliente', 'endereco', 'area', 'pavimentos', 'altura', 'esbeltez', 'dificuldade', 'valor', 'pagamento', 'dt_inicio', 'analista', 'supervisor'],
+            'fases': ['nome'], 'etapas': ['nome'], 'subetapas': ['nome'], 'tarefas': ['nome']
+        };
+
+        function exportarPlanilhaElaborada(modulo) {
+            const keyStorage = (modulo==='clientes'||modulo==='funcionarios'||modulo==='projetos') ? `banco_${modulo}` : `banco_${modulo}_lego`;
+            const dados = JSON.parse(localStorage.getItem(keyStorage)) || [];
+            const colunas = mapMapeamentoColunas[modulo];
+            
+            let largurasColunas = colunas.map(col => {
+                let maxLen = col.length;
+                dados.forEach(d => { if(d[col] && String(d[col]).length > maxLen) maxLen = String(d[col]).length; });
+                return Math.max(maxLen * 8, 110); 
+            });
+
+            let docXml = `<?xml version="1.0" encoding="utf-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n xmlns:o="urn:schemas-microsoft-com:office:microsoftoffice"\n xmlns:x="urn:schemas-microsoft-com:office:excel"\n xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\n xmlns:html="http://www.w3.org/TR/REC-html40">\n <Styles>\n  <Style ss:ID="HeaderStyle">\n   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n   <Borders>\n    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#00b4d8"/>\n    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#d1d5db"/>\n    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#d1d5db"/>\n    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#d1d5db"/>\n   </Borders>\n   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>\n   <Interior ss:Color="#0A192F" ss:Pattern="Solid"/>\n  </Style>\n  <Style ss:ID="DataStyle">\n   <Alignment ss:Vertical="Center"/>\n   <Borders>\n    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>\n    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>\n    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>\n    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>\n   </Borders>\n   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#475569"/>\n  </Style>\n </Styles>\n <Worksheet ss:Name="Cadastro ${modulo.toUpperCase()}">\n  <Table ss:ExpandedColumnCount="${colunas.length}" ss:ExpandedRowCount="${dados.length + 1}" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">\n`;
+            
+            largurasColunas.forEach(w => { docXml += `   <Column ss:Width="${w}"/>\n`; });
+            docXml += `   <Row ss:Height="26" ss:AutoFitHeight="0">\n`;
+            colunas.forEach(col => { docXml += `    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${col.toUpperCase()}</Data></Cell>\n`; });
+            docXml += `   </Row>\n`;
+            
+            dados.forEach(obj => {
+                docXml += `   <Row ss:Height="20" ss:AutoFitHeight="0">\n`;
+                colunas.forEach(col => {
+                    let val = obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : "";
+                    docXml += `    <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${val}</Data></Cell>\n`;
+                });
+                docXml += `   </Row>\n`;
+            });
+            
+            docXml += `  </Table>\n </Worksheet>\n</Workbook>`;
+            const blob = new Blob([docXml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `cadastro_${modulo}_elaborado.xls`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+
+        // --- NOVO INTERPRETADOR INTELIGENTE (SUPORTA TEXTO PLANO E ESQUEMA XML DO EXCEL) ---
+        function detectarEImportarPlanilha(input, modulo) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const conteudoString = e.target.result;
+                const colunasEsperadas = mapMapeamentoColunas[modulo];
+                let registrosIdentificados = [];
+
+                // Verificação: O arquivo importado possui as tags XML estruturadas do Excel (.xls)?
+                if (conteudoString.includes("<Workbook") && conteudoString.includes("<Row")) {
+                    // Parser XML em tempo de execução para ler as células estruturadas do Excel elaborado
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(conteudoString, "text/xml");
+                    const rowsXml = xmlDoc.getElementsByTagName("Row");
+                    
+                    if (rowsXml.length <= 1) return alert("Planilha vazia ou sem linhas de dados!");
+                    
+                    // Extrai as colunas da primeira linha (cabeçalho)
+                    let cabecalhoXml = [];
+                    const primeiraLinhaCells = rowsXml[0].getElementsByTagName("Data");
+                    for (let c = 0; c < primeiraLinhaCells.length; c++) {
+                        cabecalhoXml.push(primeiraLinhaCells[c].textContent.trim().toLowerCase());
+                    }
+
+                    // Loop para ler as linhas de dados do arquivo XML
+                    for (let i = 1; i < rowsXml.length; i++) {
+                        const celulasCorrentes = rowsXml[i].getElementsByTagName("Cell");
+                        let item = {};
+                        
+                        colunasEsperadas.forEach(col => {
+                            let idxAlvo = cabecalhoXml.indexOf(col.toLowerCase());
+                            if (idxAlvo !== -1 && celulasCorrentes[idxAlvo]) {
+                                const dataTag = celulasCorrentes[idxAlvo].getElementsByTagName("Data")[0];
+                                item[col] = dataTag ? dataTag.textContent.trim() : "";
+                            } else {
+                                item[col] = "";
+                            }
+                        });
+
+                        if (item.nome && item.nome.trim() !== "") {
+                            registrosIdentificados.push(item);
+                        }
+                    }
+                } else {
+                    // Fallback clássico: Arquivo de texto comum / CSV estruturado por ponto e vírgula (;)
+                    const linhasTexto = conteudoString.split(/\r?\n/).filter(l => l.trim() !== "");
+                    if (linhasTexto.length <= 1) return alert("Planilha de texto sem linhas de dados!");
+                    
+                    const cabecalhoCsv = linhasTexto[0].replace("\uFEFF", "").split(";").map(c => c.trim().toLowerCase().replace(/"/g, ""));
+                    
+                    for (let i = 1; i < linhasTexto.length; i++) {
+                        let valores = linhasTexto[i].split(";").map(v => v.trim().replace(/^"|"$/g, ""));
+                        if (valores.length < cabecalhoCsv.length) continue;
+                        
+                        let item = {};
+                        colunasEsperadas.forEach(col => {
+                            let idx = cabecalhoCsv.indexOf(col.toLowerCase());
+                            item[col] = idx !== -1 ? valores[idx] : "";
+                        });
+                        
+                        if (item.nome && item.nome.trim() !== "") {
+                            registrosIdentificados.push(item);
+                        }
+                    }
+                }
+
+                // Validação final e junção baseada na OPÇÃO B (Acréscimo sem Duplicados)
+                if (registrosIdentificados.length === 0) {
+                    return alert("Nenhum dado legível foi encontrado! Certifique-se de não alterar o cabeçalho oficial.");
+                }
+
+                const keyStorage = (modulo==='clientes'||modulo==='funcionarios'||modulo==='projetos') ? `banco_${modulo}` : `banco_${modulo}_lego`;
+                let bancoLocalPai = JSON.parse(localStorage.getItem(keyStorage)) || [];
+                
+                let contadorNovos = 0;
+                registrosIdentificados.forEach(itemImportado => {
+                    // Normaliza formatações específicas antes de salvar
+                    if (itemImportado.whatsapp) itemImportado.whatsapp = itemImportado.whatsapp.replace(/\D/g, "");
+                    if (itemImportado.telefone) itemImportado.telefone = itemImportado.telefone.replace(/\D/g, "");
+                    if (itemImportado.dt_inicio) itemImportado.dt_inicio = formatarDataSlashes(itemImportado.dt_inicio);
+                    if (itemImportado.dt_desligamento) itemImportado.dt_desligamento = formatarDataSlashes(itemImportado.dt_desligamento);
+                    if (itemImportado.dt_nascimento) itemImportado.dt_nascimento = formatarDataSlashes(itemImportado.dt_nascimento);
+
+                    // Trava Anti-Duplicidade estrita pelo Nome do cadastro
+                    let jaExiste = bancoLocalPai.some(existente => existente.nome.trim().toLowerCase() === itemImportado.nome.trim().toLowerCase());
+                    if (!jaExiste) {
+                        bancoLocalPai.push(itemImportado);
+                        contadorNovos++;
+                    }
+                });
+
+                localStorage.setItem(keyStorage, JSON.stringify(bancoLocalPai));
+                alert(`Importação Concluída!\nComponentes analisados: ${registrosIdentificados.length}\nNovos registros inseridos de fato: ${contadorNovos}\nDuplicados ignorados: ${registrosIdentificados.length - contadorNovos}`);
+                
+                input.value = ""; // Reseta o seletor de arquivos
+                alternarModulo(modulo);
+            };
+
+            reader.readAsText(file, "UTF-8");
+        }
+
+        // --- ENGINE UNIFICADA DO ALMOXARIFADO LEGO ---
+        function renderizarLego(modulo) {
+            let itens = JSON.parse(localStorage.getItem(`banco_${modulo}_lego`)) || [];
+            itens.sort((a, b) => a.nome.localeCompare(b.nome));
+            localStorage.setItem(`banco_${modulo}_lego`, JSON.stringify(itens));
+            const tbody = document.getElementById(`tabela-${modulo}-body`); tbody.innerHTML = '';
+            const prefixes = { 'fases': 'FAS', 'etapas': 'ETP', 'subetapas': 'SUB', 'tarefas': 'TAR' };
+            itens.forEach((item, index) => {
+                tbody.innerHTML += `<tr class="clickable-row" onclick="carregarLegoParaEdicao('${modulo}', ${index})"><td><strong>${prefixes[modulo]}-${String(index+1).padStart(3,'0')}</strong></td><td><strong>${item.nome}</strong></td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarLego('${modulo}', ${index})">🗑️</button></td></tr>`;
+            });
+            document.getElementById(`search-${modulo}`).value = "";
+        }
+        function salvarLego(modulo) {
+            const index = document.getElementById(`${modulo}-index`).value; const nome = document.getElementById(`${modulo}-nome`).value; if (!nome.trim()) return alert("Obrigatório!");
+            let lista = JSON.parse(localStorage.getItem(`banco_${modulo}_lego`)) || []; const novo = { nome: nome.trim() };
+            if (index === "") lista.push(novo); else lista[index] = novo;
+            localStorage.setItem(`banco_${modulo}_lego`, JSON.stringify(lista)); fecharFormulario(modulo);
+        }
+        function carregarLegoParaEdicao(modulo, index) { const lista = JSON.parse(localStorage.getItem(`banco_${modulo}_lego`)); document.getElementById(`${modulo}-index`).value = index; document.getElementById(`${modulo}-nome`).value = lista[index].nome; abrirFormulario(modulo, false); }
+        function deletarLego(modulo, index) { if (confirm("Remover?")) { let lista = JSON.parse(localStorage.getItem(`banco_${modulo}_lego`)); lista.splice(index, 1); localStorage.setItem(`banco_${modulo}_lego`, JSON.stringify(lista)); renderizarLego(modulo); } }
+        function salvarFase() { salvarLego('fases'); } function salvarEtapa() { salvarLego('etapas'); } function salvarSubetapa() { salvarLego('subetapas'); } function salvarTarefa() { salvarLego('tarefas'); }
+
+        // --- CLIENTES, FUNCIONÁRIOS E PROJETOS ---
+        function renderizarTabelaClientes() { 
+            let c = JSON.parse(localStorage.getItem('banco_clientes')) || [];
+            c.sort((a, b) => a.nome.localeCompare(b.nome)); localStorage.setItem('banco_clientes', JSON.stringify(c));
+            const t = document.getElementById('tabela-clientes-body'); t.innerHTML = ''; 
+            c.forEach((cli, idx) => { t.innerHTML += `<tr class="clickable-row" onclick="carregarClienteParaEdicao(${idx})"><td>C-${String(idx+1).padStart(3,'0')}</td><td><strong>${cli.nome}</strong></td><td>${cli.cnpj}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarCliente(${idx})">🗑️</button></td></tr>`; });
+            document.getElementById('search-clientes').value = "";
+        }
+        function salvarCliente() { const i = document.getElementById('cli-index').value; const n = document.getElementById('cli-nome').value; if (!n.trim()) return; const nv = { nome: n, cnpj: document.getElementById('cli-cnpj').value, logradouro: document.getElementById('cli-logradouro').value, cidade: document.getElementById('cli-cidade').value, contato: document.getElementById('cli-contato').value, whatsapp: document.getElementById('cli-whatsapp').value, email: document.getElementById('cli-email').value }; let l = JSON.parse(localStorage.getItem('banco_clientes')); if (i === "") l.push(nv); else l[i] = nv; localStorage.setItem('banco_clientes', JSON.stringify(l)); fecharFormulario('clientes'); }
+        function carregarClienteParaEdicao(index) { const c = (JSON.parse(localStorage.getItem('banco_clientes')))[index]; document.getElementById('cli-index').value = index; document.getElementById('cli-nome').value = c.nome; document.getElementById('cli-cnpj').value = c.cnpj; document.getElementById('cli-logradouro').value = c.logradouro; document.getElementById('cli-cidade').value = c.cidade; document.getElementById('cli-contato').value = c.contato; document.getElementById('cli-whatsapp').value = c.whatsapp; document.getElementById('cli-email').value = c.email; abrirFormulario('clientes', false); }
+        function deletarCliente(index) { if (confirm("Remover?")) { let l = JSON.parse(localStorage.getItem('banco_clientes')); l.splice(index,1); localStorage.setItem('banco_clientes', JSON.stringify(l)); renderizarTabelaClientes(); } }
+
+        function renderizarTabelaFuncionarios() { 
+            let f = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+            f.sort((a, b) => a.nome.localeCompare(b.nome)); localStorage.setItem('banco_funcionarios', JSON.stringify(f));
+            const t = document.getElementById('tabela-funcionarios-body'); t.innerHTML = ''; 
+            f.forEach((func, idx) => { t.innerHTML += `<tr class="clickable-row" onclick="carregarFuncionarioParaEdicao(${idx})"><td>${func.cpf}</td><td><strong>${func.nome}</strong></td><td>${func.cargo}</td><td>${func.nivel}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarFuncionario(${idx})">🗑️</button></td></tr>`; });
+            document.getElementById('search-funcionarios').value = "";
+        }
+        function salvarFuncionario() { const i = document.getElementById('func-index').value; const n = document.getElementById('func-nome').value; const c = document.getElementById('func-cpf').value; if (!n.trim() || !c.trim() || !validarCPF(c)) return alert("Dados inválidos!"); const nv = { nome: n, cpf: c, nivel: document.getElementById('func-nivel').value, cargo: document.getElementById('func-cargo').value, hora: document.getElementById('func-hora').value, dt_inicio: document.getElementById('func-dt-inicio').value, dt_desligamento: document.getElementById('func-dt-desligamento').value, dt_nascimento: document.getElementById('func-dt-nascimento').value, endereco: document.getElementById('func-endereco').value, telefone: document.getElementById('func-telefone').value, email: document.getElementById('func-email').value, senha: document.getElementById('func-senha').value }; let l = JSON.parse(localStorage.getItem('banco_funcionarios')); if (i === "") l.push(nv); else l[i] = nv; localStorage.setItem('banco_funcionarios', JSON.stringify(l)); fecharFormulario('funcionarios'); }
+        function carregarFuncionarioParaEdicao(index) { const f = (JSON.parse(localStorage.getItem('banco_funcionarios')))[index]; document.getElementById('func-index').value = index; document.getElementById('func-nome').value = f.nome; document.getElementById('func-cpf').value = f.cpf; document.getElementById('func-nivel').value = f.nivel; document.getElementById('func-cargo').value = f.cargo; document.getElementById('func-hora').value = f.hora; document.getElementById('func-dt-inicio').value = f.dt_inicio; document.getElementById('func-dt-desligamento').value = f.dt_desligamento; document.getElementById('func-dt-nascimento').value = f.dt_nascimento; document.getElementById('func-endereco').value = f.endereco; document.getElementById('func-telefone').value = formatarNumeroTelefone(f.telefone); document.getElementById('func-email').value = f.email; document.getElementById('func-senha').value = f.senha; abrirFormulario('funcionarios', false); }
+        function deletarFuncionario(index) { if (confirm("Remover?")) { let l = JSON.parse(localStorage.getItem('banco_funcionarios')); l.splice(index,1); localStorage.setItem('banco_funcionarios', JSON.stringify(l)); renderizarTabelaFuncionarios(); } }
+
+        function renderizarTabelaProjetos() { 
+            let p = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+            p.sort((a, b) => a.nome.localeCompare(b.nome)); localStorage.setItem('banco_projetos', JSON.stringify(p));
+            const t = document.getElementById('tabela-projetos-body'); t.innerHTML = ''; 
+            p.forEach((proj, idx) => { t.innerHTML += `<tr class="clickable-row" onclick="carregarProjetoParaEdicao(${idx})"><td><strong>${proj.prefixo || '---'}</strong></td><td>${proj.nome}</td><td>${proj.cliente}</td><td>R$ ${parseFloat(proj.valor).toLocaleString('pt-BR')}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarProjeto(${idx})">🗑️</button></td></tr>`; });
+            document.getElementById('search-projetos').value = "";
+        }
+        function alimentarDropdownsProjeto() { const cl = JSON.parse(localStorage.getItem('banco_clientes')) || []; const fu = JSON.parse(localStorage.getItem('banco_funcionarios')) || []; const dc = document.getElementById('proj-cliente'); const da = document.getElementById('proj-analista'); const ds = document.getElementById('proj-supervisor'); dc.innerHTML = '<option value="">-- Selecione o Cliente --</option>'; cl.forEach(c => dc.innerHTML += `<option value="${c.nome}">${c.nome}</option>`); da.innerHTML = '<option value="">-- Selecione --</option>'; ds.innerHTML = '<option value="">-- Selecione --</option>'; fu.forEach(f => { da.innerHTML += `<option value="${f.nome}">${f.nome}</option>`; ds.innerHTML += `<option value="${f.nome}">${f.nome}</option>`; }); }
+        function salvarProjeto() { const i = document.getElementById('proj-index').value; const n = document.getElementById('proj-nome').value; const c = document.getElementById('proj-cliente').value; if (!n.trim() || !c) return; const nv = { nome: n, prefixo: document.getElementById('proj-prefixo').value, cliente: c, endereco: document.getElementById('proj-endereco').value, area: document.getElementById('proj-area').value, pavimentos: document.getElementById('proj-pavimentos').value, altura: document.getElementById('proj-altura').value, esbeltez: document.getElementById('proj-esbeltez').value, dificuldade: document.getElementById('proj-dificuldade').value, valor: document.getElementById('proj-valor').value, pagamento: document.getElementById('proj-pagamento').value, dt_inicio: document.getElementById('proj-dt-inicio').value, analista: document.getElementById('proj-analista').value, supervisor: document.getElementById('proj-supervisor').value }; let l = JSON.parse(localStorage.getItem('banco_projetos')); if (i === "") l.push(nv); else l[i] = nv; localStorage.setItem('banco_projetos', JSON.stringify(l)); fecharFormulario('projetos'); }
+        function carregarProjetoParaEdicao(index) { alimentarDropdownsProjeto(); const p = (JSON.parse(localStorage.getItem('banco_projetos')))[index]; document.getElementById('proj-index').value = index; document.getElementById('proj-nome').value = p.nome; document.getElementById('proj-prefixo').value = p.prefixo; document.getElementById('proj-cliente').value = p.cliente; document.getElementById('proj-endereco').value = p.endereco; document.getElementById('proj-area').value = p.area; document.getElementById('proj-pavimentos').value = p.pavimentos; document.getElementById('proj-altura').value = p.altura; document.getElementById('proj-esbeltez').value = p.esbeltez; document.getElementById('proj-dificuldade').value = p.dificuldade; document.getElementById('proj-valor').value = p.valor; document.getElementById('proj-pagamento').value = p.pagamento; document.getElementById('proj-dt-inicio').value = p.dt_inicio; document.getElementById('proj-analista').value = p.analista; document.getElementById('proj-supervisor').value = p.supervisor; abrirFormulario('projetos', false); }
+        function deletarProjeto(index) { if (confirm("Remover?")) { let l = JSON.parse(localStorage.getItem('banco_projetos')); l.splice(index,1); localStorage.setItem('banco_projetos', JSON.stringify(l)); renderizarTabelaProjetos(); } }
+
+        function alternarModulo(modulo) {
+            document.getElementById('panel-blank-state').style.display = 'none';
+            document.querySelectorAll('.submenu .menu-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+            const titulos = { 'clientes': 'Gestão de Clientes', 'funcionarios': 'Gestão de Funcionários', 'projetos': 'Gestão de Projetos de Engenharia', 'fases': 'Fábrica Lego: Catálogo de Fases', 'etapas': 'Fábrica Lego: Catálogo de Etapas', 'subetapas': 'Fábrica Lego: Catálogo de Sub-etapas', 'tarefas': 'Fábrica Lego: Catálogo de Tarefas' };
+            document.getElementById('page-context-title').innerText = 'Contexto: ' + titulos[modulo];
+            document.getElementById('browser-tab-title').innerText = 'Precisão Estrutural - ' + modulo.charAt(0).toUpperCase() + modulo.slice(1);
+            document.getElementById(`nav-${modulo}`).classList.add('active');
+            if (modulo === 'clientes') { document.getElementById('panel-clientes-lista').style.display = 'flex'; renderizarTabelaClientes(); }
+            else if (modulo === 'funcionarios') { document.getElementById('panel-funcionarios-lista').style.display = 'flex'; renderizarTabelaFuncionarios(); }
+            else if (modulo === 'projetos') { document.getElementById('panel-projetos-lista').style.display = 'flex'; renderizarTabelaProjetos(); }
+            else { document.getElementById(`panel-${modulo}-lista`).style.display = 'flex'; renderizarLego(modulo); }
+        }
+
+        function abrirFormulario(modulo, isNovo = false) {
+            document.getElementById(`panel-${modulo}-lista`).style.display = 'none';
+            document.getElementById(`panel-${modulo}-form`).style.display = 'flex';
+            if(isNovo) {
+                document.getElementById('page-context-title').innerText = `Inserir Novo Registro`;
+                if (modulo === 'fases' || modulo === 'etapas' || modulo === 'subetapas' || modulo === 'tarefas') {
+                    document.getElementById(`${modulo}-index`).value = ""; document.getElementById(`${modulo}-nome`).value = "";
+                } else {
+                    if(modulo === 'clientes') { document.getElementById('cli-index').value = ""; document.getElementById('cli-nome').value = ""; document.getElementById('cli-cnpj').value = ""; document.getElementById('cli-logradouro').value = ""; document.getElementById('cli-cidade').value = ""; document.getElementById('cli-contato').value = ""; document.getElementById('cli-whatsapp').value = ""; document.getElementById('cli-email').value = ""; }
+                    if(modulo === 'funcionarios') { document.getElementById('func-index').value = ""; document.getElementById('func-nome').value = ""; document.getElementById('func-cpf').value = ""; document.getElementById('func-nivel').value = "administrador"; document.getElementById('func-cargo').value = "analista pleno"; document.getElementById('func-hora').value = ""; document.getElementById('func-dt-inicio').value = ""; document.getElementById('func-dt-desligamento').value = ""; document.getElementById('func-dt-nascimento').value = ""; document.getElementById('func-endereco').value = ""; document.getElementById('func-telefone').value = ""; document.getElementById('func-email').value = ""; document.getElementById('func-senha').value = ""; }
+                    if(modulo === 'projetos') { alimentarDropdownsProjeto(); document.getElementById('proj-index').value = ""; document.getElementById('proj-nome').value = ""; document.getElementById('proj-prefixo').value = ""; document.getElementById('proj-cliente').value = ""; document.getElementById('proj-endereco').value = ""; document.getElementById('proj-area').value = ""; document.getElementById('proj-pavimentos').value = ""; document.getElementById('proj-altura').value = ""; document.getElementById('proj-esbeltez').value = ""; document.getElementById('proj-dificuldade').value = "Baixo"; document.getElementById('proj-valor').value = ""; document.getElementById('proj-pagamento').value = "Por entrega"; document.getElementById('proj-dt-inicio').value = ""; document.getElementById('proj-analista').value = ""; document.getElementById('proj-supervisor').value = ""; }
+                }
+            }
+        }
+
+        function fecharFormulario(modulo) { document.getElementById(`panel-${modulo}-form`).style.display = 'none'; document.getElementById(`panel-${modulo}-lista`).style.display = 'flex'; alternarModulo(modulo); }
+        window.onload = function() { limparWorkspace(); };
+    </script>
+</body>
+</html>

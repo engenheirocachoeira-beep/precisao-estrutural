@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precisão Estrutural - Controle de Produção</title>
+    <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+    <div id="tela-login" class="modal-overlay" style="display:flex; z-index:5000;">
+        <div class="modal-caixa" style="width:380px;">
+            <h3 style="margin-top:0; text-align:center;">🔒 Precisão Estrutural</h3>
+            <p style="font-size:12px; color:#64748b; text-align:center; margin-top:-8px;">Entre com seu CPF ou nome e sua senha.</p>
+            <div class="form-group"><label>CPF ou Nome:</label><input type="text" id="login-identificador" autocomplete="username" onkeydown="if(event.key==='Enter') tentarLogin();"></div>
+            <div class="form-group"><label>Senha:</label><input type="password" id="login-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') tentarLogin();"></div>
+            <div id="login-erro" style="color:#ef4444; font-size:12px; min-height:16px; margin-bottom:6px;"></div>
+            <button type="button" class="btn-primary" style="width:100%;" onclick="tentarLogin()">Entrar</button>
+            <p style="font-size:11px; color:#94a3b8; text-align:center; margin-bottom:4px;">
+                Instalando em um computador novo? Não tem nenhum usuário cadastrado ainda?
+            </p>
+            <label style="display:block; text-align:center; font-size:12px; color:#2563eb; cursor:pointer;">
+                📁 Restaurar de um arquivo de backup
+                <input type="file" accept="application/json" style="display:none;" onchange="restaurarBackupDoLogin(this)">
+            </label>
+        </div>
+    </div>
+
+    <div class="browser-window">
+        <div class="browser-header">
+            <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+            <div class="browser-tab" id="browser-tab-title">Precisão Estrutural - Sistema</div>
+        </div>
+        
+        <header class="app-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="app-title">🏙️ PRECISÃO ESTRUTURAL &bull; Controle de Produção</div>
+            <div id="cabecalho-usuario-logado" style="font-size:12px; color:#cbd5e1; display:flex; align-items:center; gap:10px;"></div>
+        </header>
+        
+        <div class="app-body">
+            <aside class="sidebar">
+                <div>
+                    <div class="menu-item" onclick="alternarModulo('progresso')">📊 Dashboard</div>
+                    
+                    <div class="menu-item" id="nav-cadastro" onclick="alternarModulo('cadastro')">📝 Cadastro</div>
+
+                    <div class="menu-item" id="nav-arvore" style="font-weight: 600; color: #00b4d8;" onclick="alternarModulo('arvore')">📁 Projetos</div>
+                </div>
+                <div>
+                    <div class="menu-item" id="nav-atribuicao_tarefas" style="color:#f97316; font-weight:bold;" onclick="alternarModulo('atribuicao_tarefas')">🎯 Atribuição de Tarefas</div>
+                    <div class="menu-item" id="nav-kanban" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('kanban')">🗂️ Kanban</div>
+                    <div class="menu-item" id="nav-aprovacoes_calendario" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('aprovacoes_calendario')">🗓️ Aprovações<span id="badge-pendencias-aprovacoes" class="badge-menu-pendencia" style="display:none;"></span></div>
+                    <div class="menu-item" id="nav-relatorios" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('relatorios')">📊 Relatórios</div>
+                    <div class="menu-item" id="nav-fundo-global" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('controladoria_global')">💰 Fundo Global Fechamento</div>
+                    <div class="menu-item" id="nav-distribuicao-lucro" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('distribuicao_lucro')">🎓 Distribuição de Lucro (Estagiários)</div>
+                    <div class="menu-item" id="nav-bi-calibracao" style="color:#ffbd2e; font-weight:bold;" onclick="alternarModulo('bi_calibracao')">🎛️ Painel de Calibração BI</div>
+                    <div class="menu-item" onclick="alternarModulo('configuracoes')" style="border-top:1px solid #1e3a66;">🔒 Configurações</div>
+                </div>
+            </aside>
+            
+            <main class="main-content">
+                <div class="context-title" id="page-context-title">Aguardando Ação</div>
+                
+                <div id="panel-blank-state" class="workspace-blank active">
+                    <div class="workspace-blank-icon">🖥️</div>
+                    <h2>Escolha sua ação no menu lateral</h2>
+                    <p style="font-size: 13px;">Selecione uma categoria estrutural ou acesse os painéis econômicos e analíticos.</p>
+                </div>
+
+                <div id="panel-progresso" class="content-panel">
+                    <p style="font-size:12px; color:#64748b; margin:0 0 16px;">Cada segmento é uma Etapa do projeto — o preenchimento verde é a % da verba já finalizada sobre a verba total daquela Etapa. Passe o mouse sobre um segmento pra ver onde o trabalho está.</p>
+                    <div id="painel-progresso-lista" style="overflow-y:auto; flex:1;"></div>
+                </div>
+
+                <div id="panel-configuracoes" class="content-panel">
+                    <div style="max-width:560px;">
+                        <div class="form-section">
+                            <div class="form-section-title">⬇️ Backup Completo</div>
+                            <p style="font-size:12px; color:#64748b;">
+                                Baixa um arquivo com TODOS os dados do sistema (clientes, funcionários,
+                                projetos, árvores de tarefas, feriados, distribuição de custos etc.) —
+                                tudo que hoje só existe no <code>localStorage</code> deste navegador.
+                                Guarde esse arquivo em lugar seguro. Sem ele, se os dados desse
+                                navegador forem perdidos, não tem como recuperar.
+                            </p>
+                            <button class="btn-primary" onclick="baixarBackupCompleto()">⬇️ Baixar Backup Completo</button>
+                        </div>
+
+                        <div class="form-section" style="margin-top:20px;">
+                            <div class="form-section-title">⬆️ Restaurar Backup</div>
+                            <p style="font-size:12px; color:#b91c1c; font-weight:600;">
+                                ⚠️ Isso APAGA e SUBSTITUI todos os dados atuais deste navegador pelos
+                                dados do arquivo escolhido. Não tem como desfazer — se tiver dúvida,
+                                baixe um backup do estado atual primeiro (botão acima).
+                            </p>
+                            <input type="file" id="config-arquivo-restauracao" accept="application/json" style="margin-bottom:10px;">
+                            <br>
+                            <button class="btn-secondary" onclick="restaurarBackupCompleto()">⬆️ Restaurar Backup</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="panel-cadastro" class="content-panel" style="flex-direction:column;">
+                    <div class="aprov-abas">
+                        <button type="button" id="cad-aba-clientes" class="aprov-aba" onclick="alternarModulo('clientes')">👥 Clientes</button>
+                        <button type="button" id="cad-aba-funcionarios" class="aprov-aba" onclick="alternarModulo('funcionarios')">🪪 Funcionários</button>
+                        <button type="button" id="cad-aba-projetos" class="aprov-aba" onclick="alternarModulo('projetos')">📁 Projetos</button>
+                        <button type="button" id="cad-aba-etapas" class="aprov-aba" onclick="alternarModulo('etapas')">🧱 Etapas</button>
+                        <button type="button" id="cad-aba-setores" class="aprov-aba" onclick="alternarModulo('setores')">📐 Setores</button>
+                        <button type="button" id="cad-aba-pavimentos" class="aprov-aba" onclick="alternarModulo('pavimentos')">🧮 Pavimentos</button>
+                        <button type="button" id="cad-aba-tarefas" class="aprov-aba" onclick="alternarModulo('tarefas')">⚙️ Tarefas</button>
+                        <button type="button" id="cad-aba-feriados" class="aprov-aba" onclick="alternarModulo('feriados')">📅 Feriados</button>
+                    </div>
+
+                <div id="panel-clientes-lista" class="sub-panel-cadastro">
+                    <div class="search-container"><input type="text" class="search-input" id="search-clientes" placeholder="🔍 Pesquisar por Razão Social ou CNPJ..." oninput="filtrarTabela('clientes')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Razão Social</th><th>CNPJ</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-clientes-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('clientes', true)">+ Incluir Novo Cliente</button>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('clientes')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('clientes', this)"></label>
+                    </div>
+                </div>
+                <div id="panel-clientes-form" class="sub-panel-cadastro">
+                    <div class="form-panel">
+                        <input type="hidden" id="cli-index">
+                        <div class="form-section"><div class="form-section-title">1. Dados Institucionais</div><div class="form-grid"><div class="form-group col-6"><label>Razão Social / Nome *:</label><input type="text" id="cli-nome"></div><div class="form-group col-6"><label>CNPJ / CPF:</label><input type="text" id="cli-cnpj"></div></div></div>
+                        <div class="form-section"><div class="form-section-title">2. Endereço</div><div class="form-grid">
+                            <div class="form-group col-8"><label>Rua:</label><input type="text" id="cli-rua"></div>
+                            <div class="form-group col-4"><label>Nº:</label><input type="text" id="cli-numero"></div>
+                            <div class="form-group col-4" style="margin-top:10px;"><label>Bairro:</label><input type="text" id="cli-bairro"></div>
+                            <div class="form-group col-5" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="cli-cidade"></div>
+                            <div class="form-group col-3" style="margin-top:10px;"><label>UF:</label><input type="text" id="cli-uf" maxlength="2" style="text-transform:uppercase;"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">3. Contatos</div><div class="form-grid"><div class="form-group col-4"><label>Contato:</label><input type="text" id="cli-contato"></div><div class="form-group col-4"><label>WhatsApp:</label><input type="text" id="cli-whatsapp"></div><div class="form-group col-4"><label>E-mail:</label><input type="text" id="cli-email"></div></div></div>
+                        <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('clientes')">Voltar</button><button class="btn-success" onclick="salvarCliente()">Salvar</button></div>
+                    </div>
+                </div>
+
+                <div id="panel-funcionarios-lista" class="sub-panel-cadastro">
+                    <div class="search-container"><input type="text" class="search-input" id="search-funcionarios" placeholder="🔍 Pesquisar por Nome, CPF ou Cargo..." oninput="filtrarTabela('funcionarios')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>CPF</th><th>Nome</th><th>Codinome</th><th>Cargo</th><th>Nível</th><th>Forma de Pagamento</th><th>Valor/Hora</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-funcionarios-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('funcionarios', true)">+ Incluir Novo Funcionário</button>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('funcionarios')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('funcionarios', this)"></label>
+                    </div>
+                </div>
+                <div id="panel-funcionarios-form" class="sub-panel-cadastro">
+                    <div class="form-panel">
+                        <input type="hidden" id="func-index">
+                        <div class="form-section"><div class="form-section-title">1. Identificação Contratual</div><div class="form-grid">
+                            <div class="form-group col-4"><label>Nome *:</label><input type="text" id="func-nome"></div>
+                            <div class="form-group col-2"><label>Codinome *:</label><input type="text" id="func-codinome" placeholder="ex: David" maxlength="30"></div>
+                            <div class="form-group col-3"><label>CPF *:</label><input type="text" id="func-cpf" placeholder="xxx.xxx.xxx-xx"></div>
+                            <div class="form-group col-3"><label>Acesso *:</label><select id="func-nivel"><option>administrador</option><option>supervisor</option><option>analista</option><option>executor</option></select></div>
+                            <div class="form-group col-4"><label>Cargo *:</label><select id="func-cargo"><option>analista pleno</option><option>analista senior</option><option>analista junior</option><option>detalhista pleno</option><option>detalhista senior</option><option>detalhista junior</option><option>estagiário pleno</option><option>estagiário senior</option><option>estagiário júnior</option></select></div>
+                            <div class="form-group col-4"><label>Forma de Pagamento *:</label><select id="func-forma-pagamento"><option value="hora">Por Hora Trabalhada</option><option value="comissionado">Comissionado</option></select></div>
+                            <div class="form-group col-3"><label>Início:</label><input type="text" id="func-dt-inicio" class="input-data-mask"></div>
+                            <div class="form-group col-3"><label>Desligamento:</label><input type="text" id="func-dt-desligamento" class="input-data-mask"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">Histórico de Valor da Hora (salário muda com o tempo — cada linha vale a partir da data dela)</div>
+                            <div class="table-wrapper" style="max-height:150px; margin-bottom:8px;">
+                                <table><thead><tr><th>Valor/hora</th><th>Vigente desde</th><th style="width:70px;">Ações</th></tr></thead>
+                                <tbody id="func-tabela-historico-hora-body"></tbody></table>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group col-3"><label>Novo valor/hora:</label><input type="number" step="0.01" min="0" id="func-novo-valor-hora"></div>
+                                <div class="form-group col-3"><label>Vigente a partir de:</label><input type="date" id="func-nova-data-vigencia"></div>
+                                <div class="form-group col-3" style="align-self:end;"><button type="button" class="btn-primary" onclick="adicionarValorHoraFuncionario()">+ Adicionar</button></div>
+                            </div>
+                        </div>
+                        <div class="form-section"><div class="form-section-title">2. Dados Pessoais</div><div class="form-grid">
+                            <div class="form-group col-3"><label>Nascimento:</label><input type="text" id="func-dt-nascimento" class="input-data-mask"></div>
+                            <div class="form-group col-6"><label>Rua:</label><input type="text" id="func-rua"></div>
+                            <div class="form-group col-2"><label>Nº:</label><input type="text" id="func-numero"></div>
+                            <div class="form-group col-4"><label>Bairro:</label><input type="text" id="func-bairro"></div>
+                            <div class="form-group col-5" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="func-cidade"></div>
+                            <div class="form-group col-2" style="margin-top:10px;"><label>UF:</label><input type="text" id="func-uf" maxlength="2" style="text-transform:uppercase;"></div>
+                            <div class="form-group col-3"><label>Telefone:</label><input type="text" id="func-telefone"></div>
+                            <div class="form-group col-6"><label>E-mail:</label><input type="text" id="func-email"></div>
+                            <div class="form-group col-6"><label>Senha:</label><input type="password" id="func-senha"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">3. Calendário Semanal (horas disponíveis por dia)</div><div class="form-grid">
+                            <div class="form-group col-2"><label>Segunda:</label><input type="number" id="func-cal-seg" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Terça:</label><input type="number" id="func-cal-ter" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Quarta:</label><input type="number" id="func-cal-qua" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Quinta:</label><input type="number" id="func-cal-qui" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Sexta:</label><input type="number" id="func-cal-sex" step="0.5" value="8"></div>
+                            <div class="form-group col-12" style="margin-top:6px; font-size:11px; color:#94a3b8;">Sábado e domingo não são dias úteis pra ninguém (não aparecem aqui). Deixe 0 num dia da semana pra quem não vem naquele dia (ex: por causa de faculdade).</div>
+                        </div></div>
+                        <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('funcionarios')">Voltar</button><button class="btn-success" onclick="salvarFuncionario()">Salvar</button></div>
+                    </div>
+                </div>
+
+                <div id="panel-projetos-lista" class="sub-panel-cadastro">
+                    <div class="search-container"><input type="text" class="search-input" id="search-projetos" placeholder="🔍 Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Prefixo</th><th>Nome da Obra</th><th>Cliente</th><th>Analista</th><th>Supervisor</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-projetos-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('projetos', true)">+ Incluir Novo Projeto</button>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('projetos')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('projetos', this)"></label>
+                    </div>
+                </div>
+                <div id="panel-projetos-form" class="sub-panel-cadastro">
+                    <div class="form-panel">
+                        <input type="hidden" id="proj-index">
+                        <input type="hidden" id="proj-nome-original">
+                        <div class="form-section"><div class="form-section-title">1. Dados Estruturais</div><div class="form-grid">
+                            <div class="form-group col-6"><label>Nome Obra *:</label><input type="text" id="proj-nome"></div>
+                            <div class="form-group col-3"><label>Prefixo:</label><input type="text" id="proj-prefixo"></div>
+                            <div class="form-group col-3"><label>Cliente *:</label><select id="proj-cliente"></select></div>
+                            <div class="form-group col-6" style="margin-top:6px;"><label>Rua:</label><input type="text" id="proj-rua"></div>
+                            <div class="form-group col-2" style="margin-top:6px;"><label>Nº:</label><input type="text" id="proj-numero"></div>
+                            <div class="form-group col-4" style="margin-top:6px;"><label>Bairro:</label><input type="text" id="proj-bairro"></div>
+                            <div class="form-group col-5" style="margin-top:6px;"><label>Cidade:</label><input type="text" id="proj-cidade"></div>
+                            <div class="form-group col-2" style="margin-top:6px;"><label>UF:</label><input type="text" id="proj-uf" maxlength="2" style="text-transform:uppercase;"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Área (m²):</label><input type="text" id="proj-area" placeholder="0,00"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Pavimentos:</label><input type="text" id="proj-pavimentos"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Altura:</label><input type="text" id="proj-altura"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Esbeltez:</label><input type="text" id="proj-esbeltez"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">2. Gerenciamento</div><div class="form-grid">
+                            <div class="form-group col-3"><label>Dificuldade:</label><select id="proj-dificuldade"><option value="1">1 (mais fácil)</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5 (mais difícil)</option></select></div>
+                            <div class="form-group col-3"><label>Valor (R$):</label><input type="text" id="proj-valor" placeholder="0,00"></div>
+                            <div class="form-group col-3"><label>Pagamento *:</label><select id="proj-pagamento"><option>Por entrega</option><option>Mensal</option><option>Permuta</option><option>Permuta e mensal</option><option>Permuta e entrega</option></select></div>
+                            <div class="form-group col-3"><label>INÍCIO (DD/MM/AAAA):</label><input type="text" id="proj-dt-inicio" class="input-data-mask" placeholder="dd/mm/aaaa" maxlength="10"></div>
+                            <div class="form-group col-4"><label>Analista:</label><select id="proj-analista"></select></div>
+                            <div class="form-group col-4"><label>Supervisor:</label><select id="proj-supervisor"></select></div>
+                            <div class="form-group col-4"><label>Detalhista:</label><select id="proj-detalhista"></select></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">3. E-mails dos Responsáveis (lado do Cliente)</div><div class="form-grid">
+                            <div class="form-group col-5"><label>Novo e-mail:</label><input type="email" id="proj-novo-email" placeholder="responsavel@cliente.com.br"></div>
+                            <div class="form-group col-5"><label>Cargo/Atribuição (opcional):</label><input type="text" id="proj-novo-email-cargo" placeholder="Ex: Engenheiro Responsável"></div>
+                            <div class="form-group col-2" style="display:flex; align-items:flex-end;"><button type="button" class="btn-primary" style="width:100%;" onclick="adicionarEmailResponsavelProjeto()">+ Adicionar</button></div>
+                            <div class="form-group col-12" style="margin-top:6px;">
+                                <div class="table-wrapper" style="max-height:110px;">
+                                    <table><thead><tr><th>E-mail</th><th>Cargo/Atribuição</th><th style="width:70px;">Ação</th></tr></thead>
+                                    <tbody id="proj-tabela-emails-body"></tbody></table>
+                                </div>
+                            </div>
+                        </div></div>
+                        <div class="form-section" id="proj-secao-etapas"><div class="form-section-title">4. Etapas do Projeto</div><div class="form-grid">
+                            <div class="form-group col-12" style="font-size:12px; color:#64748b; margin-bottom:8px;">Já vem pronto com as Etapas Default — troque a Etapa de uma linha direto no seletor, exclua, ou adicione outra.</div>
+                            <div class="form-group col-12">
+                                <div id="proj-tabela-etapas-body" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:6px;"></div>
+                            </div>
+                            <div class="form-group col-12" style="margin-top:6px;"><button type="button" class="btn-secondary" onclick="adicionarEtapaProjeto()">+ Adicionar Linha</button></div>
+                        </div></div>
+                        <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('projetos')">Voltar</button><button class="btn-success" onclick="salvarProjeto()">Salvar</button></div>
+                    </div>
+                </div>
+
+                <div id="panel-etapas-lista" class="sub-panel-cadastro">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Etapa</th><th style="width:110px;">% Sugerido</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-etapas-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-etapas-nome" placeholder="Nova Etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('etapas')">Fabricar</button></div>
+                </div>
+                <div id="panel-setores-lista" class="sub-panel-cadastro">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Setor</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-setores-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-setores-nome" placeholder="Nova Setor..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('setores')">Fabricar</button></div>
+                </div>
+                <div id="panel-pavimentos-lista" class="sub-panel-cadastro">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Pavimento</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Nova Pavimento..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
+                </div>
+                <div id="panel-tarefas-lista" class="sub-panel-cadastro">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Tarefa</th><th style="width:90px;">Pontos</th><th style="width:150px;">Unidade Física</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-tarefas-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-tarefas-nome" placeholder="Nova Tarefa..." style="width:230px; padding:6px; margin-right:10px;"><input type="number" id="add-tarefas-pontos" placeholder="Pontos" step="0.1" value="1.0" style="width:80px; padding:6px; margin-right:10px;"><input type="text" id="add-tarefas-unidade" placeholder="Unidade (m², kg, m³, un)" style="width:170px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('tarefas')">Fabricar</button></div>
+                </div>
+                <div id="panel-feriados-lista" class="sub-panel-cadastro">
+                    <div class="form-section" style="margin-bottom:16px;">
+                        <div class="form-section-title">Feriados Nacionais Fixos (não editáveis — se repetem todo ano)</div>
+                        <div class="table-wrapper" style="max-height:200px;">
+                            <table><thead><tr><th>Data</th><th>Nome</th></tr></thead><tbody id="fer-tabela-fixos-body"></tbody></table>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-section-title">Outros Feriados (móveis, municipais, pontos facultativos — cadastrados pelo administrador)</div>
+                        <div class="table-wrapper" style="max-height:250px;">
+                            <table><thead><tr><th>Data</th><th>Nome</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="fer-tabela-custom-body"></tbody></table>
+                        </div>
+                        <div class="footer-actions">
+                            <input type="date" id="fer-data" style="padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-right:10px;">
+                            <input type="text" id="fer-nome" placeholder="Nome do feriado (ex: Carnaval)" style="width:260px; padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-right:10px;">
+                            <button class="btn-primary" onclick="adicionarFeriadoCustomizado()">+ Adicionar</button>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <div id="panel-arvore-projetos" class="content-panel" style="flex-direction: row; gap: 20px; height: 100%; overflow: hidden;">
+                    <div id="subpanel-lista-projetos-arvore" style="width: 380px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden;">
+                        <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #00b4d8;">📁 Escolha o Projeto Estrutural</div>
+                        <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="search-proj-arvore" placeholder="🔍 Buscar obra ativa..." oninput="filtrarTabelaProjetosArvore()"></div>
+                        <div class="table-wrapper" style="flex: 1; max-height: none;"><table style="font-size: 12px;"><thead><tr><th>Prefixo</th><th>Nome da Obra</th></tr></thead><tbody id="tabela-projetos-arvore-body"></tbody></table></div>
+                    </div>
+
+                    <div id="subpanel-arvore-visual" style="width: 480px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: none; flex-direction: column; overflow: hidden;">
+                        <div style="background: #1e3a66; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+                            <span id="nome-projeto-titulo-arvore">📋 Projeto</span>
+                            <div style="display:flex; gap:6px;">
+                                <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px; background:#7c3aed;" onclick="irParaDistribuicaoCustosDoProjetoAtivo()" title="Ver Distribuição de Custos deste mesmo projeto">📊 Custos</button>
+                                <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px; background:#475569;" onclick="fecharProjetoAtivoNaArvore()">Fechar</button>
+                            </div>
+                        </div>
+                        <div id="corpo-arvore-eberick" style="flex: 1; overflow-y: auto; padding: 16px; font-size: 13px; color: #334155;"></div>
+                    </div>
+
+                    <div id="painel-propriedades-lego" style="flex: 1; min-width: 320px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; padding: 24px; display: flex; flex-direction: column; overflow-y: auto;"></div>
+                </div>
+
+                <div id="panel-bi-calibracao" class="content-panel">
+                    <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
+                        <h3>🎛️ Centro de Calibração Manual BI (Abordagem C)</h3>
+                        <p style="font-size:13px; color:#64748b; margin-top:4px;">O sistema compara as Horas Reais consolidadas com os parâmetros atuais de catálogo.</p>
+                    </div>
+                    <div class="table-wrapper"><table style="font-size:12px;"><thead><tr><th>Componente</th><th>Índice Atual</th><th>Média Real Apurada ($K_{real}$)</th><th>Desvio Global</th><th>Ações Administrativas</th></tr></thead><tbody id="tabela-bi-calibracao-body"></tbody></table></div>
+                </div>
+
+                <div id="panel-controladoria-global" class="content-panel">
+                    <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
+                        <h3>💰 Fechamento do Fundo Global e Distribuição de Sobras</h3>
+                        <p style="font-size:13px; color:#64748b; margin-top:4px;">Lógica Periódica Consolidada: As sobras de todas as obras cobrem os prejuízos do trimestre antes do rateio.</p>
+                    </div>
+                    <div class="form-grid" style="margin-bottom:20px;">
+                        <div class="form-group col-3" style="background:#0a192f; color:white; padding:15px; border-radius:6px;"><label style="color:#94a3b8;">Sobras Brutas Acumuladas</label><h2 id="bi-sobras-brutas">R$ 0,00</h2></div>
+                        <div class="form-group col-3" style="background:#ff5f56; color:white; padding:15px; border-radius:6px;"><label style="color:#fecaca;">Prejuízos Absorvidos</label><h2 id="bi-prejuizos-absorvidos">R$ 0,00</h2></div>
+                        <div class="form-group col-3" style="background:#10b981; color:white; padding:15px; border-radius:6px;"><label style="color:#d1fae5;">Saldo Líquido do Período</label><h2 id="bi-saldo-liquido-periodo">R$ 0,00</h2></div>
+                        <div class="form-group col-3" style="background:#ffbd2e; color:#334155; padding:15px; border-radius:6px;"><label style="color:#475569;">Fator Coparticipação Empresa</label><h2 id="bi-fator-escritorio-txt">52%</h2></div>
+                    </div>
+                    <div class="table-wrapper" style="max-height: 250px; margin-bottom:15px;">
+                        <div style="padding:10px; font-weight:bold; background:#f1f5f9; font-size:12px;">📊 Demonstrativo de Balanço Individualizado por Projeto</div>
+                        <table><thead><tr><th>Projeto</th><th>Status de Caixa</th><th>Custo Alocado (Analista)</th><th>Custo Pago (Escritório)</th><th>Resultado Líquido Obras</th></tr></thead><tbody id="tabela-fechamento-projetos-body"></tbody></table>
+                    </div>
+                    <div style="background:white; border:1px solid #e2e8f0; padding:15px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="color:#0a192f; font-size:14px;">Deseja consolidar e fechar o período atual?</strong>
+                            <p style="font-size:12px; color:#64748b;">Isso gerará os créditos de 60% individuais e 40% coletivos.</p>
+                        </div>
+                        <button class="btn-success" onclick="executarRateioGlobalFechamento()">Efetuar Rateio de Sobras</button>
+                    </div>
+                </div>
+
+                <div id="panel-distribuicao-lucro" class="content-panel">
+                    <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
+                        <h3>🎓 Distribuição de Lucro entre Estagiários</h3>
+                        <p style="font-size:13px; color:#64748b; margin-top:4px;">Verba de Distribuição de Lucros (aba 3 da Distribuição de Custos) rateada por Pavimento/Tarefa, somada de toda tarefa finalizada no período escolhido, dividida entre os Estagiários — parte igualitária, parte proporcional aos Pontos conquistados no período. Comissionados não participam.</p>
+                    </div>
+                    <div class="search-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end; margin-bottom:15px;">
+                        <div>
+                            <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Data Início</label>
+                            <input type="date" id="dl-data-inicio" onchange="apurarDistribuicaoLucro()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Data Fim</label>
+                            <input type="date" id="dl-data-fim" onchange="apurarDistribuicaoLucro()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">% Fatia Igualitária (resto vai pra Proporcional)</label>
+                            <input type="number" id="dl-pct-igualitaria" value="50" min="0" max="100" onchange="apurarDistribuicaoLucro()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                        </div>
+                        <div>
+                            <button type="button" class="btn-primary" style="width:100%; padding:8px 12px;" onclick="apurarDistribuicaoLucro()">🔄 Apurar</button>
+                        </div>
+                    </div>
+                    <div class="form-grid" style="margin-bottom:20px;">
+                        <div class="form-group col-3" style="background:#0a192f; color:white; padding:15px; border-radius:6px;"><label style="color:#94a3b8;">Verba Total do Período (bolo)</label><h2 id="dl-bolo-total">R$ 0,00</h2></div>
+                        <div class="form-group col-3" style="background:#10b981; color:white; padding:15px; border-radius:6px;"><label style="color:#d1fae5;">Fatia Igualitária (total)</label><h2 id="dl-fatia-igualitaria-total">R$ 0,00</h2></div>
+                        <div class="form-group col-3" style="background:#0ea5e9; color:white; padding:15px; border-radius:6px;"><label style="color:#e0f2fe;">Fatia Proporcional (total)</label><h2 id="dl-fatia-proporcional-total">R$ 0,00</h2></div>
+                        <div class="form-group col-3" style="background:#ffbd2e; color:#334155; padding:15px; border-radius:6px;"><label style="color:#475569;">Soma de Pontos (Estagiários)</label><h2 id="dl-soma-pontos">0</h2></div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr><th>Estagiário</th><th style="text-align:center;">Pontos no Período</th><th style="text-align:center;">Fatia Igualitária</th><th style="text-align:center;">Fatia Proporcional</th><th style="text-align:center;">Total</th></tr></thead>
+                            <tbody id="dl-tabela-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="panel-distribuicao-custos" class="content-panel" style="flex-direction: row; gap: 20px; height: 100%; overflow: hidden;">
+                    <div id="dc-portal-selecao-projeto" style="width: 380px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden;">
+                        <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #00b4d8;">📁 Escolha o Projeto</div>
+                        <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="dc-portal-busca-projeto" placeholder="🔍 Buscar obra..." oninput="filtrarTabelaProjetosDistribuicao()"></div>
+                        <div class="table-wrapper" style="flex: 1; max-height: none;"><table style="font-size:12px;"><thead><tr><th>Prefixo</th><th>Nome da Obra</th></tr></thead><tbody id="dc-portal-tabela-projetos-body"></tbody></table></div>
+                    </div>
+
+                    <div id="dc-conteudo-principal" style="display:none; flex: 1; overflow-y: auto;">
+                    <div class="tab-bar">
+                        <div id="aba-orcamento-global" class="tab-selector active" onclick="alternarAbaDistribuicao('orcamento-global')">Orçamento Global</div>
+                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Distribuição de Custos Analista</div>
+                        <div id="aba-verba-detalhamento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-detalhamento')">Verba para Detalhamento</div>
+                        <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
+                        <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
+                        <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
+                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;">🔁 Trocar Projeto</button>
+                    </div>
+
+                    <div id="conteudo-orcamento-global" class="tab-content">
+                        <div class="form-panel" style="border:none; padding:0;">
+                            <div class="form-section">
+                                <div class="form-section-title">1. Projeto e Valor do Contrato</div>
+                                <div class="form-grid">
+                                    <div class="form-group col-6"><label>Projeto:</label><select id="dc-projeto" style="background:white;" onchange="carregarProjetoDistribuicao()"></select></div>
+                                    <div class="form-group col-6"><label>Valor do Contrato:</label><input type="text" id="dc-valor-contrato" readonly style="background:#e2e8f0; font-weight:bold; color:#0a192f;"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <div class="form-section-title">2. Impostos</div>
+                                <div class="form-grid">
+                                    <div class="form-group col-4"><label>Percentual de Impostos (%):</label><input type="number" id="dc-pct-impostos" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
+                                    <div class="form-group col-8"><label>Valor Líquido do Projeto:</label><input type="text" id="dc-valor-liquido" readonly style="background:#f0fdf4; font-weight:bold; color:#166534;"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <div class="form-section-title">3. Distribuição por Percentual (sobre o Valor Líquido)</div>
+                                <div class="form-grid">
+                                    <div class="form-group col-4"><label>% Analista:</label><input type="number" id="dc-pct-analista" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
+                                    <div class="form-group col-4"><label>% Supervisor:</label><input type="number" id="dc-pct-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
+                                    <div class="form-group col-4"><label>% Escritório:</label><input type="number" id="dc-pct-escritorio" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
+
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Analista:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Supervisor:</label><input type="text" id="dc-valor-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Escritório:</label><input type="text" id="dc-valor-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                </div>
+                                <div id="dc-alerta-soma" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
+                            </div>
+
+                            <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoCustos()">Salvar Distribuição</button></div>
+                        </div>
+                    </div>
+
+                    <div id="conteudo-distribuicao-analista" class="tab-content" style="display:none;">
+                        <div id="dca-sem-projeto" style="padding:40px 20px; text-align:center; color:#94a3b8;">
+                            Selecione um projeto na aba "Orçamento Global" primeiro.
+                        </div>
+                        <div id="dca-conteudo" style="display:none;">
+                            <div class="tab-projeto-header">Projeto: <b id="dca-projeto-ref">—</b></div>
+                            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
+                                Valor destinado ao Analista (aba Orçamento Global), a ser dividido entre as etapas: <b id="dca-valor-analista-ref">R$ 0,00</b>
+                            </div>
+                            <div class="table-wrapper" style="max-height:400px;">
+                                <table>
+                                    <thead><tr>
+                                        <th>Etapas</th>
+                                        <th style="width:90px;">%</th>
+                                        <th style="width:150px;">Verba</th>
+                                        <th style="width:220px;">Responsável</th>
+                                    </tr></thead>
+                                    <tbody id="dca-tabela-body"></tbody>
+                                </table>
+                            </div>
+                            <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoAnalista()">Salvar Distribuição por Etapa</button></div>
+                            <div id="dca-alerta-soma" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
+                        </div>
+                    </div>
+
+                    <div id="conteudo-verba-detalhamento" class="tab-content" style="display:none;">
+                        <div class="tab-projeto-header">Projeto: <b id="vd-projeto-ref">—</b></div>
+                        <div id="vd-aviso" style="display:none; background:#fef9c3; color:#854d0e; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"></div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px;">
+                            <label>% Distribuição Lucros <small style="color:#94a3b8;">(descontado da verba bruta de CADA etapa, igualmente)</small>:</label>
+                            <input type="number" step="0.01" id="vd-pct-lucros" style="width:100px;" oninput="recalcularDistribuicaoLucros()">
+                            <button class="btn-success" style="margin-left:auto;" onclick="salvarDistribuicaoLucros()">Salvar % Distribuição Lucros</button>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Etapa</th>
+                                    <th style="width:90px;">% (Aba 2)</th>
+                                    <th style="width:150px;">Verba Bruta</th>
+                                    <th style="width:150px;">Valor Lucros</th>
+                                    <th style="width:150px;">Verba Líquida</th>
+                                </tr></thead>
+                                <tbody id="vd-tabela-body"></tbody>
+                                <tfoot>
+                                    <tr style="background:#f0fdf4; font-weight:bold;">
+                                        <td colspan="4" style="text-align:right;">Total (soma de todas as Etapas)</td>
+                                        <td id="vd-verba-liquida" style="color:#166534;"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="conteudo-verba-pavimento" class="tab-content" style="display:none;">
+                        <div class="tab-projeto-header">Projeto: <b id="vp-projeto-ref">—</b></div>
+                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
+                            Área Total Equivalente: <b id="vp-area-total-equivalente">0</b>
+                            &nbsp;|&nbsp;
+                            Soma da Verba Líquida de todas as Etapas (aba anterior), cascateada por Etapa até os Pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                        </div>
+                        <div id="vp-setores-wrapper" style="display:none; margin-bottom:18px;">
+                            <div style="font-weight:bold; color:#0f223f; font-size:12px; margin-bottom:6px;">🗂️ Verba por Setor <small style="color:#94a3b8; font-weight:normal;">(Área/Peso editáveis aqui — Setores competem entre si dentro da mesma Etapa/Setor pai)</small></div>
+                            <div class="table-wrapper" style="max-height:250px;">
+                                <table class="tabela-compacta">
+                                    <thead><tr>
+                                        <th>Setor</th>
+                                        <th style="width:100px;">Etapa/Setor pai</th>
+                                        <th class="col-centralizada" style="width:90px;">Área</th>
+                                        <th class="col-centralizada" style="width:90px;">Peso de Esforço</th>
+                                        <th class="col-centralizada" style="width:120px;">Área Equivalente</th>
+                                        <th class="col-centralizada" style="width:80px;">% da Verba</th>
+                                        <th style="width:130px;">Verba</th>
+                                    </tr></thead>
+                                    <tbody id="vp-setores-tabela-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="table-wrapper" style="max-height:400px;">
+                            <table>
+                                <thead><tr>
+                                    <th>Pavimento</th>
+                                    <th style="width:110px;">Área</th>
+                                    <th style="width:120px;">Peso de Esforço</th>
+                                    <th style="width:140px;">Área Equivalente</th>
+                                    <th style="width:90px;">% da Verba <small style="font-weight:normal;">(da própria Etapa)</small></th>
+                                    <th style="width:150px;">Valor da Verba</th>
+                                </tr></thead>
+                                <tbody id="vp-tabela-body"></tbody>
+                                <tfoot>
+                                    <tr style="background:#f0fdf4; font-weight:bold;">
+                                        <td colspan="5" style="text-align:right;">Total</td>
+                                        <td id="vp-total-verba" style="color:#166534;"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div id="vp-conferencia" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
+                    </div>
+
+                    <div id="conteudo-verba-por-tarefa" class="tab-content" style="display:none;">
+                        <div class="tab-projeto-header">Projeto: <b id="vt-projeto-ref">—</b></div>
+                        <div class="table-wrapper" style="max-height:450px;">
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Tarefa</th>
+                                    <th style="width:200px;">Executor</th>
+                                    <th class="col-centralizada" style="width:90px;">Horas Máximas</th>
+                                    <th class="col-centralizada" style="width:70px;">Pontos</th>
+                                    <th style="width:120px;">Valor</th>
+                                </tr></thead>
+                                <tbody id="vt-tabela-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <div id="panel-atribuicao-tarefas" class="content-panel">
+                    <div id="at-aviso-verificacao" style="display:none; background:#fffbeb; border:1px solid #f59e0b; color:#92400e; font-weight:600; padding:10px 14px; border-radius:6px; font-size:13px;"></div>
+                    <div style="display:flex; align-items:center; gap:8px; padding:8px 4px; font-size:13px; color:#334155;">
+                        <span style="font-weight:600;">📅 Período (Data de Início):</span>
+                        <span>De</span>
+                        <input type="date" id="at-filtro-periodo-de" onchange="aplicarFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; border-radius:4px; padding:3px 6px; font-size:12px;">
+                        <span>Até</span>
+                        <input type="date" id="at-filtro-periodo-ate" onchange="aplicarFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; border-radius:4px; padding:3px 6px; font-size:12px;">
+                        <button type="button" onclick="limparFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; background:#f8fafc; border-radius:4px; padding:3px 10px; font-size:12px; cursor:pointer;">Limpar</button>
+                    </div>
+                    <div class="table-wrapper" style="max-height:500px;">
+                        <table class="tabela-compacta">
+                            <thead><tr>
+                                <th id="at-th-projeto" style="width:60px;">Projeto <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'projeto')">▾</span></th>
+                                <th style="width:110px;">Localização <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'localizacao')">▾</span></th>
+                                <th style="width:50px;">Data de Início</th>
+                                <th style="width:100px;">Data Limite</th>
+                                <th id="at-th-tarefa">Tarefa <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'tarefa')">▾</span></th>
+                                <th class="col-centralizada" style="width:60px;">Pontos</th>
+                                <th class="col-centralizada" style="width:80px;">Pontos Máximo</th>
+                                <th id="at-th-executor" style="width:260px;">Executor <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'executor')">▾</span></th>
+                                <th style="width:260px;">Responsável <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'responsavel')">▾</span></th>
+                                <th style="width:120px; padding-left:24px;">Status <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'status')">▾</span></th>
+                                <th class="col-centralizada" style="width:70px;">Horas Apontadas</th>
+                            </tr></thead>
+                            <tbody id="at-tabela-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="paginacao" id="at-paginacao"></div>
+                    <div id="at-filtro-flutuante" class="at-filtro-painel" style="display:none;"></div>
+                    <div id="at-sessoes-flutuante" class="at-filtro-painel" style="display:none; min-width:340px;"></div>
+                </div>
+
+                <div id="panel-kanban" class="content-panel">
+                    <div class="aprov-abas">
+                        <button type="button" id="kb-aba-meu" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaKanban('meu')">🧍 Meu Kanban</button>
+                        <button type="button" id="kb-aba-outros" class="aprov-aba" onclick="alternarAbaKanban('outros')">🗂️ Kanban</button>
+                        <button type="button" id="kb-aba-ranking" class="aprov-aba" onclick="alternarAbaKanban('ranking')">🏆 Ranking</button>
+                    </div>
+                    <div id="kb-area-quadro">
+                        <div class="search-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end;">
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Projeto</label>
+                                <select id="kb-filtro-projeto" onchange="renderizarQuadroKanban()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:white;">
+                                    <option value="">-- Todos os Projetos --</option>
+                                </select>
+                            </div>
+                            <div id="kb-filtro-executor-coluna" style="display:none;">
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Executor</label>
+                                <select id="kb-filtro-executor" onchange="renderizarQuadroKanban()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:white;">
+                                    <option value="">-- Todos os Executores --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Status</label>
+                                <select id="kb-filtro-status" onchange="renderizarQuadroKanban()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:white;">
+                                    <option value="">-- Todos os Status --</option>
+                                    <option>Apontada</option>
+                                    <option>Em Desenvolvimento</option>
+                                    <option>Aguardando Verificação</option>
+                                    <option>Para revisão</option>
+                                    <option>Finalizada</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Data Inicial</label>
+                                <input type="date" id="kb-filtro-data-inicio" onchange="renderizarQuadroKanban()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; color:#64748b; margin-bottom:3px;">Data Final</label>
+                                <input type="date" id="kb-filtro-data-fim" onchange="renderizarQuadroKanban()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                            </div>
+                            <div>
+                                <button type="button" onclick="limparFiltrosKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;">✖ Limpar filtros</button>
+                            </div>
+                            <div>
+                                <button type="button" id="kb-btn-meu-calendario" onclick="abrirModalCalendarioKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;">⚙️ Meu Calendário</button>
+                            </div>
+                        </div>
+                        <div id="kb-aviso-finalizacoes-pendentes" style="display:none; margin-top:12px; padding:10px 14px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; color:#92400e; font-size:13px; cursor:pointer;" onclick="alternarModulo('aprovacoes_calendario')"></div>
+                        <div id="kb-quadro" style="display:flex; gap:12px; margin-top:16px; overflow-x:auto; flex:1;"></div>
+                    </div>
+                    <div id="kb-ranking-area" style="display:none;">
+                        <div style="display:flex; gap:8px; margin:14px 0 6px;">
+                            <button type="button" id="kb-ranking-ordenar-produtividade" class="aprov-aba aprov-aba-ativa" onclick="alternarOrdemRanking('produtividade')" style="font-size:12px; padding:6px 12px;">Ordenar por Produtividade</button>
+                            <button type="button" id="kb-ranking-ordenar-pontos" class="aprov-aba" onclick="alternarOrdemRanking('pontos')" style="font-size:12px; padding:6px 12px;">Ordenar por Pontos</button>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin:0 0 12px;">
+                            Considera só tarefas <b>Finalizadas</b>. <b>Produtividade</b> = Pontos das
+                            tarefas finalizadas ÷ Horas gastas para finalizá-las (taxa — quanto maior,
+                            mais eficiente). <b>Pontos</b> = soma dos Pontos de todas as tarefas que o
+                            executor finalizou.
+                        </p>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width:60px; text-align:center;">Pos.</th>
+                                        <th>Executor</th>
+                                        <th style="text-align:center;">Pontos</th>
+                                        <th style="text-align:center;">Horas</th>
+                                        <th style="text-align:center;">Produtividade (pts/h)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kb-ranking-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="kb-modal-calendario" class="modal-overlay" style="display:none;">
+                    <div class="modal-caixa">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h3 style="margin:0;">⚙️ Meu Calendário — <span id="kb-modal-cal-nome-executor"></span></h3>
+                            <span class="modal-fechar" onclick="fecharModalCalendarioKanban()">&times;</span>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin-top:0;">
+                            Marque um período de ausência (0 horas/dia) ou hora extra (horas num dia que
+                            normalmente não teria). A mudança só passa a valer no cálculo de prazos depois
+                            que um administrador aprovar.
+                        </p>
+                        <div class="form-section-title">Nova exceção</div>
+                        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                            <div><label style="font-size:11px; color:#64748b; display:block;">De</label><input type="date" id="kb-cal-nova-de" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Até</label><input type="date" id="kb-cal-nova-ate" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Horas/dia</label><input type="number" step="0.5" min="0" id="kb-cal-nova-horas" placeholder="0" style="width:70px; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div style="flex:1; min-width:160px;"><label style="font-size:11px; color:#64748b; display:block;">Motivo (opcional)</label><input type="text" id="kb-cal-nova-motivo" placeholder="Ex: viagem, consulta médica..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <button class="btn-primary" id="kb-cal-btn-enviar" onclick="criarExcecaoCalendarioKanban()">+ Enviar pra aprovação</button>
+                        </div>
+                        <div class="form-section-title">Exceções já registradas</div>
+                        <div class="table-wrapper" style="max-height:220px;">
+                            <table><thead><tr><th>Período</th><th style="width:80px;">Horas/dia</th><th>Motivo</th><th style="width:110px;">Status</th></tr></thead>
+                            <tbody id="kb-cal-tabela-excecoes-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="panel-aprovacoes_calendario" class="content-panel">
+                    <div class="aprov-abas">
+                        <button type="button" id="aprov-aba-calendario" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaAprovacoes('calendario')">🗓️ Calendário</button>
+                        <button type="button" id="aprov-aba-apontamento" class="aprov-aba" onclick="alternarAbaAprovacoes('apontamento')">🕐 Apontamento de Horas</button>
+                        <button type="button" id="aprov-aba-finalizacoes" class="aprov-aba" onclick="alternarAbaAprovacoes('finalizacoes')">✅ Finalizações</button>
+                        <button type="button" id="aprov-aba-revisao" class="aprov-aba" onclick="alternarAbaAprovacoes('revisao')">🔁 Sessões de Revisão</button>
+                    </div>
+                    <div id="aprov-sub-calendario" style="display:block;">
+                        <div class="table-wrapper" style="max-height:600px;">
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Funcionário</th>
+                                    <th>Período</th>
+                                    <th class="col-centralizada" style="width:80px;">Horas/dia</th>
+                                    <th>Motivo</th>
+                                    <th style="width:110px;">Status</th>
+                                    <th class="col-centralizada" style="width:170px;">Ações</th>
+                                </tr></thead>
+                                <tbody id="aprov-cal-tabela-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="aprov-sub-apontamento" style="display:none;">
+                        <div class="table-wrapper" style="max-height:600px;">
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Executor</th>
+                                    <th>Tarefa</th>
+                                    <th>Data</th>
+                                    <th class="col-centralizada" style="width:70px;">Horas</th>
+                                    <th>Motivo</th>
+                                    <th style="width:110px;">Status</th>
+                                    <th class="col-centralizada" style="width:170px;">Ações</th>
+                                </tr></thead>
+                                <tbody id="aprov-apo-tabela-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="aprov-sub-finalizacoes" style="display:none;">
+                        <div class="table-wrapper" style="max-height:600px;">
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Projeto</th>
+                                    <th>Localização</th>
+                                    <th>Tarefa</th>
+                                    <th>Executor</th>
+                                    <th>Finalizada por</th>
+                                    <th class="col-centralizada" style="width:80px;">Horas</th>
+                                    <th class="col-centralizada" style="width:170px;">Ações</th>
+                                </tr></thead>
+                                <tbody id="aprov-fin-tabela-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="aprov-sub-revisao" style="display:none;">
+                        <div class="table-wrapper" style="max-height:600px;">
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Projeto</th>
+                                    <th>Tarefa</th>
+                                    <th>Quem revisou</th>
+                                    <th>Período</th>
+                                    <th class="col-centralizada" style="width:80px;">Horas</th>
+                                    <th class="col-centralizada" style="width:170px;">Ações</th>
+                                </tr></thead>
+                                <tbody id="aprov-rev-tabela-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="kb-modal-apontamento" class="modal-overlay" style="display:none;">
+                    <div class="modal-caixa">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h3 style="margin:0;">📝 Apontar horas — <span id="kb-apo-modal-nome-tarefa"></span></h3>
+                            <span class="modal-fechar" onclick="fecharModalApontamentoManualKanban()">&times;</span>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin-top:0;">
+                            Registre um dia e a quantidade de horas trabalhadas nessa tarefa (ex: esqueceu de
+                            apertar "Iniciar"). Só entra no total de horas da tarefa depois que um
+                            administrador/analista/supervisor aprovar.
+                        </p>
+                        <div class="form-section-title">Novo apontamento</div>
+                        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Data</label><input type="date" id="kb-apo-nova-data" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div><label style="font-size:11px; color:#64748b; display:block;">Horas</label><input type="number" step="0.5" min="0" id="kb-apo-nova-horas" placeholder="0" style="width:70px; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <div style="flex:1; min-width:160px;"><label style="font-size:11px; color:#64748b; display:block;">Motivo (opcional)</label><input type="text" id="kb-apo-nova-motivo" placeholder="Ex: esqueci de apertar Iniciar..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #cbd5e1;"></div>
+                            <button class="btn-primary" onclick="criarApontamentoManualKanban()">+ Enviar pra aprovação</button>
+                        </div>
+                        <div class="form-section-title">Apontamentos já registrados nesta tarefa</div>
+                        <div class="table-wrapper" style="max-height:220px;">
+                            <table><thead><tr><th>Data</th><th style="width:70px;">Horas</th><th>Motivo</th><th style="width:110px;">Status</th></tr></thead>
+                            <tbody id="kb-apo-tabela-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="kb-modal-sessoes-revisao" class="modal-overlay" style="display:none;">
+                    <div class="modal-caixa">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h3 style="margin:0;">⏳ Sessões de Revisão pendentes — <span id="kb-sessoes-revisao-modal-nome-tarefa"></span></h3>
+                            <span class="modal-fechar" onclick="fecharModalSessoesRevisaoPendentesKanban()">&times;</span>
+                        </div>
+                        <p style="font-size:12px; color:#64748b; margin-top:0;">
+                            Sessões de apontamento manual registradas durante a revisão desta tarefa, aguardando
+                            sua aprovação (§14, item 4 — movido pra dentro do Kanban, sem precisar ir pra
+                            "Aprovações").
+                        </p>
+                        <div class="table-wrapper" style="max-height:280px;">
+                            <table><thead><tr><th>Quem</th><th>Início</th><th style="width:70px;">Horas</th><th style="width:170px; text-align:center;">Ação</th></tr></thead>
+                            <tbody id="kb-sessoes-revisao-tabela-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="panel-relatorios" class="content-panel">
+                    <div class="barra-visoes">
+                        <div style="flex:1;">
+                            <label>Visão</label>
+                            <select id="rel-seletor-visao" onchange="carregarVisaoSelecionadaRelatorio()"></select>
+                        </div>
+                        <div class="separador-vertical"></div>
+                        <button class="btn-secondary" onclick="salvarVisaoAtualRelatorio()">💾 Salvar visão atual</button>
+                        <button class="btn-secondary" id="rel-btn-apagar-visao" onclick="apagarVisaoSelecionadaRelatorio()" style="display:none;">🗑️ Apagar visão</button>
+                    </div>
+
+                    <div class="painel-filtro">
+                        <div class="painel-filtro-cabecalho" onclick="alternarPainelFiltroRelatorio()">
+                            <span class="titulo">🔽 Filtro avançado</span>
+                            <span class="seta aberto" id="rel-seta-filtro">▲</span>
+                        </div>
+                        <div class="painel-filtro-corpo aberto" id="rel-corpo-filtro">
+
+                            <div class="secao-titulo">Nível do relatório</div>
+                            <div class="linha-nivel">
+                                <div class="nivel-opcao ativo" id="rel-nivel-sessao" onclick="mudarNivelRelatorio('sessao')">
+                                    Sessão de Trabalho
+                                    <small>Horas e Custo, com precisão por dia</small>
+                                </div>
+                                <div class="nivel-opcao" id="rel-nivel-tarefa" onclick="mudarNivelRelatorio('tarefa')">
+                                    Tarefa
+                                    <small>Previsto × Realizado, Pontos, Status</small>
+                                </div>
+                            </div>
+
+                            <div class="secao-titulo">Filtros</div>
+                            <div class="grid-filtros">
+                                <div class="campo"><label>Projeto</label><select id="rel-filtro-projeto" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Etapa</label><select id="rel-filtro-etapa" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Cliente</label><select id="rel-filtro-cliente" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Executor</label><select id="rel-filtro-executor" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Data inicial</label><input type="date" id="rel-filtro-data-de" onchange="renderizarTabelaRelatorio()"></div>
+                                <div class="campo"><label>Data final</label><input type="date" id="rel-filtro-data-ate" onchange="renderizarTabelaRelatorio()"></div>
+                            </div>
+
+                            <div class="secao-titulo">Colunas a exibir</div>
+                            <div class="lista-colunas" id="rel-lista-colunas"></div>
+
+                            <div class="linha-agrupar">
+                                <div class="campo">
+                                    <label>Agrupar por</label>
+                                    <select id="rel-agrupar" onchange="renderizarTabelaRelatorio()"></select>
+                                </div>
+                            </div>
+
+                            <div class="rodape-filtro">
+                                <button class="btn-texto" onclick="limparFiltrosRelatorio()">Limpar filtros</button>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rel-area-resultado"></div>
+                </div>
+
+</main>
+        </div>
+    </div>
+
+    <!-- Ordem de carregamento importa: core.js define alternarModulo() e
+         funções usadas pelos demais; os módulos de domínio vêm depois. -->
+    <!-- Sincronização provisória multi-usuário (ver js/sync-provisorio.js
+         e LEIA-ME_SYNC_PROVISORIO.md). Os 15 arquivos do app (core.js e
+         demais) NÃO são mais carregados aqui como <script src> fixo — é o
+         próprio sync-provisorio.js que os carrega, na mesma ordem de
+         sempre, mas só DEPOIS de aplicar os dados vindos do Firebase (ou
+         imediatamente, se a sincronização estiver desligada/não
+         configurada). Isso elimina a corrida entre "página terminou de
+         carregar" e "dados da equipe já chegaram", que causava o sistema
+         achar que não tinha ninguém cadastrado e cair na tela de login
+         numa aba/dispositivo novo. -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="js/sync-provisorio-config.js"></script>
+    <script src="js/sync-provisorio.js"></script>
+</body>
+</html>

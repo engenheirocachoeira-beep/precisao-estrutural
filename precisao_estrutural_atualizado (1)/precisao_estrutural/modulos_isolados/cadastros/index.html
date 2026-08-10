@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Módulo isolado: Cadastros</title><link rel="stylesheet" href="estilos.css">
+<style>
+body { display:block; padding: 20px; }
+.harness-header { background:#0a192f; color:#fff; padding:14px 20px; border-radius:8px; margin-bottom:16px; font-weight:bold; }
+.harness-nav { display:flex; gap:10px; margin-bottom:20px; }
+.harness-nav .menu-item { background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:6px; cursor:pointer; }
+.content-panel { display:none; flex-direction:column; gap:14px; background:#fff; padding:20px; border-radius:8px; min-height:400px; }
+#page-context-title { font-weight:bold; margin-bottom:10px; }
+</style></head><body>
+<div style="max-width:1100px; margin:0 auto;">
+<div class="harness-header">🧪 Módulo isolado: Cadastros — testado isoladamente, fora da integração completa</div>
+<div id="page-context-title"></div>
+<div class="harness-nav">
+                    <div class="menu-item" onclick="alternarModulo('clientes')">Clientes</div>
+                    <div class="menu-item" onclick="alternarModulo('funcionarios')">Funcionários</div>
+                    <div class="menu-item" onclick="alternarModulo('projetos')">Projetos</div>
+</div>
+<div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
+<div id="panel-clientes-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-clientes" placeholder="🔍 Pesquisar por Razão Social ou CNPJ..." oninput="filtrarTabela('clientes')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Razão Social</th><th>CNPJ</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-clientes-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('clientes', true)">+ Incluir Novo Cliente</button>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('clientes')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('clientes', this)"></label>
+                    </div>
+                </div>
+
+<div id="panel-clientes-form" class="content-panel">
+                    <div class="form-panel">
+                        <input type="hidden" id="cli-index">
+                        <div class="form-section"><div class="form-section-title">1. Dados Institucionais</div><div class="form-grid"><div class="form-group col-6"><label>Razão Social / Nome *:</label><input type="text" id="cli-nome"></div><div class="form-group col-6"><label>CNPJ / CPF:</label><input type="text" id="cli-cnpj"></div></div></div>
+                        <div class="form-section"><div class="form-section-title">2. Endereço</div><div class="form-grid"><div class="form-group col-8"><label>Logradouro:</label><input type="text" id="cli-logradouro"></div><div class="form-group col-4"><label>Cidade / UF:</label><input type="text" id="cli-cidade"></div></div></div>
+                        <div class="form-section"><div class="form-section-title">3. Contatos</div><div class="form-grid"><div class="form-group col-4"><label>Contato:</label><input type="text" id="cli-contato"></div><div class="form-group col-4"><label>WhatsApp:</label><input type="text" id="cli-whatsapp"></div><div class="form-group col-4"><label>E-mail:</label><input type="text" id="cli-email"></div></div></div>
+                        <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('clientes')">Voltar</button><button class="btn-success" onclick="salvarCliente()">Salvar</button></div>
+                    </div>
+                </div>
+
+<div id="panel-funcionarios-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-funcionarios" placeholder="🔍 Pesquisar por Nome, CPF ou Cargo..." oninput="filtrarTabela('funcionarios')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>CPF</th><th>Nome</th><th>Codinome</th><th>Cargo</th><th>Nível</th><th>Forma de Pagamento</th><th>Valor/Hora</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-funcionarios-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('funcionarios', true)">+ Incluir Novo Funcionário</button>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('funcionarios')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('funcionarios', this)"></label>
+                    </div>
+                </div>
+
+<div id="panel-funcionarios-form" class="content-panel">
+                    <div class="form-panel">
+                        <input type="hidden" id="func-index">
+                        <div class="form-section"><div class="form-section-title">1. Identificação Contratual</div><div class="form-grid">
+                            <div class="form-group col-4"><label>Nome *:</label><input type="text" id="func-nome"></div>
+                            <div class="form-group col-2"><label>Codinome *:</label><input type="text" id="func-codinome" placeholder="ex: David" maxlength="30"></div>
+                            <div class="form-group col-3"><label>CPF *:</label><input type="text" id="func-cpf" placeholder="xxx.xxx.xxx-xx"></div>
+                            <div class="form-group col-3"><label>Acesso *:</label><select id="func-nivel"><option>administrador</option><option>supervisor</option><option>analista</option><option>executor</option></select></div>
+                            <div class="form-group col-4"><label>Cargo *:</label><select id="func-cargo"><option>analista pleno</option><option>analista senior</option><option>analista junior</option><option>detalhista pleno</option><option>detalhista senior</option><option>detalhista junior</option><option>estagiário pleno</option><option>estagiário senior</option><option>estagiário júnior</option></select></div>
+                            <div class="form-group col-4"><label>Forma de Pagamento *:</label><select id="func-forma-pagamento"><option value="hora">Por Hora Trabalhada</option><option value="comissionado">Comissionado</option></select></div>
+                            <div class="form-group col-3"><label>Início:</label><input type="text" id="func-dt-inicio" class="input-data-mask"></div>
+                            <div class="form-group col-3"><label>Desligamento:</label><input type="text" id="func-dt-desligamento" class="input-data-mask"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">Histórico de Valor da Hora (salário muda com o tempo — cada linha vale a partir da data dela)</div>
+                            <div class="table-wrapper" style="max-height:150px; margin-bottom:8px;">
+                                <table><thead><tr><th>Valor/hora</th><th>Vigente desde</th><th style="width:70px;">Ações</th></tr></thead>
+                                <tbody id="func-tabela-historico-hora-body"></tbody></table>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group col-3"><label>Novo valor/hora:</label><input type="number" step="0.01" min="0" id="func-novo-valor-hora"></div>
+                                <div class="form-group col-3"><label>Vigente a partir de:</label><input type="date" id="func-nova-data-vigencia"></div>
+                                <div class="form-group col-3" style="align-self:end;"><button type="button" class="btn-primary" onclick="adicionarValorHoraFuncionario()">+ Adicionar</button></div>
+                            </div>
+                        </div>
+                        <div class="form-section"><div class="form-section-title">2. Dados Pessoais</div><div class="form-grid">
+                            <div class="form-group col-3"><label>Nascimento:</label><input type="text" id="func-dt-nascimento" class="input-data-mask"></div>
+                            <div class="form-group col-6"><label>Endereço:</label><input type="text" id="func-endereco"></div>
+                            <div class="form-group col-3"><label>Telefone:</label><input type="text" id="func-telefone"></div>
+                            <div class="form-group col-6"><label>E-mail:</label><input type="text" id="func-email"></div>
+                            <div class="form-group col-6"><label>Senha:</label><input type="password" id="func-senha"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">3. Calendário Semanal (horas disponíveis por dia)</div><div class="form-grid">
+                            <div class="form-group col-2"><label>Segunda:</label><input type="number" id="func-cal-seg" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Terça:</label><input type="number" id="func-cal-ter" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Quarta:</label><input type="number" id="func-cal-qua" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Quinta:</label><input type="number" id="func-cal-qui" step="0.5" value="8"></div>
+                            <div class="form-group col-2"><label>Sexta:</label><input type="number" id="func-cal-sex" step="0.5" value="8"></div>
+                            <div class="form-group col-12" style="margin-top:6px; font-size:11px; color:#94a3b8;">Sábado e domingo não são dias úteis pra ninguém (não aparecem aqui). Deixe 0 num dia da semana pra quem não vem naquele dia (ex: por causa de faculdade).</div>
+                        </div></div>
+                        <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('funcionarios')">Voltar</button><button class="btn-success" onclick="salvarFuncionario()">Salvar</button></div>
+                    </div>
+                </div>
+
+<div id="panel-projetos-lista" class="content-panel">
+                    <div class="search-container"><input type="text" class="search-input" id="search-projetos" placeholder="🔍 Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Prefixo</th><th>Nome da Obra</th><th>Cliente</th><th>Analista</th><th>Supervisor</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-projetos-body"></tbody></table></div>
+                    <div class="footer-actions">
+                        <button class="btn-primary" onclick="abrirFormulario('projetos', true)">+ Incluir Novo Projeto</button>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('projetos')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('projetos', this)"></label>
+                    </div>
+                </div>
+
+<div id="panel-projetos-form" class="content-panel">
+                    <div class="form-panel">
+                        <input type="hidden" id="proj-index">
+                        <div class="form-section"><div class="form-section-title">1. Dados Estruturais</div><div class="form-grid">
+                            <div class="form-group col-6"><label>Nome Obra *:</label><input type="text" id="proj-nome"></div>
+                            <div class="form-group col-3"><label>Prefixo:</label><input type="text" id="proj-prefixo"></div>
+                            <div class="form-group col-3"><label>Cliente *:</label><select id="proj-cliente"></select></div>
+                            <div class="form-group col-12" style="margin-top:10px;"><label>Endereço:</label><input type="text" id="proj-endereco"></div>
+                            <div class="form-group col-3" style="margin-top:10px;"><label>Área:</label><input type="text" id="proj-area"></div>
+                            <div class="form-group col-3" style="margin-top:10px;"><label>Pavimentos:</label><input type="text" id="proj-pavimentos"></div>
+                            <div class="form-group col-3" style="margin-top:10px;"><label>Altura:</label><input type="text" id="proj-altura"></div>
+                            <div class="form-group col-3" style="margin-top:10px;"><label>Esbeltez:</label><input type="text" id="proj-esbeltez"></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">2. Gerenciamento</div><div class="form-grid">
+                            <div class="form-group col-3"><label>Dificuldade:</label><input type="text" id="proj-dificuldade"></div>
+                            <div class="form-group col-3"><label>Valor:</label><input type="text" id="proj-valor"></div>
+                            <div class="form-group col-3"><label>Pagamento *:</label><select id="proj-pagamento"><option>Por entrega</option><option>Mensal</option><option>Permuta</option><option>Permuta e mensal</option><option>Permuta e entrega</option></select></div>
+                            <div class="form-group col-3"><label>Início:</label><input type="text" id="proj-dt-inicio" class="input-data-mask"></div>
+                            <div class="form-group col-6"><label>Analista:</label><select id="proj-analista"></select></div>
+                            <div class="form-group col-6"><label>Supervisor:</label><select id="proj-supervisor"></select></div>
+                            <div class="form-group col-6" style="margin-top:10px;"><label>Detalhista:</label><select id="proj-detalhista"></select></div>
+                        </div></div>
+                        <div class="form-section"><div class="form-section-title">3. E-mails dos Responsáveis (lado do Cliente)</div><div class="form-grid">
+                            <div class="form-group col-5"><label>Novo e-mail:</label><input type="email" id="proj-novo-email" placeholder="responsavel@cliente.com.br"></div>
+                            <div class="form-group col-5"><label>Cargo/Atribuição (opcional):</label><input type="text" id="proj-novo-email-cargo" placeholder="Ex: Engenheiro Responsável"></div>
+                            <div class="form-group col-2" style="display:flex; align-items:flex-end;"><button type="button" class="btn-primary" style="width:100%;" onclick="adicionarEmailResponsavelProjeto()">+ Adicionar</button></div>
+                            <div class="form-group col-12" style="margin-top:10px;">
+                                <div class="table-wrapper" style="max-height:160px;">
+                                    <table><thead><tr><th>E-mail</th><th>Cargo/Atribuição</th><th style="width:70px;">Ação</th></tr></thead>
+                                    <tbody id="proj-tabela-emails-body"></tbody></table>
+                                </div>
+                            </div>
+                        </div></div>
+                        <div class="form-section" id="proj-secao-etapas"><div class="form-section-title">4. Etapas do Projeto</div><div class="form-grid">
+                            <div class="form-group col-12" style="font-size:12px; color:#64748b; margin-bottom:8px;">Já vem pronto com as Etapas Default — troque a Etapa de uma linha direto no seletor, exclua, ou adicione outra.</div>
+                            <div class="form-group col-12">
+                                <div id="proj-tabela-etapas-body" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:6px;"></div>
+                            </div>
+                            <div class="form-group col-12" style="margin-top:10px;"><button type="button" class="btn-secondary" onclick="adicionarEtapaProjeto()">+ Adicionar Linha</button></div>
+                        </div></div>
+                        <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('projetos')">Voltar</button><button class="btn-success" onclick="salvarProjeto()">Salvar</button></div>
+                    </div>
+                </div>
+</div>
+    <script src="js/core.js"></script>
+    <script src="js/cadastros.js"></script>
+    <script src="js/importexport.js"></script>
+<script>
+document.getElementById('panel-blank-state').style.display = 'none';
+alternarModulo('clientes');
+</script>
+</body></html>

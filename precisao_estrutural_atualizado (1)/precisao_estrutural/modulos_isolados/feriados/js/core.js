@@ -1,0 +1,1130 @@
+// =========================================================================
+// MELHORIA #17 (prompt_gemini.md §12.15) — CODINOME DE FUNCIONÁRIO
+//
+// Codinome = primeiro nome, derivado automaticamente (não é um campo
+// digitado — não existe funcionario.codinome no schema, é sempre
+// calculado a partir de funcionario.nome). `nome` continua sendo o
+// identificador interno único em TODO dado gravado (tarefa.executor,
+// tarefa.responsavel, projeto.analista/supervisor, chaves de
+// comparação) — nada disso muda. `nomeParaExibicao()` é usada SÓ na
+// hora de desenhar texto na tela — troca em TODO lugar que hoje mostra
+// o nome completo (cartão do Kanban, coluna de tabela, dropdown de
+// escolha de Executor/Responsável/Analista/Supervisor etc.), com UMA
+// exceção deliberada: a própria tela **Cadastro de Funcionários**
+// continua mostrando o nome completo na lista — é o registro-fonte de
+// nomes completos, não faz sentido resumir ali (e como o primeiro
+// nome já é garantido único pela validação de duplicidade em
+// salvarFuncionario(), não há ambiguidade em usar codinome no resto
+// do sistema).
+//
+// Testada em sandbox antes de aplicar em qualquer tela real
+// (/home/claude/testes/sandbox_backlog/rodar_teste_codinome.js, 9
+// cenários — inclusive colisão case-insensitive e edição não colidir
+// consigo mesma).
+// =========================================================================
+// Codinome voltou a ser campo digitado (cadastros.js) — obrigatório e
+// único, com migração retroativa preenchendo o primeiro nome pra quem
+// não tinha (ver migração v11, abaixo). O fallback aqui (split do
+// nome) só entra em cenários residuais: nome sem cadastro
+// correspondente encontrado, ou (por segurança) campo vazio.
+function nomeParaExibicao(nomeCompleto) {
+    if (!nomeCompleto) return '';
+    const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+    const f = funcionarios.find(x => x.nome === nomeCompleto);
+    if (f && f.codinome) return f.codinome;
+    return nomeCompleto.trim().split(/\s+/)[0];
+}
+
+// =========================================================================
+// MÓDULO: NÚCLEO (seeds, estado global, navegação entre painéis, boot)
+//
+// alternarModulo() foi MESCLADO: a versão original do index.html não
+// tinha ramos para 'clientes' / 'funcionarios' / 'projetos' — esses
+// módulos caíam no branch "else" genérico, que chamava
+// renderizarListaLegoComum(modulo) e lia a chave errada do localStorage
+// (ex: 'banco_clientes_lego' em vez de 'banco_clientes'). Isso é um bug
+// real que existia no index.html original antes desta reorganização.
+// Os branches de arvore/bi_calibracao/controladoria_global/catálogo lego
+// continuam com a lógica exatamente como estava.
+// =========================================================================
+
+// --- MIGRAÇÃO DE NOMENCLATURA (Fase→Etapa, Etapa→Setor, Sub-etapa→Pavimento) ---
+// Renomeia dados já salvos no localStorage do navegador de quem testou a
+// versão anterior, sem perder nada. Roda uma única vez; depois disso as
+// chaves antigas não existem mais e este bloco não faz nada.
+(function migrarNomenclaturaAntiga() {
+    if (localStorage.getItem('banco_fases_lego') && !localStorage.getItem('banco_etapas_lego')) {
+        localStorage.setItem('banco_etapas_lego', localStorage.getItem('banco_fases_lego'));
+        localStorage.removeItem('banco_fases_lego');
+    }
+    if (localStorage.getItem('banco_subetapas_lego') && !localStorage.getItem('banco_pavimentos_lego')) {
+        localStorage.setItem('banco_pavimentos_lego', localStorage.getItem('banco_subetapas_lego'));
+        localStorage.removeItem('banco_subetapas_lego');
+    }
+
+    // Árvores de projeto: troca as chaves de campo (fases→etapas, etapas→setores,
+    // subetapas→pavimentos) dentro de cada projeto salvo, recursivamente.
+    const marcador = 'banco_arvores_projetos_migrado_v2';
+    if (!localStorage.getItem(marcador)) {
+        try {
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            function migrarNo(no) {
+                if (!no || typeof no !== 'object') return no;
+                if (Array.isArray(no.fases)) {
+                    no.etapas = no.fases.map(f => {
+                        if (Array.isArray(f.etapas)) {
+                            f.setores = f.etapas.map(e => {
+                                if (Array.isArray(e.subetapas)) e.pavimentos = e.subetapas;
+                                delete e.subetapas;
+                                return e;
+                            });
+                        }
+                        delete f.etapas;
+                        return f;
+                    });
+                    delete no.fases;
+                }
+                return no;
+            }
+            Object.keys(arvores).forEach(k => migrarNo(arvores[k]));
+            localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcador, '1');
+    }
+
+    // Migração v3: campos físicos (tipo_pavimento/area_fisica/peso_esforco)
+    // moveram do nível Setor pro nível Pavimento, pra bater com o nome.
+    const marcadorV3 = 'banco_arvores_projetos_migrado_v3_nivel_pavimento';
+    if (!localStorage.getItem(marcadorV3)) {
+        try {
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            Object.values(arvores).forEach(proj => {
+                if (!Array.isArray(proj.etapas)) return;
+                proj.etapas.forEach(etapa => {
+                    if (!Array.isArray(etapa.setores)) return;
+                    etapa.setores.forEach(setor => {
+                        // Se o setor antigo tinha os campos físicos, empurra pro primeiro
+                        // pavimento (ou cria um pavimento "Geral" se não houver nenhum ainda).
+                        if (setor.tipo_pavimento !== undefined) {
+                            if (!Array.isArray(setor.pavimentos)) setor.pavimentos = [];
+                            if (setor.pavimentos.length === 0) {
+                                setor.pavimentos.push({ nome: 'Geral', tarefas: [] });
+                            }
+                            setor.pavimentos.forEach(pav => {
+                                if (pav.tipo_pavimento === undefined) {
+                                    pav.tipo_pavimento = setor.tipo_pavimento;
+                                    pav.area_fisica = setor.area_fisica;
+                                    pav.peso_esforco = setor.peso_esforco;
+                                }
+                            });
+                            delete setor.tipo_pavimento;
+                            delete setor.area_fisica;
+                            delete setor.peso_esforco;
+                        }
+                    });
+                });
+            });
+            localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV3, '1');
+    }
+
+    // Migração v4: campo "peso" do catálogo de Tarefas foi renomeado pra
+    // "pontos" (mesmo valor, nome novo — decisão de produto pra deixar
+    // claro que representa horas razoáveis / pontos de produtividade, não
+    // um peso físico como em Pavimentos).
+    const marcadorV4 = 'banco_tarefas_lego_migrado_v4_peso_para_pontos';
+    if (!localStorage.getItem(marcadorV4)) {
+        try {
+            const tarefasLego = JSON.parse(localStorage.getItem('banco_tarefas_lego')) || [];
+            tarefasLego.forEach(t => {
+                if (t.peso !== undefined && t.pontos === undefined) {
+                    t.pontos = t.peso;
+                    delete t.peso;
+                }
+                if (t.unidade_fisica === undefined) t.unidade_fisica = '';
+            });
+            localStorage.setItem('banco_tarefas_lego', JSON.stringify(tarefasLego));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV4, '1');
+    }
+
+    // Migração v5 (melhoria #5, prompt_gemini.md §12): Tarefas de Etapa
+    // "Única" já criadas antes dessa regra existir tinham executor
+    // livre — passam a ter o Analista do projeto correspondente, uma
+    // única vez (marcador evita rodar de novo e sobrescrever trocas
+    // legítimas feitas por um Administrador depois desta migração).
+    const marcadorV5 = 'banco_arvores_projetos_migrado_v5_executor_etapa_unica';
+    if (!localStorage.getItem(marcadorV5)) {
+        try {
+            const projetosCadastro = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+
+            Object.keys(arvores).forEach(nomeProjeto => {
+                const projetoCadastro = projetosCadastro.find(p => p.nome === nomeProjeto);
+                const nomeAnalista = projetoCadastro ? (projetoCadastro.analista || '') : '';
+                if (!nomeAnalista) return; // sem Analista cadastrado, não tem pra onde migrar — deixa como está
+
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+
+                arv.etapas.forEach(etapa => {
+                    if (etapa.tipo === 'unica' && Array.isArray(etapa.tarefas)) {
+                        etapa.tarefas.forEach(tarefa => {
+                            if (tarefa.executor !== nomeAnalista) {
+                                tarefa.executor = nomeAnalista;
+                                alterouArvores = true;
+                            }
+                        });
+                    }
+                });
+            });
+
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV5, '1');
+    }
+
+    // Migração v6 (melhoria #18, prompt_gemini.md §12.6): funcionários
+    // já cadastrados antes desse campo existir recebem uma
+    // `forma_pagamento` inicial, deduzida do Nível (administrador/
+    // supervisor/analista = comissionado; executor = hora) — só de
+    // largada, o campo continua editável depois pra cobrir exceções
+    // (decisão explícita do usuário: é campo independente, não fica
+    // preso ao Nível pra sempre).
+    const marcadorV6 = 'banco_funcionarios_migrado_v6_forma_pagamento';
+    if (!localStorage.getItem(marcadorV6)) {
+        try {
+            const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+            let alterouFuncionarios = false;
+            funcionarios.forEach(f => {
+                if (f.forma_pagamento === undefined) {
+                    f.forma_pagamento = (f.nivel === 'administrador' || f.nivel === 'supervisor' || f.nivel === 'analista') ? 'comissionado' : 'hora';
+                    alterouFuncionarios = true;
+                }
+            });
+            if (alterouFuncionarios) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionarios));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV6, '1');
+    }
+
+    // Migração v7 (melhoria #18, prompt_gemini.md §12.6): Tarefas já
+    // existentes (Subdivididas E Únicas) ganham `responsavel` = mesmo
+    // `executor` que já tinham, uma vez só — daí em diante o campo é
+    // independente (trocar o Executor só volta a sincronizar o
+    // Responsável enquanto ele não tiver sido customizado pra outra
+    // pessoa, ver aplicarAtribuicaoExecutorNaTarefa em
+    // atribuicao-tarefas.js).
+    const marcadorV7 = 'banco_arvores_projetos_migrado_v7_responsavel_tarefa';
+    if (!localStorage.getItem(marcadorV7)) {
+        try {
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+
+            function migrarResponsavelTarefa(tarefa) {
+                if (tarefa.responsavel === undefined) {
+                    tarefa.responsavel = tarefa.executor || '';
+                    alterouArvores = true;
+                }
+            }
+
+            Object.keys(arvores).forEach(nomeProjeto => {
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+                arv.etapas.forEach(etapa => {
+                    if (etapa.tipo === 'unica' && Array.isArray(etapa.tarefas)) {
+                        etapa.tarefas.forEach(migrarResponsavelTarefa);
+                    }
+                    (etapa.setores || []).forEach(setor => {
+                        (setor.pavimentos || []).forEach(pav => {
+                            (pav.tarefas || []).forEach(migrarResponsavelTarefa);
+                        });
+                    });
+                });
+            });
+
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV7, '1');
+    }
+
+    // Migração v8 (melhoria #18/#10, prompt_gemini.md §12.6): sessões de
+    // EXECUÇÃO que já estavam ativas ANTES dessa mudança
+    // (`sessao_ativa_inicio` existe, mas não o `sessao_ativa_quem`
+    // novo) recebem o Executor da própria tarefa como dono da sessão —
+    // sem isso, `localizarSessaoAtivaDaPessoa()` não acharia essa sessão
+    // pra ninguém (ficaria "órfã", sem dono, até alguém pausar na mão).
+    const marcadorV8 = 'banco_arvores_projetos_migrado_v8_sessao_ativa_quem';
+    if (!localStorage.getItem(marcadorV8)) {
+        try {
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+
+            function migrarSessaoAtivaQuem(tarefa) {
+                if (tarefa.sessao_ativa_inicio && tarefa.sessao_ativa_quem === undefined) {
+                    tarefa.sessao_ativa_quem = tarefa.executor || null;
+                    alterouArvores = true;
+                }
+            }
+
+            Object.keys(arvores).forEach(nomeProjeto => {
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+                arv.etapas.forEach(etapa => {
+                    if (etapa.tipo === 'unica' && Array.isArray(etapa.tarefas)) {
+                        etapa.tarefas.forEach(migrarSessaoAtivaQuem);
+                    }
+                    (etapa.setores || []).forEach(setor => {
+                        (setor.pavimentos || []).forEach(pav => {
+                            (pav.tarefas || []).forEach(migrarSessaoAtivaQuem);
+                        });
+                    });
+                });
+            });
+
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV8, '1');
+    }
+
+    // Migração v9 (pedido explícito do usuário, depois de encontrar o
+    // caso real "Duo Praia Brava" com executor "Carlos"/"Eliomar" —
+    // nomes que não existem mais no Cadastro de Funcionários):
+    // sobrescreve de vez, no dado gravado (não só na exibição — isso já
+    // tinha sido corrigido antes só como fallback de leitura em
+    // atribuicao-tarefas.js), qualquer `tarefa.executor`/
+    // `tarefa.responsavel`/`etapa.responsavel` que aponte pra um nome
+    // órfão. Mesma regra de fallback já fechada: Executor órfão vira o
+    // Detalhista do projeto (ou vazio, se o Detalhista também não
+    // existir/não estiver definido); Responsável órfão vira o
+    // Responsável da Etapa (se válido) ou o Analista do projeto (ou
+    // vazio). Roda uma vez só — depois disso o dado já está limpo,
+    // rodar de novo seria inofensivo mas desnecessário.
+    const marcadorV9 = 'banco_arvores_projetos_migrado_v9_nomes_orfaos';
+    if (!localStorage.getItem(marcadorV9)) {
+        try {
+            const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+            const projetosCadastro = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+
+            const nomeValido = (nome) => !!nome && funcionarios.some(f => f.nome === nome);
+
+            Object.keys(arvores).forEach(nomeProjeto => {
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+
+                const projCadastro = projetosCadastro.find(p => p.nome === nomeProjeto);
+                const detalhistaDoProjeto = (projCadastro && nomeValido(projCadastro.detalhista)) ? projCadastro.detalhista : '';
+                const analistaDoProjeto = (projCadastro && nomeValido(projCadastro.analista)) ? projCadastro.analista : '';
+
+                function corrigirTarefa(tarefa, etapaResponsavelValido) {
+                    if (tarefa.executor && !nomeValido(tarefa.executor)) {
+                        tarefa.executor = detalhistaDoProjeto;
+                        alterouArvores = true;
+                    }
+                    if (tarefa.responsavel && !nomeValido(tarefa.responsavel)) {
+                        tarefa.responsavel = etapaResponsavelValido || analistaDoProjeto;
+                        alterouArvores = true;
+                    }
+                }
+
+                arv.etapas.forEach(etapa => {
+                    if (etapa.responsavel && !nomeValido(etapa.responsavel)) {
+                        etapa.responsavel = '';
+                        alterouArvores = true;
+                    }
+                    const etapaResponsavelValido = (etapa.responsavel && nomeValido(etapa.responsavel)) ? etapa.responsavel : '';
+
+                    if (etapa.tipo === 'unica') {
+                        (etapa.tarefas || []).forEach(t => corrigirTarefa(t, ''));
+                        return;
+                    }
+                    (etapa.setores || []).forEach(setor => {
+                        (setor.pavimentos || []).forEach(pav => {
+                            (pav.tarefas || []).forEach(t => corrigirTarefa(t, etapaResponsavelValido));
+                        });
+                    });
+                });
+            });
+
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV9, '1');
+    }
+
+    // Migração v10 — bug real encontrado pelo usuário: os 3
+    // funcionários de exemplo (seed) já estavam salvos no localStorage
+    // de quem já tinha usado o sistema, SEM nenhum `nivel` — corrige o
+    // que já está gravado (a correção do array `funcionariosSeed`, mais
+    // abaixo neste arquivo, só vale pra quem parte de uma instalação
+    // nova/vazia, não alcança dado já salvo). Identifica pelo nome
+    // exato (só esses 3, não mexe em funcionário real cadastrado pelo
+    // usuário que porventura também esteja sem nível por outro motivo).
+    const marcadorV10 = 'banco_funcionarios_migrado_v10_seed_sem_nivel';
+    if (!localStorage.getItem(marcadorV10)) {
+        try {
+            const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+            const niveisSeedConhecidos = {
+                'Carlos Eduardo (Senior)': 'administrador',
+                'Fernanda Almeida (Pleno)': 'supervisor',
+                'Julia Santos (Estagiária)': 'executor'
+            };
+            let alterouFuncionarios = false;
+            funcionarios.forEach(f => {
+                if (!f.nivel && niveisSeedConhecidos[f.nome]) {
+                    f.nivel = niveisSeedConhecidos[f.nome];
+                    alterouFuncionarios = true;
+                }
+            });
+            if (alterouFuncionarios) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionarios));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV10, '1');
+    }
+
+    // Migração v11 — Codinome voltou a ser campo digitado (era
+    // calculado automático do primeiro nome antes). Pedido do usuário:
+    // funcionário já cadastrado sem `codinome` recebe o primeiro nome
+    // atual como valor inicial, uma vez só — editável depois, igual
+    // qualquer outro cadastro. Não resolve sozinho uma eventual colisão
+    // (dois "David", por exemplo) — a validação de único em
+    // salvarFuncionario() só vale daqui pra frente, pra quem editar;
+    // se dois migrados aqui ficarem com o mesmo codinome, precisa
+    // ajustar manualmente um deles no Cadastro de Funcionários.
+    const marcadorV11 = 'banco_funcionarios_migrado_v11_codinome_retroativo';
+    if (!localStorage.getItem(marcadorV11)) {
+        try {
+            const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+            let alterouFuncionarios = false;
+            funcionarios.forEach(f => {
+                if (!f.codinome && f.nome) {
+                    f.codinome = f.nome.trim().split(/\s+/)[0];
+                    alterouFuncionarios = true;
+                }
+            });
+            if (alterouFuncionarios) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionarios));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV11, '1');
+    }
+})();
+
+// --- SEEDS INICIAIS (idênticos ao index.html original, exceto o
+// campo `nivel` novo abaixo — bug real encontrado: os 3 funcionários
+// de exemplo nunca tiveram nível nenhum, e o login automático do
+// MODO_TESTE_SEM_LOGIN procura primeiro um Administrador; sem achar
+// nenhum, cai no primeiro da lista SEM nível reconhecido, travando
+// esse funcionário no menu mais restrito (Executor) — sem acesso a
+// Cadastros/Configurações, ou seja, sem NENHUM caminho pela interface
+// pra corrigir a própria situação (nem a tela de Restaurar Backup,
+// já que a de Login também é pulada nesse modo). `forma_pagamento`
+// não precisa ser adicionado aqui — a migração v6 já deriva
+// automaticamente pelo nível, na próxima vez que o app carregar.) ---
+const funcionariosSeed = [
+    { nome: "Carlos Eduardo (Senior)", codinome: "Carlos", cpf: "111.222.333-44", cargo: "Senior", hora: "100", nivel: "administrador" },
+    { nome: "Fernanda Almeida (Pleno)", codinome: "Fernanda", cpf: "222.333.444-55", cargo: "Pleno", hora: "50", nivel: "supervisor" },
+    { nome: "Julia Santos (Estagiária)", codinome: "Julia", cpf: "333.444.555-66", cargo: "Estagiária", hora: "25", nivel: "executor" }
+];
+const projetosSeed = [{ nome: "Residencial Excellence", prefixo: "PRJ-BC-01", cliente: "Pasqualotto & GT" }];
+const componentesSeed = {
+    etapas: [{ nome: "Detalhamento Estrutural" }],
+    setores: [{ nome: "Pavimento Térreo" }, { nome: "Tipo Padrão" }],
+    pavimentos: [{ nome: "Dimensionamento de Vigas" }],
+    tarefas: [{ nome: "Detalhamento de vigas", base_h: "2.0", pontos: "1.0", unidade_fisica: "m³" }]
+};
+
+if (!localStorage.getItem('banco_clientes')) localStorage.setItem('banco_clientes', JSON.stringify([{ nome: "Pasqualotto & GT Empreendimentos", cnpj: "17.234.567/0001-80" }]));
+if (!localStorage.getItem('banco_funcionarios')) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionariosSeed));
+if (!localStorage.getItem('banco_projetos')) localStorage.setItem('banco_projetos', JSON.stringify(projetosSeed));
+
+['etapas', 'setores', 'pavimentos', 'tarefas'].forEach(cat => {
+    if (!localStorage.getItem('banco_' + cat + '_lego')) localStorage.setItem('banco_' + cat + '_lego', JSON.stringify(componentesSeed[cat]));
+});
+
+if (!localStorage.getItem('banco_arvores_projetos')) localStorage.setItem('banco_arvores_projetos', JSON.stringify({}));
+if (!localStorage.getItem('banco_fator_coparticipacao')) localStorage.setItem('banco_fator_coparticipacao', "0.52");
+
+// --- ESTADO GLOBAL (idêntico ao index.html original) ---
+// As variáveis de cronômetro (tarefaAtivaCronometro, ponteiroIntervalId,
+// tempoDecorridoSessao, timestampInicioSessao, pingIntervalId,
+// pingCountdownIntervalId) foram movidas pra js_estacionado/timesheet_executor.js
+// junto com a engine que as usa — ver nota lá.
+const relacaoIndicesDesempenho = ["m2 (Área de Laje)", "un (Nº de Elementos/Vigas)", "kg (Peso de Aço)", "m3 (Volume de Concreto)"];
+let nosRecolhidosEstado = {};
+let projetoSelecionadoAtivo = "";
+
+// --- NAVEGAÇÃO ---
+// toggleArvoreCadastro() e escolherOpcaoCadastro() (do antigo submenu
+// em cascata de Cadastro) removidas — a tela de Cadastro agora é
+// #panel-cadastro com abas internas, aberta direto por
+// alternarModulo('cadastro') e trocada por alternarAbaCadastro().
+
+function limparWorkspace() {
+    if (typeof fecharSessaoCronometroSilencioso === 'function') fecharSessaoCronometroSilencioso();
+    document.querySelectorAll('.sidebar .menu-item, .submenu .menu-item').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-blank-state').style.display = 'flex';
+    document.getElementById('page-context-title').innerText = "Aguardando Ação";
+
+    // Usa as funções de renderização completas (com clique para editar e excluir)
+    // em vez da renderização simplificada e somente-leitura que existia antes.
+    renderizarTabelaClientes();
+    renderizarTabelaFuncionarios();
+    renderizarTabelaProjetos();
+}
+
+function filtrarTabela(modulo) {
+    const filter = document.getElementById('search-' + modulo).value.toLowerCase();
+    const rows = document.getElementById('tabela-' + modulo + '-body').getElementsByTagName('tr');
+    for (let i = 0; i < rows.length; i++) rows[i].style.display = rows[i].innerText.toLowerCase().indexOf(filter) > -1 ? "" : "none";
+}
+
+// Cadastro em abas (pedido do usuário) — substitui o antigo menu em
+// cascata (7 itens sempre visíveis na barra lateral) por 1 item só
+// ("📝 Cadastro"), que abre uma tela com essas 7 abas dentro.
+const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'setores', 'pavimentos', 'tarefas'];
+let cadAbaAtiva = 'clientes'; // lembra a última aba usada, mesmo padrão de aprovAbaAtiva (aprovacoes-calendario.js)
+
+function abrirAbaCadastro(modulo) {
+    cadAbaAtiva = modulo;
+    const painelCadastro = document.getElementById('panel-cadastro');
+    if (painelCadastro) painelCadastro.style.display = 'flex';
+
+    // Esconde os 10 sub-painéis (3 pares lista/form + 4 só-lista),
+    // mostra só a "-lista" da aba escolhida — a "-form" (editar/criar)
+    // continua sendo aberta à parte por abrirFormulario()/fecharFormulario(),
+    // que já existiam e não precisaram mudar.
+    document.querySelectorAll('.sub-panel-cadastro').forEach(p => p.style.display = 'none');
+    const painelLista = document.getElementById('panel-' + modulo + '-lista');
+    if (painelLista) painelLista.style.display = 'flex';
+
+    ABAS_CADASTRO.forEach(m => {
+        const aba = document.getElementById('cad-aba-' + m);
+        if (aba) aba.classList.toggle('aprov-aba-ativa', m === modulo);
+    });
+
+    const titulosPorAba = {
+        clientes: 'Gestão de Clientes',
+        funcionarios: 'Gestão de Funcionários',
+        projetos: 'LISTA DE PROJETOS',
+        etapas: 'Gestão de ETAPAS',
+        setores: 'Gestão de SETORES',
+        pavimentos: 'Gestão de PAVIMENTOS',
+        tarefas: 'Gestão de TAREFAS'
+    };
+    document.getElementById('page-context-title').innerText = titulosPorAba[modulo] || 'Cadastro';
+
+    if (modulo === 'clientes') renderizarTabelaClientes();
+    else if (modulo === 'funcionarios') renderizarTabelaFuncionarios();
+    else if (modulo === 'projetos') renderizarTabelaProjetos();
+    else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
+}
+
+function alternarModulo(modulo) {
+    document.getElementById('panel-blank-state').style.display = 'none';
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+
+    if (document.getElementById('nav-' + modulo)) document.getElementById('nav-' + modulo).classList.add('active');
+
+    if (modulo === 'arvore') {
+        document.getElementById('panel-arvore-projetos').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Estrutura de Projeto Construtiva";
+        // Sempre volta pra tela "Escolha o projeto estrutural" ao reabrir
+        // o menu — antes ficava mostrando o último projeto aberto, o que
+        // a diretoria achou confuso. fecharProjetoAtivoNaArvore() já faz
+        // exatamente esse reset (e é seguro chamar mesmo na primeiríssima
+        // vez, antes de qualquer projeto ter sido aberto).
+        fecharProjetoAtivoNaArvore();
+        renderizerProjetosParaSelecaoArvore();
+    } else if (modulo === 'bi_calibracao') {
+        document.getElementById('panel-bi-calibracao').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Business Intelligence - Catálogo Base";
+        renderizarPainelCalibracaoBI();
+    } else if (modulo === 'controladoria_global') {
+        document.getElementById('panel-controladoria-global').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Controladoria - Distribuição Periódica";
+        renderizarControladoriaGlobalFechamento();
+    } else if (modulo === 'distribuicao_custos') {
+        document.getElementById('panel-distribuicao-custos').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Distribuição de Custos";
+        carregarPainelDistribuicaoCustos();
+    } else if (modulo === 'atribuicao_tarefas') {
+        document.getElementById('panel-atribuicao-tarefas').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Atribuição de Tarefas";
+        carregarPainelAtribuicaoTarefas();
+    } else if (modulo === 'kanban') {
+        document.getElementById('panel-kanban').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Kanban";
+        carregarPainelKanban();
+    } else if (modulo === 'aprovacoes_calendario') {
+        document.getElementById('panel-aprovacoes_calendario').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Aprovações";
+        renderizarPainelAprovacoes();
+    } else if (modulo === 'relatorios') {
+        document.getElementById('panel-relatorios').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Relatórios";
+        carregarPainelRelatorios();
+    } else if (modulo === 'feriados') {
+        document.getElementById('panel-feriados').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Feriados";
+        carregarPainelFeriados();
+    } else if (modulo === 'cadastro') {
+        // Item novo do menu — abre a tela de Cadastro em abas, na
+        // última aba usada (ou "clientes" na primeira vez).
+        abrirAbaCadastro(cadAbaAtiva);
+    } else if (ABAS_CADASTRO.includes(modulo)) {
+        // As 7 abas de dentro de #panel-cadastro (Clientes,
+        // Funcionários, Projetos, Etapas, Setores, Pavimentos, Tarefas)
+        // chamam alternarModulo(modulo) direto — mesma função que
+        // fecharFormulario() já chama pra voltar da tela de edição pra
+        // lista, sem precisar de um caminho separado.
+        abrirAbaCadastro(modulo);
+    } else if (modulo === 'progresso') {
+        document.getElementById('panel-progresso').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Dashboard";
+        if (typeof renderizarPainelProgresso === 'function') renderizarPainelProgresso();
+    } else if (modulo === 'configuracoes') {
+        document.getElementById('panel-configuracoes').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Configurações";
+    }
+
+    if (typeof aplicarMascarasLocais === 'function') aplicarMascarasLocais();
+}
+
+// --- BACKUP E RESTAURAÇÃO COMPLETA ---
+// Sistema todo baseado em localStorage (sem servidor) — se o navegador
+// perder esses dados (limpeza de cache, troca de máquina, etc.), não
+// existe outro lugar pra recuperar. Toda chave relevante do sistema
+// segue a convenção `banco_*` (sem exceção — conferido em julho/2026),
+// então não precisamos manter uma lista fixa de chaves aqui: qualquer
+// chave nova que algum módulo futuro criar já entra automaticamente no
+// backup, desde que siga a mesma convenção de prefixo.
+
+// Monta o payload do backup — função pura (recebe as chaves e um
+// getter, não lê localStorage direto), testável isolada.
+function montarPayloadBackup(chavesLocalStorage, getItem) {
+    const dados = {};
+    chavesLocalStorage.forEach(chave => {
+        if (chave.indexOf('banco_') === 0) dados[chave] = getItem(chave);
+    });
+    return { versao: 1, dataExportacao: new Date().toISOString(), dados: dados };
+}
+
+function baixarBackupCompleto() {
+    const payload = montarPayloadBackup(Object.keys(localStorage), k => localStorage.getItem(k));
+
+    if (Object.keys(payload.dados).length === 0) {
+        alert('Não há dados pra fazer backup ainda.');
+        return;
+    }
+
+    const dataArquivo = payload.dataExportacao.slice(0, 10); // "AAAA-MM-DD"
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'backup_precisao_estrutural_' + dataArquivo + '.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}
+
+// Confere se o arquivo escolhido parece mesmo um backup deste sistema
+// antes de mexer em qualquer coisa. Função pura, testável isolada.
+function validarPayloadBackup(payload) {
+    if (!payload || typeof payload !== 'object') return 'Arquivo inválido: não é um JSON válido.';
+    if (!payload.dados || typeof payload.dados !== 'object') return 'Arquivo inválido: não parece um backup deste sistema.';
+    if (Object.keys(payload.dados).length === 0) return 'Arquivo de backup está vazio.';
+    return null; // válido
+}
+
+// Aplica a restauração de verdade — LIMPA toda chave `banco_*` que já
+// existe (a restauração é um "ponto no tempo", não uma mesclagem: dado
+// criado DEPOIS do backup não deveria sobreviver à restauração) e
+// grava só o que estava no arquivo. Função pura (recebe as chaves
+// atuais e setters/removedores), testável isolada.
+function aplicarRestauracao(payload, chavesAtuais, setItem, removeItem) {
+    chavesAtuais.forEach(chave => {
+        if (chave.indexOf('banco_') === 0) removeItem(chave);
+    });
+    Object.keys(payload.dados).forEach(chave => {
+        setItem(chave, payload.dados[chave]);
+    });
+}
+
+// Lê, valida e confirma um arquivo de backup — lógica COMUM aos dois
+// pontos de entrada: a tela de Configurações (já logado, ver
+// restaurarBackupCompleto()) e a tela de Login (pra "bootstrap" de uma
+// instalação nova, sem NENHUM funcionário cadastrado ainda — ver
+// restaurarBackupDoLogin(), abaixo). Só chama `aoConfirmar()` depois de
+// tudo validado e a pessoa ter confirmado o aviso de que é destrutivo.
+function processarArquivoDeBackup(arquivo, aoConfirmar) {
+    if (!arquivo) {
+        alert('Escolha um arquivo de backup primeiro.');
+        return;
+    }
+
+    const leitor = new FileReader();
+    leitor.onload = function (e) {
+        let payload;
+        try {
+            payload = JSON.parse(e.target.result);
+        } catch (erro) {
+            alert('Arquivo inválido: não é um JSON válido.');
+            return;
+        }
+
+        const erroValidacao = validarPayloadBackup(payload);
+        if (erroValidacao) {
+            alert(erroValidacao);
+            return;
+        }
+
+        const confirmar = confirm(
+            'Isso vai APAGAR os dados atuais deste navegador e substituir pelos do arquivo ' +
+            '(backup de ' + (payload.dataExportacao ? payload.dataExportacao.slice(0, 10) : 'data desconhecida') + '). ' +
+            'Não tem como desfazer. Continuar?'
+        );
+        if (!confirmar) return;
+
+        aplicarRestauracao(
+            payload,
+            Object.keys(localStorage),
+            (k, v) => localStorage.setItem(k, v),
+            (k) => localStorage.removeItem(k)
+        );
+
+        aoConfirmar();
+    };
+    leitor.readAsText(arquivo, 'UTF-8');
+}
+
+// Ponto de entrada 1: tela de Configurações, JÁ LOGADO. Restrita a
+// Administrador — ação destrutiva de sistema inteiro, trava de bom
+// senso mesmo sem segurança real por trás.
+function restaurarBackupCompleto() {
+    if (usuarioLogado && usuarioLogado.nivel !== 'administrador') {
+        alert('Só o Administrador pode restaurar um backup.');
+        return;
+    }
+
+    const inputEl = document.getElementById('config-arquivo-restauracao');
+    processarArquivoDeBackup(inputEl.files[0], function () {
+        alert('Backup restaurado. A página vai recarregar agora.');
+        location.reload();
+    });
+}
+
+// Ponto de entrada 2: tela de LOGIN, ANTES de entrar — pra quando
+// alguém abre o sistema pela primeira vez numa máquina nova (mandaram
+// o .zip pra um colaborador, por exemplo) e o localStorage está
+// completamente vazio, sem NENHUM funcionário cadastrado. Nesse caso
+// não tem como logar de jeito nenhum (não existe ninguém pra bater a
+// senha), então também não tem como chegar na tela de Configurações —
+// esse caminho existe justamente pra resolver esse "ovo e galinha".
+// Sem checagem de nível (não tem ninguém logado ainda, por definição).
+function restaurarBackupDoLogin(inputEl) {
+    processarArquivoDeBackup(inputEl.files[0], function () {
+        alert('Backup restaurado. A página vai recarregar — entre com seu usuário e senha normalmente.');
+        location.reload();
+    });
+}
+
+
+// Duas por enquanto — ambas idempotentes (rodar de novo em dados já
+// migrados não faz nada) e só gravam de volta no localStorage se
+// encontraram algo pra migrar de verdade. Rodam sempre no boot.
+
+// 1) Renomear o status "Pendente de Validação" pra "Para revisão" em
+// qualquer tarefa já salva no localStorage de uma sessão anterior (o
+// rótulo mudou, mas o VALOR gravado em tarefa.status precisa
+// acompanhar — senão a tarefa salva com o nome antigo não bate com
+// nenhuma coluna/filtro do sistema depois da mudança).
+function migrarStatusPendenteValidacao() {
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    let alterou = false;
+
+    Object.keys(todas).forEach(nomeProjeto => {
+        const arv = todas[nomeProjeto];
+        if (!Array.isArray(arv.etapas)) return;
+        arv.etapas.forEach(etapa => {
+            (etapa.setores || []).forEach(setor => {
+                (setor.pavimentos || []).forEach(pav => {
+                    (pav.tarefas || []).forEach(tarefa => {
+                        if (tarefa.status === 'Pendente de Validação') {
+                            tarefa.status = 'Para revisão';
+                            alterou = true;
+                        }
+                    });
+                });
+            });
+        });
+    });
+
+    if (alterou) localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
+}
+
+// Converte "DD/MM/AAAA" (formato de texto com máscara usado nos campos
+// de data desse formulário — ver aplicarMascarasLocais() em
+// cadastros.js) pro formato ISO "AAAA-MM-DD" usado em todo o resto do
+// sistema (Data Prevista, Data de Início, vigência de valor da hora,
+// etc). Retorna '' se a data não estiver completa/bem formada — nunca
+// quebra, só falha silenciosamente (quem chama decide o fallback).
+function converterDataSlashesParaISO(dataSlashes) {
+    if (!dataSlashes) return '';
+    const partes = dataSlashes.split('/');
+    if (partes.length !== 3) return '';
+    const [dia, mes, ano] = partes;
+    if (dia.length !== 2 || mes.length !== 2 || ano.length !== 4) return '';
+    return ano + '-' + mes + '-' + dia;
+}
+
+// 2) Converter o campo único antigo `funcionario.hora` (um valor só,
+// pra sempre) no novo histórico `funcionario.historico_valor_hora`
+// (array de {valor, data_vigencia} — ver feriados.js::valorHoraVigente()).
+// A data de vigência da entrada migrada usa `dt_inicio` do funcionário
+// (é o valor que ele tinha desde que começou, pelo que sabemos) —
+// convertido de "DD/MM/AAAA" (formato do campo com máscara) pro ISO.
+// Sem `dt_inicio` válido, usa uma sentinela bem antiga (2000-01-01) pra
+// valer desde sempre. Funcionário que já tem histórico (cadastrado ou
+// editado depois dessa mudança existir) não é tocado; funcionário sem
+// nenhum valor antigo (`hora` vazio/zero) simplesmente não tem nada pra
+// migrar — fica sem histórico até alguém cadastrar o primeiro valor
+// pela tela.
+function migrarValorHoraParaHistorico() {
+    const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+    let alterou = false;
+
+    funcionarios.forEach(f => {
+        const jaTemHistorico = Array.isArray(f.historico_valor_hora) && f.historico_valor_hora.length > 0;
+        if (jaTemHistorico) return;
+        const valorAntigo = parseFloat(f.hora);
+        if (!valorAntigo || valorAntigo <= 0) return;
+        const dataVigenciaIso = converterDataSlashesParaISO(f.dt_inicio) || '2000-01-01';
+        f.historico_valor_hora = [{
+            valor: valorAntigo,
+            data_vigencia: dataVigenciaIso
+        }];
+        alterou = true;
+    });
+
+    if (alterou) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionarios));
+}
+
+// --- LOGIN E SESSÃO ---
+// Sistema 100% client-side, sem servidor por trás — a senha fica em
+// texto puro no `localStorage` (dentro de `banco_funcionarios`) e a
+// comparação também é feita aqui mesmo, no navegador. Isso NÃO é
+// segurança de verdade (qualquer um com acesso ao navegador/DevTools
+// consegue ler ou contornar) — é uma trava de conveniência/organização,
+// consistente com o resto do sistema (nada tinha proteção nenhuma até
+// =========================================================================
+// ⚠️ MODO TESTE SEM LOGIN — TEMPORÁRIO, REVERTER ANTES DE QUALQUER USO
+// REAL/MULTIUSUÁRIO ⚠️
+//
+// Pedido explícito do usuário: chato digitar login/senha a cada teste e
+// ter que lembrar nome de analista/executor pra testar restrição de
+// acesso. Enquanto `true`:
+// - A tela de login (#tela-login) nunca aparece.
+// - O sistema entra automaticamente com a última identidade escolhida
+//   (`banco_identidade_teste_atual` no localStorage), ou o primeiro
+//   Administrador cadastrado se não houver nenhuma escolha salva ainda.
+// - O nome no canto superior direito vira um <select> com TODOS os
+//   funcionários cadastrados — trocar a seleção troca `usuarioLogado`
+//   de verdade (aplicando as restrições normais por nível) e recarrega
+//   a página, SEM PEDIR SENHA NENHUMA.
+//
+// Isso contradiz uma decisão explícita anterior (ver comentário logo
+// abaixo, em `usuarioLogado`: "o sistema SEMPRE pede login de novo a
+// cada abertura da página, não 'lembra' quem estava logado antes") —
+// por isso esse flag único, fácil de reverter (`false`) quando o teste
+// acabar, sem precisar desfazer nada manualmente.
+//
+// **NUNCA implantar em produção/multiusuário com esse flag em `true`**
+// — qualquer pessoa com acesso ao navegador vira qualquer funcionário
+// instantaneamente, sem senha nenhuma.
+const MODO_TESTE_SEM_LOGIN = true;
+
+// essa rodada). Ciente e combinado com o usuário.
+//
+// `usuarioLogado` fica só em memória (variável `let` no topo do
+// arquivo, NUNCA gravada em localStorage/sessionStorage) — por decisão
+// explícita do usuário, o sistema SEMPRE pede login de novo a cada
+// abertura da página, não "lembra" quem estava logado antes.
+let usuarioLogado = null;
+
+function normalizarCPF(valor) {
+    return (valor || '').replace(/\D/g, '');
+}
+
+// Função pura (não mexe em DOM, testável isolada) — encontra o
+// funcionário que bate com o identificador (aceita CPF OU nome, com ou
+// sem formatação, case-insensitive pro nome) e confere a senha.
+// Funcionário desligado (`dt_desligamento` preenchida) nunca consegue
+// entrar, mesmo com credenciais corretas.
+function autenticarFuncionario(funcionarios, identificador, senha) {
+    const idNormalizado = (identificador || '').trim();
+    const idCpfNormalizado = normalizarCPF(idNormalizado);
+    const idNomeNormalizado = idNormalizado.toLowerCase();
+
+    const candidato = funcionarios.find(f => {
+        const cpfBate = idCpfNormalizado && normalizarCPF(f.cpf) === idCpfNormalizado;
+        const nomeBate = (f.nome || '').trim().toLowerCase() === idNomeNormalizado;
+        return cpfBate || nomeBate;
+    });
+
+    if (!candidato) return { sucesso: false, motivo: 'Funcionário não encontrado.' };
+    if (candidato.dt_desligamento && candidato.dt_desligamento.trim() !== '') {
+        return { sucesso: false, motivo: 'Funcionário desligado não pode acessar o sistema.' };
+    }
+    if ((candidato.senha || '') !== senha) return { sucesso: false, motivo: 'Senha incorreta.' };
+
+    return { sucesso: true, funcionario: candidato };
+}
+
+function tentarLogin() {
+    const identificador = document.getElementById('login-identificador').value;
+    const senha = document.getElementById('login-senha').value;
+    const erroEl = document.getElementById('login-erro');
+
+    if (!identificador.trim() || !senha) {
+        erroEl.innerText = 'Preencha os dois campos.';
+        return;
+    }
+
+    const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+    const resultado = autenticarFuncionario(funcionarios, identificador, senha);
+
+    if (!resultado.sucesso) {
+        erroEl.innerText = resultado.motivo;
+        return;
+    }
+
+    erroEl.innerText = '';
+    usuarioLogado = resultado.funcionario;
+    document.getElementById('tela-login').style.display = 'none';
+    document.getElementById('login-senha').value = ''; // não deixa a senha digitada sobrando no campo à toa
+
+    const cabecalho = document.getElementById('cabecalho-usuario-logado');
+    if (cabecalho) {
+        cabecalho.innerHTML = '👤 ' + nomeParaExibicao(usuarioLogado.nome) +
+            ' <span style="color:#94a3b8;">(' + usuarioLogado.nivel + ')</span> ' +
+            '<button type="button" onclick="sair()" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">Sair</button>';
+    }
+
+    iniciarAppPosLogin();
+    aplicarPermissoesMenu();
+    abrirTelaInicialPorNivel();
+}
+
+// "Sair" — como não existe sessão persistida em lugar nenhum (fora do
+// MODO TESTE SEM LOGIN, ver acima), recarregar a página já basta: some
+// o `usuarioLogado` (era só uma variável em memória) e a tela de login
+// volta a aparecer, do jeito que já começa por padrão. No modo teste,
+// "Sair" limpa a identidade escolhida (volta pro padrão — primeiro
+// Administrador) em vez de voltar pra tela de login, que nem aparece
+// mais nesse modo.
+function sair() {
+    if (MODO_TESTE_SEM_LOGIN) {
+        localStorage.removeItem('banco_identidade_teste_atual');
+    }
+    location.reload();
+}
+
+// Troca a identidade ativa no MODO TESTE SEM LOGIN — sem senha nenhuma,
+// de propósito (ver aviso no topo do arquivo). Salva a escolha e
+// recarrega a página inteira (mais simples e seguro que tentar ajustar
+// o estado da tela atual na hora — evita, por exemplo, ficar numa
+// Árvore de um projeto que a identidade nova não tem permissão de ver).
+function trocarIdentidadeTeste(nomeFuncionario) {
+    localStorage.setItem('banco_identidade_teste_atual', nomeFuncionario);
+    location.reload();
+}
+
+// Monta o <select> de identidade no canto superior direito — substitui
+// o texto fixo "👤 Nome (nível)" que aparecia depois do tentarLogin()
+// normal. Só usado no MODO TESTE SEM LOGIN.
+function renderizarCabecalhoIdentidadeTeste() {
+    const funcionarios = (JSON.parse(localStorage.getItem('banco_funcionarios')) || [])
+        .slice()
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    const opcoes = funcionarios.map(f =>
+        '<option value="' + f.nome.replace(/"/g, '&quot;') + '"' + (usuarioLogado && f.nome === usuarioLogado.nome ? ' selected' : '') + '>' + nomeParaExibicao(f.nome) + ' (' + f.nivel + ')</option>'
+    ).join('');
+
+    const cabecalho = document.getElementById('cabecalho-usuario-logado');
+    if (!cabecalho) return;
+    cabecalho.innerHTML =
+        '<span style="color:#f59e0b; font-weight:bold;" title="Login suspenso temporariamente pra facilitar testes — ver prompt_gemini.md">🧪 TESTE</span>' +
+        '<select onchange="trocarIdentidadeTeste(this.value)" style="background:#0f223f; color:#fff; border:1px solid #475569; border-radius:4px; padding:3px 6px; font-size:11px;">' + opcoes + '</select>' +
+        '<button type="button" onclick="sair()" title="Volta pro Administrador padrão" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">↺ Resetar</button>';
+}
+
+// --- CONTROLE DE ACESSO: RODADA 2 (esconder telas por nível) ---
+// Mapa fechado com o usuário (ver seção 3.1/11 do prompt_gemini.md).
+// Ainda SEM restrição por projeto (isso é a Rodada 3 — Analista já
+// aparece aqui com acesso à Árvore/Distribuição/Atribuição, só que por
+// enquanto sem filtrar POR PROJETO qual delas ele vê).
+//
+// "Sem entrada no mapa = nada" — nível desconhecido/vazio (não deveria
+// acontecer, já que o campo é um <select> fechado, mas defensivo) cai
+// no fallback `|| []`, ou seja, falha FECHADA (esconde tudo) em vez de
+// aberta.
+const MENU_POR_NIVEL = {
+    administrador: ['nav-cadastro', 'nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios', 'nav-feriados', 'nav-fundo-global', 'nav-bi-calibracao'],
+    supervisor: ['nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios'],
+    analista: ['nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios'],
+    executor: ['nav-kanban']
+};
+
+// Todos os itens de menu que participam do controle de acesso (Dashboard
+// e Configurações ficam de fora de propósito — são acessíveis pra
+// qualquer nível, sempre).
+const TODOS_ITENS_MENU_CONTROLADOS = ['nav-cadastro', 'nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios', 'nav-feriados', 'nav-fundo-global', 'nav-bi-calibracao'];
+
+// Função pura (não mexe em DOM, testável isolada): dado um nível,
+// devolve o Set de ids de menu que ele pode ver.
+function determinarMenuVisivel(nivel) {
+    return new Set(MENU_POR_NIVEL[nivel] || []);
+}
+
+// Esconde/mostra os itens de menu conforme o nível do usuário logado.
+// Chamada uma vez, logo depois do login — o menu não muda mais durante
+// a sessão (não precisa recalcular a cada navegação).
+function aplicarPermissoesMenu() {
+    if (!usuarioLogado) return;
+
+    const permitidos = determinarMenuVisivel(usuarioLogado.nivel);
+
+    TODOS_ITENS_MENU_CONTROLADOS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = permitidos.has(id) ? '' : 'none';
+    });
+
+    // (O antigo submenu em cascata de Cadastro foi removido — virou
+    // abas dentro de #panel-cadastro, controladas em alternarModulo(),
+    // usando a mesma permissão de 'nav-cadastro' que já é aplicada
+    // acima, no forEach de TODOS_ITENS_MENU_CONTROLADOS.)
+}
+
+// Melhorias #8/#11 revisadas (prompt_gemini.md §12.9): em vez de cair
+// na tela em branco "Aguardando Ação" (panel-blank-state) depois do
+// login (ou troca de identidade, no MODO_TESTE_SEM_LOGIN — troca
+// sempre passa por aqui de novo, via location.reload()), abre direto
+// o PRÓPRIO Kanban — pra TODOS os níveis, sem exceção (antes só
+// `executor` ia pro Kanban, os demais iam pra Árvore; revertido a
+// pedido explícito do usuário). `carregarPainelKanban()` já
+// pré-seleciona o próprio nome no dropdown (melhoria #7).
+function abrirTelaInicialPorNivel() {
+    if (!usuarioLogado) return;
+    alternarModulo('kanban');
+}
+
+// --- CONTROLE DE ACESSO: RODADA 3 (restringir por projeto) ---
+// Só Analista tem restrição de projeto — Administrador e Supervisor
+// veem tudo (Supervisor: mesmo tipo de acesso do Analista, mas SEM essa
+// restrição, por decisão explícita do usuário). Executor nem chega
+// nessas telas (a restrição dele já é a tela inteira, ver Rodada 2).
+//
+// Retorna `null` quando NÃO há restrição (usuário não logado — módulo
+// isolado sem tela de login, ou nível diferente de 'analista') — quem
+// chama trata `null` como "sem filtro, mostra tudo". Retorna um `Set`
+// (que pode ser VAZIO, se o analista não tiver nenhum projeto atribuído
+// ainda) quando a restrição está ativa.
+function obterNomesProjetosPermitidos() {
+    if (!usuarioLogado || usuarioLogado.nivel !== 'analista') return null;
+
+    const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    return new Set(
+        projetos
+            .filter(p => (p.analista || '').trim() === (usuarioLogado.nome || '').trim())
+            .map(p => p.nome)
+    );
+}
+
+// --- STATUS DE LIBERAÇÃO DO PROJETO (item 3 da Rodada de Comentários da
+// Gerência, ver prompt_gemini.md §12) ---
+// `projeto.status_liberacao`: 'em_analise' | 'liberado'. Motivação do
+// usuário: "o projeto só começa a ser detalhado depois que a análise é
+// concluída" — não faz sentido tarefas de um projeto ainda em análise
+// aparecerem na Atribuição de Tarefas pra distribuir a executores. NÃO
+// afeta a Árvore de Projeto — ela continua editável livremente o tempo
+// todo, o bloqueio é só de VISIBILIDADE na Atribuição de Tarefas.
+//
+// Ausência do campo (`undefined`) é tratada como LIBERADO, de propósito
+// — projetos criados ANTES desse recurso existir não podem "sumir" da
+// Atribuição de Tarefas do nada; só projetos NOVOS nascem em
+// 'em_analise' (ver cadastros.js::salvarProjeto()). Quem alterna:
+// Analista, Supervisor ou Administrador — controle vive na Árvore de
+// Projeto (arvore.js::alternarStatusLiberacaoProjeto()), não no
+// Cadastro de Projetos, porque Analista não tem acesso a Cadastros mas
+// precisa poder liberar os próprios projetos.
+function projetoEstaLiberadoParaDetalhamento(nomeProjeto) {
+    const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    const p = projetos.find(x => x.nome === nomeProjeto);
+    if (!p) return true; // projeto não encontrado — não bloqueia (defensivo)
+    return (p.status_liberacao || 'liberado') !== 'em_analise';
+}
+
+
+// Tudo que antes rodava direto no window.onload agora só roda DEPOIS
+// que tentarLogin() confirma as credenciais — o app inteiro fica
+// escondido atrás da tela de login (#tela-login, z-index bem alto) até
+// esse momento.
+function iniciarAppPosLogin() {
+    migrarStatusPendenteValidacao();
+    migrarValorHoraParaHistorico();
+    limparWorkspace();
+    ['etapas', 'setores', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
+    if (typeof atualizarBadgePendenciasAprovacoes === 'function') atualizarBadgePendenciasAprovacoes();
+}
+
+// --- BOOT ---
+window.onload = function () {
+    const campoId = document.getElementById('login-identificador');
+    if (campoId) {
+        if (MODO_TESTE_SEM_LOGIN) {
+            // Escolhe a identidade salva (ou o primeiro Administrador,
+            // se não houver nenhuma escolha ainda) e entra direto, sem
+            // mostrar a tela de login nenhuma vez. Testado isolado em
+            // /home/claude/testes/teste_modo_teste_sem_login.js.
+            const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+            const nomeSalvo = localStorage.getItem('banco_identidade_teste_atual');
+            // Reforço de robustez (depois do bug real do seed sem
+            // nível): prioriza identidade salva -> qualquer
+            // Administrador -> qualquer funcionário com nível
+            // RECONHECIDO (evita cair num sem nível nenhum, que
+            // travaria o menu no mais restrito sem escapatória) ->
+            // só em último caso, o primeiro da lista, nível ou não.
+            let identidade = funcionarios.find(f => f.nome === nomeSalvo);
+            if (!identidade) identidade = funcionarios.find(f => f.nivel === 'administrador');
+            if (!identidade) identidade = funcionarios.find(f => f.nivel);
+            if (!identidade) identidade = funcionarios[0];
+
+            if (identidade) {
+                usuarioLogado = identidade;
+                document.getElementById('tela-login').style.display = 'none';
+                iniciarAppPosLogin();
+                aplicarPermissoesMenu();
+                renderizarCabecalhoIdentidadeTeste();
+                abrirTelaInicialPorNivel();
+                return;
+            }
+            // Nenhum funcionário cadastrado ainda (instalação nova) —
+            // sem quem "logar" automaticamente, cai pra tela de login
+            // normal (que também serve pra restaurar backup).
+        }
+        // App principal (index.html), com a tela de login de verdade —
+        // só foca o campo, pra digitar direto sem precisar clicar. O
+        // resto do boot (migrações, etc.) só roda depois do login — ver
+        // iniciarAppPosLogin() e tentarLogin() acima.
+        campoId.focus();
+    } else {
+        // Módulo isolado (modulos_isolados/*), sem tela de login própria
+        // — não faz sentido exigir autenticação numa página feita só
+        // pra testar UM módulo isoladamente. Pula direto pro boot
+        // normal, como sempre funcionou antes do login existir.
+        iniciarAppPosLogin();
+    }
+};

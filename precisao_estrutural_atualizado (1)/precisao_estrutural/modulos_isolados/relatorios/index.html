@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo isolado: Relatórios</title>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        body { display:block; padding: 20px; }
+        .harness-header { background:#0a192f; color:#fff; padding:14px 20px; border-radius:8px; margin-bottom:16px; font-weight:bold; }
+        .harness-nav { display:flex; gap:10px; margin-bottom:20px; }
+        .harness-nav .menu-item { background:#fff; border:1px solid #cbd5e1; padding:8px 16px; border-radius:6px; cursor:pointer; }
+        .harness-nav .menu-item:hover { background:#e2e8f0; }
+        .content-panel { display:none; flex-direction:column; gap:14px; background:#fff; padding:20px; border-radius:8px; min-height:400px; }
+        #page-context-title { font-weight:bold; margin-bottom:10px; }
+    </style>
+</head>
+<body>
+    <div style="max-width:1300px; margin:0 auto;">
+        <div class="harness-header">🧪 Módulo isolado: Relatórios — testado isoladamente, fora da integração completa</div>
+        <div id="page-context-title"></div>
+        <div class="harness-nav">
+                    <div class="menu-item" onclick="alternarModulo('relatorios')">Relatórios</div>
+        </div>
+
+        <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
+
+<div id="panel-relatorios" class="content-panel">
+                    <div class="barra-visoes">
+                        <div style="flex:1;">
+                            <label>Visão</label>
+                            <select id="rel-seletor-visao" onchange="carregarVisaoSelecionadaRelatorio()"></select>
+                        </div>
+                        <div class="separador-vertical"></div>
+                        <button class="btn-secondary" onclick="salvarVisaoAtualRelatorio()">💾 Salvar visão atual</button>
+                        <button class="btn-secondary" id="rel-btn-apagar-visao" onclick="apagarVisaoSelecionadaRelatorio()" style="display:none;">🗑️ Apagar visão</button>
+                    </div>
+
+                    <div class="painel-filtro">
+                        <div class="painel-filtro-cabecalho" onclick="alternarPainelFiltroRelatorio()">
+                            <span class="titulo">🔽 Filtro avançado</span>
+                            <span class="seta aberto" id="rel-seta-filtro">▲</span>
+                        </div>
+                        <div class="painel-filtro-corpo aberto" id="rel-corpo-filtro">
+
+                            <div class="secao-titulo">Nível do relatório</div>
+                            <div class="linha-nivel">
+                                <div class="nivel-opcao ativo" id="rel-nivel-sessao" onclick="mudarNivelRelatorio('sessao')">
+                                    Sessão de Trabalho
+                                    <small>Horas e Custo, com precisão por dia</small>
+                                </div>
+                                <div class="nivel-opcao" id="rel-nivel-tarefa" onclick="mudarNivelRelatorio('tarefa')">
+                                    Tarefa
+                                    <small>Previsto × Realizado, Pontos, Status</small>
+                                </div>
+                            </div>
+
+                            <div class="secao-titulo">Filtros</div>
+                            <div class="grid-filtros">
+                                <div class="campo"><label>Projeto</label><select id="rel-filtro-projeto" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Etapa</label><select id="rel-filtro-etapa" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Cliente</label><select id="rel-filtro-cliente" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Executor</label><select id="rel-filtro-executor" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Data inicial</label><input type="date" id="rel-filtro-data-de" onchange="renderizarTabelaRelatorio()"></div>
+                                <div class="campo"><label>Data final</label><input type="date" id="rel-filtro-data-ate" onchange="renderizarTabelaRelatorio()"></div>
+                            </div>
+
+                            <div class="secao-titulo">Colunas a exibir</div>
+                            <div class="lista-colunas" id="rel-lista-colunas"></div>
+
+                            <div class="linha-agrupar">
+                                <div class="campo">
+                                    <label>Agrupar por</label>
+                                    <select id="rel-agrupar" onchange="renderizarTabelaRelatorio()"></select>
+                                </div>
+                            </div>
+
+                            <div class="rodape-filtro">
+                                <button class="btn-texto" onclick="limparFiltrosRelatorio()">Limpar filtros</button>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rel-area-resultado"></div>
+                </div>
+    </div>
+
+    <script src="js/core.js"></script>
+    <script src="js/feriados.js"></script>
+    <script src="js/apontamento.js"></script>
+    <script src="js/relatorios.js"></script>
+</body>
+</html>

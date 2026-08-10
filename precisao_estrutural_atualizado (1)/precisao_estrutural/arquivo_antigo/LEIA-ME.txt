@@ -1,0 +1,18 @@
+Estes 3 arquivos foram movidos para cá durante a reorganização de 09/07/2026.
+Não fazem mais parte do sistema ativo (não são carregados pelo index.html).
+
+- cadastro4.html: snapshot anterior do sistema completo (536 linhas), antes
+  da versão atual (1783630470333_index.html). Mantido só como histórico.
+
+- modulo_fabrica_legos_ORFAO.js: tentava injetar HTML num elemento
+  ('container-paineis-dinamicos') que não existe no index.html atual — se
+  fosse carregado, quebraria com erro. O CRUD de Clientes/Funcionários/
+  Projetos que estava aqui já foi recuperado e está em js/cadastros.js.
+
+- modulo_arvore_projetos_ORFAO_E_SUBSTITUIDO.js: mesmo problema de injeção
+  quebrada, e continha uma versão mais simples/antiga da árvore de projeto.
+  A versão atual e mais completa (com cronômetro, timesheet, cálculo de
+  pontos) já está em js/arvore.js.
+
+Não use estes arquivos junto com os novos ao pedir ajustes para a IA —
+isso é exatamente o tipo de confusão que causava os erros de lógica.
