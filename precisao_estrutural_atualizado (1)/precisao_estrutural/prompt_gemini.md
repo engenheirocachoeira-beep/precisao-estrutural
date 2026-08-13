@@ -6610,3 +6610,52 @@ necessária agora, mas segue disponível se aparecer um caso novo);
 débito de sincronização do módulo isolado de árvore com os itens
 2/10/16 do arquivo principal (registrado no item 5 acima, não
 resolvido de propósito).
+
+## Retomada em 2026-08-13
+
+Três ajustes de UI, sem mudança de dado/lógica de negócio, pedidos
+pelo usuário:
+
+1. **Coluna "Localização" (Atribuição de Tarefas) repetia o nome da
+   Tarefa** — `t.localizacao` (de `coletarNosFolhaDaArvore()`, core.js)
+   é o breadcrumb completo até a folha, INCLUINDO o nome dela própria;
+   a coluna "Tarefa" ao lado já mostra esse mesmo nome. Corrigido só na
+   exibição da célula (`js/atribuicao-tarefas.js`, dentro do
+   `.map()` que monta as linhas): tira o último segmento do breadcrumb
+   antes de renderizar (`'—'` quando não sobra nada, ex.: Etapa agindo
+   como folha direto). **`t.localizacao` em si não foi tocado** —
+   continua completo pra quem usa (filtro de Localização, cálculo de
+   `partes[0/1/2]` pra Etapa/Setor/Pavimento logo acima no mesmo
+   arquivo).
+2. **Mesma duplicação no cartão do Kanban** — a linha cinza pequena
+   acima do nome da tarefa mostrava "Projeto › caminho completo (com a
+   tarefa)", e o nome já aparece de novo logo abaixo
+   (`kb-cartao-tarefa`). Mesma correção, só na exibição
+   (`js/kanban.js`, função que monta o HTML do cartão): tira o último
+   segmento; quando não sobra nada, mostra só o nome do projeto (sem
+   " › " solto).
+3. **Renomeado o título da aba "Kanban" (modo padrão, sem filtro de
+   Executor)** de "Sob sua responsabilidade" pra "Tarefas a
+   supervisionar" (`js/kanban.js`, mesma função que define
+   `page-context-title`).
+
+As três, replicadas em `modulos_isolados/atribuicao-tarefas/js/atribuicao-tarefas.js`
+e `modulos_isolados/kanban/js/kanban.js` (só as mudanças desta rodada —
+os módulos isolados de Atribuição/Kanban já tinham um débito de
+sincronização PRÉ-EXISTENTE e sem relação, itens 5/6/7 — filtro de
+árvore órfã via `obterArvoresProjetosAtivas()`, ausente nos dois
+módulos isolados —, não mexido de propósito, igual ao precedente já
+registrado pro módulo de árvore).
+
+Validado: `node --check` limpo nos 4 arquivos tocados. Testado no app
+de verdade (servidor Python `http.server` local, login automático como
+Administrador seed com dado real de projeto já existente no
+`localStorage` do navegador usado) — confirmado visualmente na aba
+Atribuição de Tarefas (ex.: linha `R | DETALHAMENTO › TERREO | ... |
+Vigas-Detalhamento`, sem repetir "Vigas-Detalhamento" na coluna
+Localização) e na aba Kanban (título "TAREFAS A SUPERVISIONAR"; cartão
+"D" seguido de "ANÁLISE" uma vez só). Criado `.claude/launch.json` na
+raiz do repositório Git (fora desta pasta do app) pra servir o app
+localmente em sessões futuras — não existia antes.
+
+**Nada ficou pendente desta rodada.**

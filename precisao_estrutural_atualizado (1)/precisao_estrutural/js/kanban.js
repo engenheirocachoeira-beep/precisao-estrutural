@@ -791,9 +791,14 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
         }
     }
 
+    // Mesma lógica da tela de Atribuição: a linha do caminho não repete
+    // o nome da tarefa (já mostrado logo abaixo, em kb-cartao-tarefa).
+    const partesLocalizacaoCartao = t.localizacao.split(' › ');
+    const localizacaoSemTarefaCartao = partesLocalizacaoCartao.length > 1 ? partesLocalizacaoCartao.slice(0, -1).join(' › ') : '';
+
     return '<div class="kb-cartao" draggable="true" style="border-left:4px solid ' + cor + ';' + estiloOpacidade + '" ' +
         'ondragstart="iniciarArrastoCartaoKanban(event, \'' + t.caminho + '\')">' +
-        '<div class="kb-cartao-caminho" style="font-size:10px; color:#94a3b8; margin-bottom:2px;">' + t.projeto + ' › ' + t.localizacao + '</div>' +
+        '<div class="kb-cartao-caminho" style="font-size:10px; color:#94a3b8; margin-bottom:2px;">' + t.projeto + (localizacaoSemTarefaCartao ? ' › ' + localizacaoSemTarefaCartao : '') + '</div>' +
         '<div class="kb-cartao-tarefa">' + t.tarefa + '</div>' +
         linhaExecutorRevisao +
         linhaVezesEmRevisao +
@@ -921,7 +926,7 @@ function renderizarQuadroKanban() {
         if (nomeParaCalendario) {
             elTitulo.innerText = nomeParaExibicao(nomeParaCalendario);
         } else {
-            elTitulo.innerText = 'Sob sua responsabilidade';
+            elTitulo.innerText = 'Tarefas a supervisionar';
         }
     }
 

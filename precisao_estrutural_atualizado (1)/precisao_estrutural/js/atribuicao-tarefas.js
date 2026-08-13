@@ -762,9 +762,17 @@ function renderizarPainelAtribuicaoTarefas(manterPagina) {
         if (t.executor) estiloPartes.push('cursor:grab');
         const estiloLinha = estiloPartes.length ? ' style="' + estiloPartes.join(';') + ';"' : '';
 
+        // Coluna Localização mostra só o caminho ATÉ a tarefa (Etapa ›
+        // Setor › Pavimento), sem repetir o nome dela — a coluna
+        // Tarefa logo ao lado já mostra isso. `t.localizacao` (usado
+        // no filtro/agrupamento) continua com o caminho completo,
+        // intacto; a redução é só na exibição desta célula.
+        const partesLocalizacaoLinha = t.localizacao.split(' › ');
+        const localizacaoSemTarefa = partesLocalizacaoLinha.length > 1 ? partesLocalizacaoLinha.slice(0, -1).join(' › ') : '—';
+
         return '<tr data-grupo-pav="' + t.grupoPav + '" data-valor-verba-pav="' + t.valorVerbaPav + '" data-custo-hora="' + t.custoHora + '"' + arrastavel + estiloLinha + '>' +
             '<td>' + t.projeto + '</td>' +
-            '<td style="color:#64748b;">' + t.localizacao + '</td>' +
+            '<td style="color:#64748b;">' + localizacaoSemTarefa + '</td>' +
             celulaDataInicio +
             celulaDataLimite +
             '<td>' + t.tarefa + '</td>' +
