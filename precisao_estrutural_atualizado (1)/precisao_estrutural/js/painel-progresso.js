@@ -136,7 +136,7 @@ function renderizarPainelProgresso() {
     const projetosParaMostrar = projetosPermitidos ? projetos.filter(p => projetosPermitidos.has(p.nome)) : projetos;
 
     if (projetosParaMostrar.length === 0) {
-        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:40px;">Nenhum projeto disponível.</div>';
+        area.innerHTML = '<div style="text-align:center; color:#64748b; padding:40px;">Nenhum projeto disponível.</div>';
         return;
     }
 
@@ -146,7 +146,7 @@ function renderizarPainelProgresso() {
         if (etapas.length === 0) {
             return '<div style="margin-bottom:20px;">' +
                 '<div style="font-weight:600; font-size:14px; margin-bottom:8px;">' + proj.nome + '</div>' +
-                '<div style="font-size:11px; color:#94a3b8;">Sem etapas cadastradas ainda.</div>' +
+                '<div style="font-size:11px; color:#64748b;">Sem etapas cadastradas ainda.</div>' +
                 '</div>';
         }
 

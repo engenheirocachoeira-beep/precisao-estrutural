@@ -1,2 +1,5 @@
 *.zip
 .claude/
+
+# Local Netlify folder
+.netlify

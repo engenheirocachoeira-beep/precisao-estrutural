@@ -136,9 +136,9 @@ function abrirFormulario(modulo, isNovo = false) {
     document.getElementById(`panel-${modulo}-form`).style.display = 'flex';
     if (isNovo) {
         document.getElementById('page-context-title').innerText = `Inserir Novo Registro`;
-        if (modulo === 'clientes') { document.getElementById('cli-index').value = ""; document.getElementById('cli-nome').value = ""; document.getElementById('cli-cnpj').value = ""; document.getElementById('cli-rua').value = ""; document.getElementById('cli-numero').value = ""; document.getElementById('cli-bairro').value = ""; document.getElementById('cli-cidade').value = ""; document.getElementById('cli-uf').value = ""; document.getElementById('cli-contato').value = ""; document.getElementById('cli-whatsapp').value = ""; document.getElementById('cli-email').value = ""; }
-        if (modulo === 'funcionarios') { document.getElementById('func-index').value = ""; document.getElementById('func-nome').value = ""; document.getElementById('func-cpf').value = ""; document.getElementById('func-nivel').value = "administrador"; document.getElementById('func-cargo').value = "analista pleno"; document.getElementById('func-dt-inicio').value = ""; document.getElementById('func-dt-desligamento').value = ""; document.getElementById('func-dt-nascimento').value = ""; document.getElementById('func-rua').value = ""; document.getElementById('func-numero').value = ""; document.getElementById('func-bairro').value = ""; document.getElementById('func-cidade').value = ""; document.getElementById('func-uf').value = ""; document.getElementById('func-telefone').value = ""; document.getElementById('func-email').value = ""; document.getElementById('func-senha').value = ""; document.getElementById('func-cal-seg').value = "8"; document.getElementById('func-cal-ter').value = "8"; document.getElementById('func-cal-qua').value = "8"; document.getElementById('func-cal-qui').value = "8"; document.getElementById('func-cal-sex').value = "8"; funcTempHistoricoValorHora = []; renderizarTabelaHistoricoValorHora(); }
-        if (modulo === 'projetos') { alimentarDropdownsProjeto(); document.getElementById('proj-index').value = ""; document.getElementById('proj-nome-original').value = ""; document.getElementById('proj-nome').value = ""; document.getElementById('proj-prefixo').value = ""; document.getElementById('proj-cliente').value = ""; document.getElementById('proj-rua').value = ""; document.getElementById('proj-numero').value = ""; document.getElementById('proj-bairro').value = ""; document.getElementById('proj-cidade').value = ""; document.getElementById('proj-uf').value = ""; document.getElementById('proj-area').value = ""; document.getElementById('proj-pavimentos').value = ""; document.getElementById('proj-altura').value = ""; document.getElementById('proj-esbeltez').value = ""; document.getElementById('proj-dificuldade').value = "3"; document.getElementById('proj-valor').value = ""; document.getElementById('proj-pagamento').value = "Por entrega"; document.getElementById('proj-dt-inicio').value = "";
+        if (modulo === 'clientes') { document.getElementById('cli-index').value = ""; document.getElementById('cli-nome').value = ""; document.getElementById('cli-cnpj').value = ""; document.getElementById('cli-rua').value = ""; document.getElementById('cli-numero').value = ""; document.getElementById('cli-bairro').value = ""; document.getElementById('cli-cep').value = ""; document.getElementById('cli-cidade').value = ""; document.getElementById('cli-uf').value = ""; document.getElementById('cli-contato').value = ""; document.getElementById('cli-whatsapp').value = ""; document.getElementById('cli-email').value = ""; }
+        if (modulo === 'funcionarios') { document.getElementById('func-index').value = ""; document.getElementById('func-nome').value = ""; document.getElementById('func-cpf').value = ""; document.getElementById('func-nivel').value = "administrador"; document.getElementById('func-cargo').value = "analista pleno"; document.getElementById('func-dt-inicio').value = ""; document.getElementById('func-dt-desligamento').value = ""; document.getElementById('func-dt-nascimento').value = ""; document.getElementById('func-rua').value = ""; document.getElementById('func-numero').value = ""; document.getElementById('func-bairro').value = ""; document.getElementById('func-cep').value = ""; document.getElementById('func-cidade').value = ""; document.getElementById('func-uf').value = ""; document.getElementById('func-telefone').value = ""; document.getElementById('func-email').value = ""; document.getElementById('func-senha').value = ""; document.getElementById('func-cal-seg').value = "8"; document.getElementById('func-cal-ter').value = "8"; document.getElementById('func-cal-qua').value = "8"; document.getElementById('func-cal-qui').value = "8"; document.getElementById('func-cal-sex').value = "8"; funcTempHistoricoValorHora = []; renderizarTabelaHistoricoValorHora(); }
+        if (modulo === 'projetos') { alimentarDropdownsProjeto(); document.getElementById('proj-index').value = ""; document.getElementById('proj-nome-original').value = ""; document.getElementById('proj-nome').value = ""; document.getElementById('proj-prefixo').value = ""; document.getElementById('proj-cliente').value = ""; document.getElementById('proj-rua').value = ""; document.getElementById('proj-numero').value = ""; document.getElementById('proj-bairro').value = ""; document.getElementById('proj-cep').value = ""; document.getElementById('proj-cidade').value = ""; document.getElementById('proj-uf').value = ""; document.getElementById('proj-area').value = ""; document.getElementById('proj-pavimentos').value = ""; document.getElementById('proj-altura').value = ""; document.getElementById('proj-esbeltez').value = ""; document.getElementById('proj-dificuldade').value = "3"; document.getElementById('proj-valor').value = ""; document.getElementById('proj-pagamento').value = "Por entrega"; document.getElementById('proj-dt-inicio').value = "";
             // Item 12 (prompt_gemini.md §14): Analista/Supervisor/
             // Detalhista já vêm com o nome do usuário logado como
             // default (ainda editável, trocando na própria seleção) —
@@ -192,9 +192,55 @@ function fecharFormulario(modulo) {
     alternarModulo(modulo);
 }
 
+// --- ORDENAÇÃO CLICÁVEL (Clientes/Projetos) — clique na seta no
+// cabeçalho alterna A-Z / Z-A pela coluna. Default de cada tabela = a
+// mesma ordenação por Nome/Razão Social ascendente que já existia fixa
+// antes desta melhoria. Compara pelo valor DE EXIBIÇÃO (nomeParaExibicao
+// quando aplicável), não pelo nome completo cru, pra bater com o que a
+// coluna realmente mostra na tela (Analista/Supervisor/Detalhista
+// mostram codinome, não nome completo).
+let cadOrdenacaoEstado = {
+    clientes: { campo: 'nome', direcao: 'asc' },
+    projetos: { campo: 'nome', direcao: 'asc' }
+};
+
+function alternarOrdenacaoCadastro(tabela, campo) {
+    const estado = cadOrdenacaoEstado[tabela];
+    if (!estado) return;
+    if (estado.campo === campo) {
+        estado.direcao = estado.direcao === 'asc' ? 'desc' : 'asc';
+    } else {
+        estado.campo = campo;
+        estado.direcao = 'asc';
+    }
+    if (tabela === 'clientes') renderizarTabelaClientes();
+    else if (tabela === 'projetos') renderizarTabelaProjetos();
+}
+
+function compararOrdenacaoCadastro(valorA, valorB, direcao) {
+    const cmp = (valorA || '').toString().localeCompare((valorB || '').toString(), 'pt-BR', { sensitivity: 'base' });
+    return direcao === 'asc' ? cmp : -cmp;
+}
+
+// Deixa em destaque (▲/▼) só a seta da coluna/direção ativa; as outras
+// voltam pro ↕ neutro.
+function atualizarSetasOrdenacaoCadastro(tabela) {
+    const estado = cadOrdenacaoEstado[tabela];
+    document.querySelectorAll('.cad-ordenar-seta[data-tabela="' + tabela + '"]').forEach(el => {
+        const ativa = el.dataset.campo === estado.campo;
+        el.classList.toggle('ativo', ativa);
+        el.textContent = ativa ? (estado.direcao === 'asc' ? '▲' : '▼') : '↕';
+    });
+}
+
 // --- LÓGICA DE NEGÓCIO DE CLIENTES (recuperada do módulo órfão) ---
+function valorOrdenacaoCliente(cli, campo) {
+    return campo === 'cnpj' ? (cli.cnpj || '') : cli.nome;
+}
 function renderizarTabelaClientes() {
-    let c = JSON.parse(localStorage.getItem('banco_clientes')) || []; c.sort((a, b) => a.nome.localeCompare(b.nome));
+    let c = JSON.parse(localStorage.getItem('banco_clientes')) || [];
+    const estadoOrdClientes = cadOrdenacaoEstado.clientes;
+    c.sort((a, b) => compararOrdenacaoCadastro(valorOrdenacaoCliente(a, estadoOrdClientes.campo), valorOrdenacaoCliente(b, estadoOrdClientes.campo), estadoOrdClientes.direcao));
     const t = document.getElementById('tabela-clientes-body'); if (!t) return; t.innerHTML = '';
     // Identifica pelo NOME, não pela posição na lista já ordenada pra
     // exibição — usar a posição (idx) aqui e reler sem ordenar depois
@@ -205,22 +251,23 @@ function renderizarTabelaClientes() {
     // implícito de cliente/funcionário/projeto em todo lugar. Testado
     // isolado antes de aplicar — ver
     // /home/claude/testes/teste_cadastros_indice_correto.js.
-    c.forEach((cli, idx) => { const nomeJs = cli.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarClienteParaEdicao('${nomeJs}')"><td>C-${String(idx + 1).padStart(3, '0')}</td><td><strong>${cli.nome}</strong></td><td>${cli.cnpj || ''}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarCliente('${nomeJs}')">🗑️</button></td></tr>`; });
+    c.forEach((cli, idx) => { const nomeJs = cli.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarClienteParaEdicao('${nomeJs}')"><td>C-${String(idx + 1).padStart(3, '0')}</td><td><strong>${cli.nome}</strong></td><td>${cli.cnpj || ''}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" title="Excluir cliente" aria-label="Excluir cliente" onclick="deletarCliente('${nomeJs}')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>`; });
+    atualizarSetasOrdenacaoCadastro('clientes');
 }
 function salvarCliente() {
     // Item 17 (prompt_gemini.md §14, leva 4): mesmo .trim() aplicado em
     // Projeto — evita nome salvo com espaço a mais no início/fim.
     const i = document.getElementById('cli-index').value; const n = document.getElementById('cli-nome').value.trim(); if (!n) return alert("Obrigatório");
-    const nv = { nome: n, cnpj: document.getElementById('cli-cnpj').value, rua: document.getElementById('cli-rua').value, numero: document.getElementById('cli-numero').value, bairro: document.getElementById('cli-bairro').value, cidade: document.getElementById('cli-cidade').value, uf: document.getElementById('cli-uf').value, contato: document.getElementById('cli-contato').value, whatsapp: document.getElementById('cli-whatsapp').value, email: document.getElementById('cli-email').value };
+    const nv = { nome: n, cnpj: document.getElementById('cli-cnpj').value, rua: document.getElementById('cli-rua').value, numero: document.getElementById('cli-numero').value, bairro: document.getElementById('cli-bairro').value, cep: document.getElementById('cli-cep').value, cidade: document.getElementById('cli-cidade').value, uf: document.getElementById('cli-uf').value, contato: document.getElementById('cli-contato').value, whatsapp: document.getElementById('cli-whatsapp').value, email: document.getElementById('cli-email').value };
     let l = JSON.parse(localStorage.getItem('banco_clientes')) || []; if (i === "") l.push(nv); else l[i] = nv;
-    localStorage.setItem('banco_clientes', JSON.stringify(l)); fecharFormulario('clientes');
+    localStorage.setItem('banco_clientes', JSON.stringify(l)); fecharFormulario('clientes'); mostrarToast('Cliente salvo.');
 }
 function carregarClienteParaEdicao(nome) {
     const l = JSON.parse(localStorage.getItem('banco_clientes')) || [];
     const indexReal = l.findIndex(x => x.nome === nome);
     if (indexReal === -1) return;
     const c = l[indexReal]; abrirFormulario('clientes', false);
-    document.getElementById('cli-index').value = indexReal; document.getElementById('cli-nome').value = c.nome; document.getElementById('cli-cnpj').value = c.cnpj || ''; document.getElementById('cli-rua').value = c.rua || c.logradouro || ''; document.getElementById('cli-numero').value = c.numero || ''; document.getElementById('cli-bairro').value = c.bairro || ''; document.getElementById('cli-cidade').value = c.cidade || ''; document.getElementById('cli-uf').value = c.uf || ''; document.getElementById('cli-contato').value = c.contato || ''; document.getElementById('cli-whatsapp').value = c.whatsapp || ''; document.getElementById('cli-email').value = c.email || '';
+    document.getElementById('cli-index').value = indexReal; document.getElementById('cli-nome').value = c.nome; document.getElementById('cli-cnpj').value = c.cnpj || ''; document.getElementById('cli-rua').value = c.rua || c.logradouro || ''; document.getElementById('cli-numero').value = c.numero || ''; document.getElementById('cli-bairro').value = c.bairro || ''; document.getElementById('cli-cep').value = c.cep || ''; document.getElementById('cli-cidade').value = c.cidade || ''; document.getElementById('cli-uf').value = c.uf || ''; document.getElementById('cli-contato').value = c.contato || ''; document.getElementById('cli-whatsapp').value = c.whatsapp || ''; document.getElementById('cli-email').value = c.email || '';
 }
 function deletarCliente(nome) {
     if (!confirm("Remover " + nome + "?")) return;
@@ -248,7 +295,7 @@ function renderizarTabelaFuncionarios() {
         const valorHoraAtual = typeof valorHoraVigente === 'function' ? valorHoraVigente(func.nome, hojeISO) : 0;
         const valorHoraExibicao = 'R$ ' + valorHoraAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
         const formaPagamentoExibicao = func.forma_pagamento === 'comissionado' ? 'Comissionado' : 'Por Hora';
-        t.innerHTML += `<tr class="clickable-row" onclick="carregarFuncionarioParaEdicao('${nomeJs}')"><td>${func.cpf}</td><td><strong>${func.nome}</strong></td><td>${func.codinome || '—'}</td><td>${func.cargo}</td><td>${func.nivel}</td><td>${formaPagamentoExibicao}</td><td>${valorHoraExibicao}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarFuncionario('${nomeJs}')">🗑️</button></td></tr>`;
+        t.innerHTML += `<tr class="clickable-row" onclick="carregarFuncionarioParaEdicao('${nomeJs}')"><td>${func.cpf}</td><td><strong>${func.nome}</strong></td><td>${func.codinome || '—'}</td><td>${func.cargo}</td><td>${func.nivel}</td><td>${formaPagamentoExibicao}</td><td>${valorHoraExibicao}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" title="Excluir funcionário" aria-label="Excluir funcionário" onclick="deletarFuncionario('${nomeJs}')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>`;
     });
 }
 function salvarFuncionario() {
@@ -272,7 +319,7 @@ function salvarFuncionario() {
     const colisao = listaAtual.find((f, idx) => idx !== indexAtual && (f.codinome || '').toLowerCase() === cod.toLowerCase());
     if (colisao) return alert('Já existe um funcionário com o codinome "' + cod + '" (' + colisao.nome + '). O codinome precisa ser único no sistema.');
 
-    const nv = { nome: n, codinome: cod, cpf: c, nivel: document.getElementById('func-nivel').value, cargo: document.getElementById('func-cargo').value, forma_pagamento: document.getElementById('func-forma-pagamento').value, historico_valor_hora: funcTempHistoricoValorHora.slice(), dt_inicio: document.getElementById('func-dt-inicio').value, dt_desligamento: document.getElementById('func-dt-desligamento').value, dt_nascimento: document.getElementById('func-dt-nascimento').value, rua: document.getElementById('func-rua').value, numero: document.getElementById('func-numero').value, bairro: document.getElementById('func-bairro').value, cidade: document.getElementById('func-cidade').value, uf: document.getElementById('func-uf').value, telefone: document.getElementById('func-telefone').value, email: document.getElementById('func-email').value, senha: document.getElementById('func-senha').value,
+    const nv = { nome: n, codinome: cod, cpf: c, nivel: document.getElementById('func-nivel').value, cargo: document.getElementById('func-cargo').value, forma_pagamento: document.getElementById('func-forma-pagamento').value, historico_valor_hora: funcTempHistoricoValorHora.slice(), dt_inicio: document.getElementById('func-dt-inicio').value, dt_desligamento: document.getElementById('func-dt-desligamento').value, dt_nascimento: document.getElementById('func-dt-nascimento').value, rua: document.getElementById('func-rua').value, numero: document.getElementById('func-numero').value, bairro: document.getElementById('func-bairro').value, cep: document.getElementById('func-cep').value, cidade: document.getElementById('func-cidade').value, uf: document.getElementById('func-uf').value, telefone: document.getElementById('func-telefone').value, email: document.getElementById('func-email').value, senha: document.getElementById('func-senha').value,
         calendario: {
             seg: document.getElementById('func-cal-seg').value || "0",
             ter: document.getElementById('func-cal-ter').value || "0",
@@ -282,14 +329,14 @@ function salvarFuncionario() {
         }
     };
     let l = JSON.parse(localStorage.getItem('banco_funcionarios')) || []; if (i === "") l.push(nv); else l[i] = nv;
-    localStorage.setItem('banco_funcionarios', JSON.stringify(l)); fecharFormulario('funcionarios');
+    localStorage.setItem('banco_funcionarios', JSON.stringify(l)); fecharFormulario('funcionarios'); mostrarToast('Funcionário salvo.');
 }
 function carregarFuncionarioParaEdicao(nome) {
     const lista = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
     const index = lista.findIndex(x => x.nome === nome);
     if (index === -1) return;
     const f = lista[index]; abrirFormulario('funcionarios', false);
-    document.getElementById('func-index').value = index; document.getElementById('func-nome').value = f.nome; document.getElementById('func-codinome').value = f.codinome || ''; document.getElementById('func-cpf').value = f.cpf; document.getElementById('func-nivel').value = f.nivel; document.getElementById('func-cargo').value = f.cargo; document.getElementById('func-forma-pagamento').value = f.forma_pagamento || 'hora'; document.getElementById('func-dt-inicio').value = f.dt_inicio; document.getElementById('func-dt-desligamento').value = f.dt_desligamento; document.getElementById('func-dt-nascimento').value = f.dt_nascimento; document.getElementById('func-rua').value = f.rua || f.endereco || ''; document.getElementById('func-numero').value = f.numero || ''; document.getElementById('func-bairro').value = f.bairro || ''; document.getElementById('func-cidade').value = f.cidade || ''; document.getElementById('func-uf').value = f.uf || ''; document.getElementById('func-telefone').value = formatarNumeroTelefone(f.telefone); document.getElementById('func-email').value = f.email; document.getElementById('func-senha').value = f.senha;
+    document.getElementById('func-index').value = index; document.getElementById('func-nome').value = f.nome; document.getElementById('func-codinome').value = f.codinome || ''; document.getElementById('func-cpf').value = f.cpf; document.getElementById('func-nivel').value = f.nivel; document.getElementById('func-cargo').value = f.cargo; document.getElementById('func-forma-pagamento').value = f.forma_pagamento || 'hora'; document.getElementById('func-dt-inicio').value = f.dt_inicio; document.getElementById('func-dt-desligamento').value = f.dt_desligamento; document.getElementById('func-dt-nascimento').value = f.dt_nascimento; document.getElementById('func-rua').value = f.rua || f.endereco || ''; document.getElementById('func-numero').value = f.numero || ''; document.getElementById('func-bairro').value = f.bairro || ''; document.getElementById('func-cep').value = f.cep || ''; document.getElementById('func-cidade').value = f.cidade || ''; document.getElementById('func-uf').value = f.uf || ''; document.getElementById('func-telefone').value = formatarNumeroTelefone(f.telefone); document.getElementById('func-email').value = f.email; document.getElementById('func-senha').value = f.senha;
     funcTempHistoricoValorHora = Array.isArray(f.historico_valor_hora) ? f.historico_valor_hora.map(e => ({ valor: e.valor, data_vigencia: e.data_vigencia })) : [];
     renderizarTabelaHistoricoValorHora();
     const cal = f.calendario || {};
@@ -322,7 +369,7 @@ function renderizarTabelaHistoricoValorHora() {
     if (!tbody) return;
 
     if (funcTempHistoricoValorHora.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:10px;">Nenhum valor cadastrado ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#64748b; padding:10px;">Nenhum valor cadastrado ainda.</td></tr>';
         return;
     }
 
@@ -339,7 +386,7 @@ function renderizarTabelaHistoricoValorHora() {
             : entrada.data_vigencia;
         return '<tr><td>R$ ' + parseFloat(entrada.valor).toFixed(2) + '</td>' +
             '<td>' + dataExibicao + '</td>' +
-            '<td style="text-align:center;"><button class="btn-delete" onclick="removerValorHoraFuncionario(' + indiceReal + ')">🗑️</button></td></tr>';
+            '<td style="text-align:center;"><button class="btn-delete" title="Remover valor de hora" aria-label="Remover valor de hora" onclick="removerValorHoraFuncionario(' + indiceReal + ')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>';
     }).join('');
 }
 
@@ -365,14 +412,27 @@ function removerValorHoraFuncionario(indice) {
 }
 
 // --- LÓGICA DE NEGÓCIO DE PROJETOS (recuperada do módulo órfão) ---
+function valorOrdenacaoProjeto(proj, campo) {
+    switch (campo) {
+        case 'prefixo': return proj.prefixo || '';
+        case 'cliente': return proj.cliente || '';
+        case 'analista': return proj.analista ? nomeParaExibicao(proj.analista) : '';
+        case 'supervisor': return proj.supervisor ? nomeParaExibicao(proj.supervisor) : '';
+        case 'detalhista': return proj.detalhista ? nomeParaExibicao(proj.detalhista) : '';
+        default: return proj.nome || '';
+    }
+}
 function renderizarTabelaProjetos() {
-    let p = JSON.parse(localStorage.getItem('banco_projetos')) || []; p.sort((a, b) => a.nome.localeCompare(b.nome));
+    let p = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    const estadoOrdProjetos = cadOrdenacaoEstado.projetos;
+    p.sort((a, b) => compararOrdenacaoCadastro(valorOrdenacaoProjeto(a, estadoOrdProjetos.campo), valorOrdenacaoProjeto(b, estadoOrdProjetos.campo), estadoOrdProjetos.direcao));
     const t = document.getElementById('tabela-projetos-body'); if (!t) return; t.innerHTML = '';
     // Identifica pelo NOME, não pela posição na lista ordenada — ver
     // nota completa em renderizarTabelaClientes() (cadastros.js), mesmo
     // bug (item 1/5 da Rodada de Comentários da Gerência, ver
     // prompt_gemini.md §12), mesma correção.
-    p.forEach((proj) => { const nomeJs = proj.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarProjetoParaEdicao('${nomeJs}')"><td><strong>${proj.prefixo || '---'}</strong></td><td>${proj.nome}</td><td>${proj.cliente}</td><td>${proj.analista ? nomeParaExibicao(proj.analista) : '—'}</td><td>${proj.supervisor ? nomeParaExibicao(proj.supervisor) : '—'}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarProjeto('${nomeJs}')">🗑️</button></td></tr>`; });
+    p.forEach((proj) => { const nomeJs = proj.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarProjetoParaEdicao('${nomeJs}')"><td><strong>${proj.prefixo || '---'}</strong></td><td>${proj.nome}</td><td>${proj.cliente}</td><td>${proj.analista ? nomeParaExibicao(proj.analista) : '—'}</td><td>${proj.supervisor ? nomeParaExibicao(proj.supervisor) : '—'}</td><td>${proj.detalhista ? nomeParaExibicao(proj.detalhista) : '—'}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" title="Excluir projeto" aria-label="Excluir projeto" onclick="deletarProjeto('${nomeJs}')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>`; });
+    atualizarSetasOrdenacaoCadastro('projetos');
 }
 function alimentarDropdownsProjeto() {
     const cl = JSON.parse(localStorage.getItem('banco_clientes')) || []; const fu = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
@@ -411,7 +471,7 @@ let projTempEtapasDefault = [];
 // exata, não a lógica de pré-popular em si, que já estava correta).
 function normalizarNomeEtapa(s) {
     return (s || '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos (é→e, ã→a, etc.) — faltava aqui, era a causa provável de "Pré-Lançamento" sumir da lista automática
+        .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos (é→e, ã→a, etc.) — faltava aqui, era a causa provável de "Pré-Lançamento" sumir da lista automática
         .replace(/-/g, ' ') // trata hífen como espaço — "Pré-Lançamento" casa com "Pré Lançamento"
         .replace(/\s+/g, ' ') // colapsa espaços múltiplos
         .trim()
@@ -435,7 +495,7 @@ function renderizarTabelaEtapasProjeto() {
     const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
 
     if (projTempEtapasDefault.length === 0) {
-        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#94a3b8; padding:10px; font-size:12px;">Nenhuma Etapa na lista — clique em "+ Adicionar Linha".</div>';
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#64748b; padding:10px; font-size:12px;">Nenhuma Etapa na lista — clique em "+ Adicionar Linha".</div>';
         return;
     }
 
@@ -443,7 +503,7 @@ function renderizarTabelaEtapasProjeto() {
         const opcoes = etapasLego.map(e => '<option value="' + e.nome.replace(/"/g, '&quot;') + '"' + (e.nome === nome ? ' selected' : '') + '>' + e.nome + '</option>').join('');
         return '<div style="display:flex; align-items:center; gap:5px; padding:4px 6px; border:1px solid #e2e8f0; border-radius:4px; background:#f8fafc;">' +
             '<select style="flex:1; min-width:0; padding:3px 4px; font-size:12px; background:white; border:1px solid #cbd5e1; border-radius:3px;" onchange="alterarEtapaNaLinhaProjeto(' + idx + ', this.value)">' + opcoes + '</select>' +
-            '<button class="btn-delete" style="flex-shrink:0; padding:2px 6px;" onclick="removerEtapaProjeto(' + idx + ')">🗑️</button>' +
+            '<button class="btn-delete" style="flex-shrink:0; padding:2px 6px;" title="Remover etapa" aria-label="Remover etapa" onclick="removerEtapaProjeto(' + idx + ')"><svg class="icon"><use href="#icon-trash"></use></svg></button>' +
             '</div>';
     }).join('');
 }
@@ -486,7 +546,7 @@ function renderizarTabelaEmailsResponsaveisProjeto() {
     const tbody = document.getElementById('proj-tabela-emails-body');
     if (!tbody) return;
     if (projTempEmailsResponsaveis.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:10px;">Nenhum e-mail cadastrado ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#64748b; padding:10px;">Nenhum e-mail cadastrado ainda.</td></tr>';
         return;
     }
     // Compatível com o formato antigo (string simples, sem cargo) caso
@@ -495,7 +555,7 @@ function renderizarTabelaEmailsResponsaveisProjeto() {
     tbody.innerHTML = projTempEmailsResponsaveis.map((item, idx) => {
         const email = typeof item === 'string' ? item : item.email;
         const cargo = typeof item === 'string' ? '' : (item.cargo || '');
-        return '<tr><td>' + email + '</td><td>' + (cargo || '—') + '</td><td style="text-align:center;"><button class="btn-delete" onclick="removerEmailResponsavelProjeto(' + idx + ')">🗑️</button></td></tr>';
+        return '<tr><td>' + email + '</td><td>' + (cargo || '—') + '</td><td style="text-align:center;"><button class="btn-delete" title="Remover e-mail" aria-label="Remover e-mail" onclick="removerEmailResponsavelProjeto(' + idx + ')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>';
     }).join('');
 }
 
@@ -528,7 +588,7 @@ function salvarProjeto() {
     // Itens 2/14 (prompt_gemini.md §14): bloqueia salvar se a data de
     // Início estiver preenchida errado.
     if (!validarTodasDatasDaTela()) return;
-    const nv = { nome: n, prefixo: document.getElementById('proj-prefixo').value, cliente: c, rua: document.getElementById('proj-rua').value, numero: document.getElementById('proj-numero').value, bairro: document.getElementById('proj-bairro').value, cidade: document.getElementById('proj-cidade').value, uf: document.getElementById('proj-uf').value, area: desformatarNumeroBR(document.getElementById('proj-area').value), pavimentos: document.getElementById('proj-pavimentos').value, altura: document.getElementById('proj-altura').value, esbeltez: document.getElementById('proj-esbeltez').value, dificuldade: document.getElementById('proj-dificuldade').value, valor: desformatarNumeroBR(document.getElementById('proj-valor').value), pagamento: document.getElementById('proj-pagamento').value, dt_inicio: document.getElementById('proj-dt-inicio').value, analista: document.getElementById('proj-analista').value, supervisor: document.getElementById('proj-supervisor').value, detalhista: document.getElementById('proj-detalhista').value, emails_responsaveis: projTempEmailsResponsaveis.slice() };
+    const nv = { nome: n, prefixo: document.getElementById('proj-prefixo').value, cliente: c, rua: document.getElementById('proj-rua').value, numero: document.getElementById('proj-numero').value, bairro: document.getElementById('proj-bairro').value, cep: document.getElementById('proj-cep').value, cidade: document.getElementById('proj-cidade').value, uf: document.getElementById('proj-uf').value, area: desformatarNumeroBR(document.getElementById('proj-area').value), pavimentos: document.getElementById('proj-pavimentos').value, altura: document.getElementById('proj-altura').value, esbeltez: document.getElementById('proj-esbeltez').value, dificuldade: document.getElementById('proj-dificuldade').value, valor: desformatarNumeroBR(document.getElementById('proj-valor').value), pagamento: document.getElementById('proj-pagamento').value, dt_inicio: document.getElementById('proj-dt-inicio').value, analista: document.getElementById('proj-analista').value, supervisor: document.getElementById('proj-supervisor').value, detalhista: document.getElementById('proj-detalhista').value, emails_responsaveis: projTempEmailsResponsaveis.slice() };
     let l = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     // status_liberacao (item 3 da Rodada de Comentários da Gerência —
     // ver prompt_gemini.md §12) não tem campo no formulário (o controle
@@ -618,7 +678,7 @@ function salvarProjeto() {
             }
         }
     }
-    localStorage.setItem('banco_projetos', JSON.stringify(l)); fecharFormulario('projetos');
+    localStorage.setItem('banco_projetos', JSON.stringify(l)); fecharFormulario('projetos'); mostrarToast('Projeto salvo.');
 }
 function carregarProjetoParaEdicao(nome) {
     alimentarDropdownsProjeto();
@@ -626,7 +686,7 @@ function carregarProjetoParaEdicao(nome) {
     const index = l.findIndex(x => x.nome === nome);
     if (index === -1) return;
     const p = l[index]; abrirFormulario('projetos', false);
-    document.getElementById('proj-index').value = index; document.getElementById('proj-nome-original').value = p.nome; document.getElementById('proj-nome').value = p.nome; document.getElementById('proj-prefixo').value = p.prefixo; document.getElementById('proj-cliente').value = p.cliente; document.getElementById('proj-rua').value = p.rua || p.endereco || ''; document.getElementById('proj-numero').value = p.numero || ''; document.getElementById('proj-bairro').value = p.bairro || ''; document.getElementById('proj-cidade').value = p.cidade || ''; document.getElementById('proj-uf').value = p.uf || ''; document.getElementById('proj-area').value = p.area ? formatarNumeroBRParaExibicao(p.area) : ''; document.getElementById('proj-pavimentos').value = p.pavimentos; document.getElementById('proj-altura').value = p.altura; document.getElementById('proj-esbeltez').value = p.esbeltez; document.getElementById('proj-dificuldade').value = p.dificuldade; document.getElementById('proj-valor').value = p.valor ? formatarNumeroBRParaExibicao(p.valor) : ''; document.getElementById('proj-pagamento').value = p.pagamento; document.getElementById('proj-dt-inicio').value = p.dt_inicio; document.getElementById('proj-analista').value = p.analista; document.getElementById('proj-supervisor').value = p.supervisor; document.getElementById('proj-detalhista').value = p.detalhista || '';
+    document.getElementById('proj-index').value = index; document.getElementById('proj-nome-original').value = p.nome; document.getElementById('proj-nome').value = p.nome; document.getElementById('proj-prefixo').value = p.prefixo; document.getElementById('proj-cliente').value = p.cliente; document.getElementById('proj-rua').value = p.rua || p.endereco || ''; document.getElementById('proj-numero').value = p.numero || ''; document.getElementById('proj-bairro').value = p.bairro || ''; document.getElementById('proj-cep').value = p.cep || ''; document.getElementById('proj-cidade').value = p.cidade || ''; document.getElementById('proj-uf').value = p.uf || ''; document.getElementById('proj-area').value = p.area ? formatarNumeroBRParaExibicao(p.area) : ''; document.getElementById('proj-pavimentos').value = p.pavimentos; document.getElementById('proj-altura').value = p.altura; document.getElementById('proj-esbeltez').value = p.esbeltez; document.getElementById('proj-dificuldade').value = p.dificuldade; document.getElementById('proj-valor').value = p.valor ? formatarNumeroBRParaExibicao(p.valor) : ''; document.getElementById('proj-pagamento').value = p.pagamento; document.getElementById('proj-dt-inicio').value = p.dt_inicio; document.getElementById('proj-analista').value = p.analista; document.getElementById('proj-supervisor').value = p.supervisor; document.getElementById('proj-detalhista').value = p.detalhista || '';
     projTempEmailsResponsaveis = Array.isArray(p.emails_responsaveis) ? p.emails_responsaveis.slice() : [];
     renderizarTabelaEmailsResponsaveisProjeto();
 }
@@ -636,14 +696,21 @@ function deletarProjeto(nome) {
     const index = l.findIndex(x => x.nome === nome);
     if (index === -1) return;
     l.splice(index, 1); localStorage.setItem('banco_projetos', JSON.stringify(l));
-    // Item 5/6 (prompt_gemini.md §14, leva 4): sem isso, a árvore do
-    // projeto (Etapas/Tarefas de verdade, em banco_arvores_projetos)
-    // ficava órfã e continuava aparecendo no Kanban e na Atribuição de
-    // Tarefas mesmo depois do projeto "deletado" no Cadastro.
-    let todasArvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    if (todasArvores[nome]) {
-        delete todasArvores[nome];
-        localStorage.setItem('banco_arvores_projetos', JSON.stringify(todasArvores));
-    }
+
+    // Apaga junto TODAS as referências ao projeto excluído — a árvore de
+    // tarefas inteira (Item 5/6, prompt_gemini.md §14, leva 4) e também
+    // os dados de Distribuição de Custos/Lucro salvos pra ele. Sem isso o
+    // projeto virava "órfão": a árvore continuava em
+    // banco_arvores_projetos e as tarefas dela seguiam aparecendo como
+    // ativas/atribuíveis em Atribuição de Tarefas, Kanban e Relatórios,
+    // mesmo o projeto não existindo mais aqui no Cadastro.
+    ['banco_arvores_projetos', 'banco_distribuicao_custos', 'banco_distribuicao_custos_analista', 'banco_distribuicao_lucros'].forEach(chave => {
+        const dados = JSON.parse(localStorage.getItem(chave)) || {};
+        if (dados[nome] !== undefined) {
+            delete dados[nome];
+            localStorage.setItem(chave, JSON.stringify(dados));
+        }
+    });
+
     renderizarTabelaProjetos();
 }

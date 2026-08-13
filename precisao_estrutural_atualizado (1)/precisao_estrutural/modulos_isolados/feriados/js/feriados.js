@@ -65,20 +65,53 @@ function carregarPainelFeriados() {
     renderizarTabelaFeriadosCustomizados();
 }
 
+// Item 3 (prompt_gemini.md §14): campos de Data/Nome agora são
+// editáveis DIRETO na própria linha (mesmo padrão já usado em outras
+// telas — Etapas do Cadastro de Projeto, Distribuição de Custos
+// Analista) — antes só dava pra inserir e apagar, não editar.
 function renderizarTabelaFeriadosCustomizados() {
     const lista = JSON.parse(localStorage.getItem('banco_feriados_customizados')) || [];
     const tbody = document.getElementById('fer-tabela-custom-body');
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:16px;">Nenhum feriado adicional cadastrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#64748b; padding:16px;">Nenhum feriado adicional cadastrado.</td></tr>';
         return;
     }
 
     tbody.innerHTML = lista.map((f, idx) => {
-        const [ano, mes, dia] = f.data.split('-');
-        return '<tr><td>' + dia + '/' + mes + '/' + ano + '</td><td>' + f.nome + '</td>' +
-            '<td style="text-align:center;"><button class="btn-delete" onclick="deletarFeriadoCustomizado(' + idx + ')">🗑️</button></td></tr>';
+        return '<tr>' +
+            '<td><input type="date" value="' + f.data + '" style="border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'data\', this.value)"></td>' +
+            '<td><input type="text" value="' + f.nome.replace(/"/g, '&quot;') + '" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'nome\', this.value)"></td>' +
+            '<td style="text-align:center;"><button class="btn-delete" title="Excluir feriado" aria-label="Excluir feriado" onclick="deletarFeriadoCustomizado(' + idx + ')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>';
     }).join('');
+}
+
+// Salva a edição de um campo (data ou nome) de um feriado já
+// cadastrado. Editar a data reordena a lista de novo (mesma regra de
+// sempre — lista sempre cronológica); editar pra uma data que já
+// existe em outra linha é bloqueado, igual já acontece ao cadastrar
+// um novo.
+function editarFeriadoCustomizado(idx, campo, novoValor) {
+    let lista = JSON.parse(localStorage.getItem('banco_feriados_customizados')) || [];
+    if (!lista[idx]) return;
+
+    if (campo === 'data') {
+        if (!novoValor) { renderizarTabelaFeriadosCustomizados(); return; }
+        if (lista.some((f, i) => i !== idx && f.data === novoValor)) {
+            alert('Já existe um feriado cadastrado nessa data.');
+            renderizarTabelaFeriadosCustomizados();
+            return;
+        }
+        lista[idx].data = novoValor;
+        lista.sort((a, b) => a.data.localeCompare(b.data));
+    } else if (campo === 'nome') {
+        const nomeLimpo = (novoValor || '').trim();
+        if (!nomeLimpo) { renderizarTabelaFeriadosCustomizados(); return; }
+        lista[idx].nome = nomeLimpo;
+    }
+
+    localStorage.setItem('banco_feriados_customizados', JSON.stringify(lista));
+    renderizarTabelaFeriadosCustomizados();
 }
 
 function adicionarFeriadoCustomizado() {
@@ -242,21 +275,15 @@ function calcularFilaComDatasExecutor(nomeExecutor, arvoresPreCarregadas) {
         const arv = arvores[nomeProjeto];
         if (!Array.isArray(arv.etapas)) return;
 
-        arv.etapas.forEach((etapa, fIdx) => {
-            (etapa.setores || []).forEach((setor, eIdx) => {
-                (setor.pavimentos || []).forEach((pav, sIdx) => {
-                    (pav.tarefas || []).forEach((tarefa, tIdx) => {
-                        if (tarefa.executor !== nomeExecutor) return;
-                        if (tarefa.status === 'Finalizada') return;
+        coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path }) => {
+            if (tarefa.executor !== nomeExecutor) return;
+            if (tarefa.status === 'Finalizada') return;
 
-                        tarefas.push({
-                            pontos: parseFloat(tarefa.pontos) || 0,
-                            ordem: tarefa.ordem_fila !== undefined ? tarefa.ordem_fila : 999999,
-                            caminho: nomeProjeto + '|' + fIdx + '-' + eIdx + '-' + sIdx + '-' + tIdx,
-                            dataInicioManual: tarefa.data_inicio_manual || null
-                        });
-                    });
-                });
+            tarefas.push({
+                pontos: parseFloat(tarefa.pontos) || 0,
+                ordem: tarefa.ordem_fila !== undefined ? tarefa.ordem_fila : 999999,
+                caminho: nomeProjeto + '|' + path,
+                dataInicioManual: tarefa.data_inicio_manual || null
             });
         });
     });

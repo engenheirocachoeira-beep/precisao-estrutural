@@ -6658,4 +6658,91 @@ Localização) e na aba Kanban (título "TAREFAS A SUPERVISIONAR"; cartão
 raiz do repositório Git (fora desta pasta do app) pra servir o app
 localmente em sessões futuras — não existia antes.
 
-**Nada ficou pendente desta rodada.**
+Depois desta rodada, deploy automático foi configurado: o site Netlify
+`precisao-estrutural-150` (Project Id `24d69494-495d-4275-b968-c0bf0e3ee115`,
+único sobrevivente depois de descontinuar dois outros sites duplicados
+— `precisao-estrutural` e `gleaming-scone-2511ce`) agora está linkado
+ao repositório GitHub `engenheirocachoeira-beep/precisao-estrutural`,
+branch `master`, publish directory `precisao_estrutural_atualizado
+(1)/precisao_estrutural`. Todo `git push` a partir de agora publica
+sozinho, sem `netlify deploy` manual.
+
+## Merge de uma linha de trabalho paralela perdida (2026-08-13, mesmo dia)
+
+Usuário reportou que mudanças visuais antigas (Nível 1: ícones SVG
+substituindo emoji em toda a UI; Nível 2: sombras, blur em modais,
+acento no card de login, remoção da cor fixa do item "Projetos" no
+menu) tinham "sumido" do site publicado. Investigação: essas mudanças
+nunca chegaram a este repositório Git — foram feitas numa conversa
+separada (outra sessão Claude Code, mesma máquina), que evoluiu a
+partir de um ponto ANTERIOR ao "Commit inicial" deste repo (não tinha
+Item 14/17), então divergiu numa direção puramente visual. Usuário
+recuperou o `.zip` daquela sessão (não tinha sido baixado antes) e
+trouxe pra cá.
+
+**Merge real, arquivo por arquivo** (não um "colar por cima" — as duas
+linhas tinham lógica de negócio conflitante): comparado o zip contra o
+commit `375df4c` (ancestral comum real, ambos idênticos até então) pra
+isolar SÓ o que a linha visual mudou, então aplicado por cima do
+HEAD atual (que já tinha Item 14/17 + as 3 correções de hoje),
+rejeitando qualquer hunk que removesse lógica já corrigida:
+
+- **Adotado**: sprite de ícones SVG completo (42 ícones, Lucide) +
+  troca de emoji por `<svg class="icon"><use></svg>` em ~200 pontos;
+  `estilos.css` inteiro (tokens de cor `--color-*`, sombra em
+  `.form-panel`, `backdrop-filter:blur()` nos modais, acento no card
+  de login, hover-elevação nos cartões Kanban, `.status-dot`,
+  `.toast`); campo CEP em Cliente/Funcionário/Projeto; ordenação
+  clicável nas tabelas de Clientes/Projetos; coluna "Detalhista" na
+  tabela de Projetos; `mostrarToast()` (novo, em `core.js`) substituindo
+  `alert()` de confirmação em ~6 lugares; `deletarProjeto()` limpando
+  também Distribuição de Custos/Lucro (antes só a árvore);
+  `linhaVerificador` no cartão Kanban (mostra quem tem autoridade de
+  revisar quando vejo minha própria tarefa "Aguardando Verificação");
+  botão "Meu Calendário" do Kanban passou a ficar sempre habilitado
+  (antes desabilitava quando a lista misturava várias pessoas);
+  ranking do Kanban trocou medalha por "1º/2º/3º" (pedido explícito).
+- **Rejeitado** (o zip tinha REGREDIDO essas partes, por vir de antes
+  da leva 4): mecanismo inteiro do Item 17 (`proj-nome-original`,
+  bloqueio de colisão de nome); `validarDataBR`/
+  `validarTodasDatasDaTela`; formatação de moeda/área
+  (`formatarNumeroBRDigitando`/`formatarNumeroBRParaExibicao`/
+  `desformatarNumeroBR`); Item 14 (drag-and-drop genérico, arvore.js);
+  Item 10 inteiro (cascata de verba por Etapa —
+  `distribuirVerbaRecursiva`, `calcularVerbaPorEtapa(Salvo)`, Setor
+  competindo por Área Equivalente, edição inline de Área/Peso de
+  Setor/Pavimento na Aba 4 de Distribuição de Custos, Custo Máx Teto
+  calculado ao vivo em vez de editável); `obterArvoresProjetosAtivas()`
+  (filtro de árvore órfã) — mantido, e complementado com uma versão
+  nova de limpeza proativa no boot
+  (`limparReferenciasOrfasDeProjetosExcluidos()`, roda em
+  `iniciarAppPosLogin()`); volta do padrão de Impostos de 23% pra 21%.
+- Também trazido: pasta `img/` (logo do cabeçalho e da tela de login,
+  novidade — antes não existia logo nenhum) e sprite de ícones
+  replicado nos 9 `index.html` de módulo isolado (ficariam com ícones
+  invisíveis sem isso — únicos elementos tocados nos módulos isolados
+  além dos `.js`/`estilos.css` já sincronizados).
+
+**Achado à parte, não corrigido (fora de escopo)**: o módulo isolado
+`modulos_isolados/cadastros/` já tinha (antes desta rodada) um
+`index.html` com nomes de campo de endereço diferentes do `cadastros.js`
+principal (`cli-logradouro` em vez de `cli-rua`+`cli-numero`+
+`cli-bairro`, e o mesmo padrão em Funcionário/Projeto) — bug
+pré-existente, sem relação com esta mudança, registrado aqui só pra não
+se perder (mesmo padrão dos gaps já conhecidos do módulo de árvore,
+§ acima).
+
+Validado: `node --check` limpo em todos os `.js` tocados (principal +
+9 módulos isolados); HTML balanceado (tags, `<script>`, `<table>` etc.)
+e toda função referenciada em `onclick`/`onchange`/`oninput`/
+`onkeydown` confirmada existente, checado por script; varredura
+completa por emoji sobrando em código ativo (fora de comentário) —
+zero, exceto 1 comentário de código inofensivo. Testado no app de
+verdade rodando local — Cadastro (CEP nos 3 formulários, ordenação,
+coluna Detalhista, `proj-nome-original` presente), Kanban (ícones
+renderizando, sem duplicação de localização, título certo), sem erros
+no console.
+
+**Nada ficou pendente desta rodada** — exceto o achado de fora-de-escopo
+registrado acima (módulo isolado de cadastros com nomes de campo
+desatualizados, pré-existente).

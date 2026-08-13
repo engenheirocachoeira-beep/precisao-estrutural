@@ -74,7 +74,7 @@ function renderizarTabelaFeriadosCustomizados() {
     const tbody = document.getElementById('fer-tabela-custom-body');
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:16px;">Nenhum feriado adicional cadastrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#64748b; padding:16px;">Nenhum feriado adicional cadastrado.</td></tr>';
         return;
     }
 
@@ -82,7 +82,7 @@ function renderizarTabelaFeriadosCustomizados() {
         return '<tr>' +
             '<td><input type="date" value="' + f.data + '" style="border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'data\', this.value)"></td>' +
             '<td><input type="text" value="' + f.nome.replace(/"/g, '&quot;') + '" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'nome\', this.value)"></td>' +
-            '<td style="text-align:center;"><button class="btn-delete" onclick="deletarFeriadoCustomizado(' + idx + ')">🗑️</button></td></tr>';
+            '<td style="text-align:center;"><button class="btn-delete" title="Excluir feriado" aria-label="Excluir feriado" onclick="deletarFeriadoCustomizado(' + idx + ')"><svg class="icon"><use href="#icon-trash"></use></svg></button></td></tr>';
     }).join('');
 }
 

@@ -1045,7 +1045,7 @@ function tentarLogin() {
 
     const cabecalho = document.getElementById('cabecalho-usuario-logado');
     if (cabecalho) {
-        cabecalho.innerHTML = '👤 ' + nomeParaExibicao(usuarioLogado.nome) +
+        cabecalho.innerHTML = '<svg class="icon"><use href="#icon-user"></use></svg> ' + nomeParaExibicao(usuarioLogado.nome) +
             ' <span style="color:#94a3b8;">(' + usuarioLogado.nivel + ')</span> ' +
             '<button type="button" onclick="sair()" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">Sair</button>';
     }
@@ -1093,7 +1093,7 @@ function renderizarCabecalhoIdentidadeTeste() {
     const cabecalho = document.getElementById('cabecalho-usuario-logado');
     if (!cabecalho) return;
     cabecalho.innerHTML =
-        '<span style="color:#f59e0b; font-weight:bold;" title="Login suspenso temporariamente pra facilitar testes — ver prompt_gemini.md">🧪 TESTE</span>' +
+        '<span style="color:#f59e0b; font-weight:bold;" title="Login suspenso temporariamente pra facilitar testes — ver prompt_gemini.md"><svg class="icon"><use href="#icon-flask"></use></svg> TESTE</span>' +
         '<select onchange="trocarIdentidadeTeste(this.value)" style="background:#0f223f; color:#fff; border:1px solid #475569; border-radius:4px; padding:3px 6px; font-size:11px;">' + opcoes + '</select>' +
         '<button type="button" onclick="sair()" title="Volta pro Administrador padrão" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">↺ Resetar</button>';
 }
@@ -1209,7 +1209,58 @@ function projetoEstaLiberadoParaDetalhamento(nomeProjeto) {
 // que tentarLogin() confirma as credenciais — o app inteiro fica
 // escondido atrás da tela de login (#tela-login, z-index bem alto) até
 // esse momento.
+// Toast de confirmação (Nível 1, item 3 — pedido do usuário): feedback
+// visual depois de salvar, hoje silencioso em vários formulários (só
+// fecham e voltam pra lista). Empilha até 3 (o mais antigo some primeiro
+// se vier um 4º) — sem fila, sem depender de nenhuma outra tela.
+function mostrarToast(mensagem) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const MAX_TOASTS = 3;
+    while (container.children.length >= MAX_TOASTS) {
+        container.removeChild(container.firstChild);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = mensagem;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-visivel'));
+    setTimeout(() => {
+        toast.classList.remove('toast-visivel');
+        toast.classList.add('toast-saindo');
+        setTimeout(() => toast.remove(), 250);
+    }, 2500);
+}
+
+// Limpa referências a projetos que não existem mais em `banco_projetos` —
+// sobras de exclusões feitas ANTES de deletarProjeto() (cadastros.js)
+// passar a apagar tudo junto. Sem isso, a árvore de tarefas e os dados de
+// Distribuição de Custos/Lucro de um projeto já excluído ficavam órfãos
+// pra sempre. Roda a cada boot — idempotente, não faz nada se não sobrou
+// órfão nenhum. Complementa (não substitui) obterArvoresProjetosAtivas()
+// acima, que continua filtrando na leitura por segurança.
+function limparReferenciasOrfasDeProjetosExcluidos() {
+    const nomesValidos = new Set((JSON.parse(localStorage.getItem('banco_projetos')) || []).map(p => p.nome));
+    ['banco_arvores_projetos', 'banco_distribuicao_custos', 'banco_distribuicao_custos_analista', 'banco_distribuicao_lucros'].forEach(chave => {
+        const dados = JSON.parse(localStorage.getItem(chave)) || {};
+        let alterou = false;
+        Object.keys(dados).forEach(nomeProjeto => {
+            if (!nomesValidos.has(nomeProjeto)) {
+                delete dados[nomeProjeto];
+                alterou = true;
+            }
+        });
+        if (alterou) localStorage.setItem(chave, JSON.stringify(dados));
+    });
+}
+
 function iniciarAppPosLogin() {
+    limparReferenciasOrfasDeProjetosExcluidos();
     migrarStatusPendenteValidacao();
     migrarValorHoraParaHistorico();
     limparWorkspace();

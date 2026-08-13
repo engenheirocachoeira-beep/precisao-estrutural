@@ -179,7 +179,7 @@ function apurarDistribuicaoLucro() {
     const pctIgualitaria = parseFloat(document.getElementById('dl-pct-igualitaria').value) || 0;
     const tbody = document.getElementById('dl-tabela-body');
     if (!dataInicio || !dataFim) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Escolha o período (Data Início e Data Fim).</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">Escolha o período (Data Início e Data Fim).</td></tr>';
         return;
     }
     if (dataInicio > dataFim) return alert('Data Início não pode ser depois de Data Fim.');
@@ -197,7 +197,7 @@ function apurarDistribuicaoLucro() {
     document.getElementById('dl-soma-pontos').innerText = r.somaPontosEstagiarios.toFixed(1);
 
     if (r.linhas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Nenhum Estagiário ativo cadastrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">Nenhum Estagiário ativo cadastrado.</td></tr>';
         return;
     }
 

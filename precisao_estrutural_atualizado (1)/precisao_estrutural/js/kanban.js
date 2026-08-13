@@ -251,7 +251,7 @@ function alternarAbaKanban(aba) {
 
     if (aba === 'ranking') {
         const elTitulo = document.getElementById('page-context-title');
-        if (elTitulo) elTitulo.innerText = '🏆 Ranking de Produtividade';
+        if (elTitulo) elTitulo.innerHTML = '<svg class="icon"><use href="#icon-trophy"></use></svg> Ranking de Produtividade';
         renderizarRankingProdutividadeExecutores();
     } else {
         renderizarQuadroKanban();
@@ -340,11 +340,11 @@ function renderizarRankingProdutividadeExecutores() {
     }
 
     tbody.innerHTML = lista.map((item, idx) => {
-        const medalha = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1) + 'º';
+        const medalha = (idx + 1) + 'º';
         const nomeExibicao = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(item.executor) : item.executor;
         return '<tr>' +
             '<td style="text-align:center; font-weight:bold;">' + medalha + '</td>' +
-            '<td>' + nomeExibicao + (item.existe ? '' : ' <small style="color:#94a3b8;">(desligado)</small>') + '</td>' +
+            '<td>' + nomeExibicao + (item.existe ? '' : ' <small style="color:#64748b;">(desligado)</small>') + '</td>' +
             '<td style="text-align:center;">' + item.pontos.toFixed(1) + '</td>' +
             '<td style="text-align:center;">' + item.horas.toFixed(1) + 'h</td>' +
             '<td style="text-align:center; font-weight:bold;">' + item.produtividade.toFixed(2) + '</td>' +
@@ -620,7 +620,7 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
     // via corBordaCartaoKanban, olhando a Data de FIM).
     const bolinhaSemaforo = typeof renderizarBolinhaSemaforoPrioridade === 'function' ? renderizarBolinhaSemaforoPrioridade(t.dataInicioPrevista, hojeISO) : '';
     const linhaData = (t.dataInicioExibicao && t.dataFimExibicao)
-        ? '<div class="kb-cartao-data">' + bolinhaSemaforo + '🏁 ' + t.dataInicioExibicao + ' → ' + t.dataFimExibicao + '</div>'
+        ? '<div class="kb-cartao-data">' + bolinhaSemaforo + '<svg class="icon"><use href="#icon-flag"></use></svg> ' + t.dataInicioExibicao + ' → ' + t.dataFimExibicao + '</div>'
         : '';
     const caminhoJs = t.caminho.replace(/'/g, "\\'");
 
@@ -629,21 +629,49 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
     // coletarTarefasParaRevisar()), mostra de quem é, senão ficaria sem
     // contexto nenhum de quem fez o trabalho.
     const linhaExecutorRevisao = (t.executor && nomeExecutorVisualizado && t.executor !== nomeExecutorVisualizado)
-        ? '<div class="kb-cartao-executor-revisao">👤 ' + nomeParaExibicao(t.executor) + '</div>'
+        ? '<div class="kb-cartao-executor-revisao"><svg class="icon"><use href="#icon-user"></use></svg> ' + nomeParaExibicao(t.executor) + '</div>'
         : '';
+
+    // Caminho inverso do item acima: quando estou vendo o MEU PRÓPRIO
+    // cartão (Meu Kanban) e ele está "Aguardando Verificação", mostra
+    // quem tem autoridade de verificar — pra eu saber com quem a tarefa
+    // está. Mesmo fallback já usado na coluna "Responsável" de Atribuição
+    // de Tarefas (Melhoria #26, atribuicao-tarefas.js): tarefa.responsavel
+    // custom, senão o Analista do projeto. Autoaprovação (executor é
+    // Supervisor/Administrador, nivelExigidoParaRevisar retorna 'auto')
+    // não mostra nada — não faz sentido apontar pra si mesmo.
+    let linhaVerificador = '';
+    if (t.status === 'Aguardando Verificação' && t.executor && nomeExecutorVisualizado === t.executor) {
+        const funcionariosParaVerificador = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+        const funcionarioExecutorVerificador = funcionariosParaVerificador.find(f => f.nome === t.executor);
+        const nivelDoExecutorVerificador = funcionarioExecutorVerificador ? funcionarioExecutorVerificador.nivel : 'executor';
+        if (nivelExigidoParaRevisar(nivelDoExecutorVerificador) !== 'auto') {
+            const todasParaVerificador = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            const tarefaRealParaVerificador = typeof localizarTarefaPorCaminho === 'function' ? localizarTarefaPorCaminho(todasParaVerificador, t.caminho) : null;
+            const nomeProjetoDoCartaoVerificador = t.caminho.split('|')[0];
+            const projetosParaVerificador = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+            const projetoDoCartaoVerificador = projetosParaVerificador.find(p => p.nome === nomeProjetoDoCartaoVerificador);
+            const nomeVerificador = (tarefaRealParaVerificador && tarefaRealParaVerificador.responsavel)
+                || (projetoDoCartaoVerificador && projetoDoCartaoVerificador.analista)
+                || '';
+            if (nomeVerificador) {
+                linhaVerificador = '<div class="kb-cartao-verificador"><svg class="icon"><use href="#icon-search"></use></svg> ' + nomeParaExibicao(nomeVerificador) + '</div>';
+            }
+        }
+    }
 
     // Contador de retrabalho (ciclo Executor↔Revisor) — só aparece
     // quando já houve pelo menos 1 rodada de "Para revisão".
     const linhaVezesEmRevisao = (t.vezesEmRevisao > 0)
-        ? '<div class="kb-cartao-vezes-revisao" style="font-size:10px; color:#b91c1c; margin-top:2px;">🔁 Já voltou ' + t.vezesEmRevisao + 'x pra correção</div>'
+        ? '<div class="kb-cartao-vezes-revisao" style="font-size:10px; color:#b91c1c; margin-top:2px;"><svg class="icon"><use href="#icon-repeat"></use></svg> Já voltou ' + t.vezesEmRevisao + 'x pra correção</div>'
         : '';
 
     let linhaCronometro;
     if (t.sessaoAtivaInicio) {
         linhaCronometro =
             '<div class="kb-cartao-cronometro kb-cartao-cronometro-ativo">' +
-            '<span class="kb-cronometro-tempo" data-inicio="' + t.sessaoAtivaInicio + '">🔴 —</span>' +
-            '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); pausarSessaoKanban(\'' + caminhoJs + '\')">⏸ Pausar</button>' +
+            '<span class="kb-cronometro-tempo" data-inicio="' + t.sessaoAtivaInicio + '"><span class="status-dot status-dot-urgente"></span> —</span>' +
+            '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); pausarSessaoKanban(\'' + caminhoJs + '\')"><svg class="icon"><use href="#icon-pause"></use></svg> Pausar</button>' +
             '</div>';
     } else if (statusBloqueiaCronometro(t.status)) {
         // Bloqueado por pedido explícito do usuário: "Apontada" (tarefa
@@ -653,17 +681,17 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
         let dica, rotulo;
         if (t.status === 'Apontada') {
             dica = 'Mova esta tarefa pra \'Em Desenvolvimento\' pra poder iniciar a contagem';
-            rotulo = '🔒 Mova pra iniciar';
+            rotulo = '<svg class="icon"><use href="#icon-lock"></use></svg> Mova pra iniciar';
         } else if (t.status === 'Finalizada') {
             dica = 'Tarefa já finalizada — não conta mais tempo';
-            rotulo = '✅ Finalizada';
+            rotulo = '<svg class="icon"><use href="#icon-check"></use></svg> Finalizada';
         } else {
             dica = 'Tarefa em revisão — contagem fica bloqueada até voltar pra \'Em Desenvolvimento\' ou \'Para revisão\'';
-            rotulo = '🔒 Em revisão';
+            rotulo = '<svg class="icon"><use href="#icon-lock"></use></svg> Em revisão';
         }
         linhaCronometro =
             '<div class="kb-cartao-cronometro" title="' + dica + '">' +
-            '<span class="kb-cronometro-tempo" style="color:#94a3b8;">' + rotulo + '</span>' +
+            '<span class="kb-cronometro-tempo" style="color:#64748b;">' + rotulo + '</span>' +
             '</div>';
     } else {
         linhaCronometro =
@@ -692,13 +720,13 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
     if (souOExecutorDesteCartao && (t.status === 'Em Desenvolvimento' || t.status === 'Para revisão')) {
         linhaApontamentoManual =
             '<div class="kb-cartao-apontamento-manual">' +
-            '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\')">📝 Apontar horas</button>' +
-            (t.apontamentosPendentes > 0 ? '<span class="kb-badge-apontamento-pendente">⏳ ' + t.apontamentosPendentes + '</span>' : '') +
+            '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\')"><svg class="icon"><use href="#icon-pencil"></use></svg> Apontar horas</button>' +
+            (t.apontamentosPendentes > 0 ? '<span class="kb-badge-apontamento-pendente"><svg class="icon"><use href="#icon-hourglass"></use></svg> ' + t.apontamentosPendentes + '</span>' : '') +
             '</div>';
     } else if (t.apontamentosPendentes > 0) {
         linhaApontamentoManual =
             '<div class="kb-cartao-apontamento-manual">' +
-            '<span class="kb-badge-apontamento-pendente">⏳ ' + t.apontamentosPendentes + ' apontamento(s) aguardando aprovação</span>' +
+            '<span class="kb-badge-apontamento-pendente"><svg class="icon"><use href="#icon-hourglass"></use></svg> ' + t.apontamentosPendentes + ' apontamento(s) aguardando aprovação</span>' +
             '</div>';
     }
 
@@ -722,7 +750,7 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
         if (temAutoridadeDeRevisar) {
             linhaApontamentoManualRevisao =
                 '<div class="kb-cartao-apontamento-manual">' +
-                '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\', \'revisao\')">📝 Apontar horas de revisão</button>' +
+                '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\', \'revisao\')"><svg class="icon"><use href="#icon-pencil"></use></svg> Apontar horas de revisão</button>' +
                 '</div>';
         }
     }
@@ -752,13 +780,13 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
                 if (temAutoridadeDeAprovar) {
                     botoesAprovacaoFinalizacao =
                         '<div class="kb-cartao-botoes-aprovacao" style="display:flex; gap:4px; margin-top:4px;">' +
-                        '<button class="kb-btn-aprovar" style="flex:1; background:#166534; color:white; border:none; font-size:10px; padding:3px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); aprovarFinalizacaoCartaoKanban(\'' + caminhoJs + '\')">✅ Aprovar</button>' +
+                        '<button class="kb-btn-aprovar" style="flex:1; background:#166534; color:white; border:none; font-size:10px; padding:3px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); aprovarFinalizacaoCartaoKanban(\'' + caminhoJs + '\')"><svg class="icon"><use href="#icon-check"></use></svg> Aprovar</button>' +
                         '</div>';
                 }
             }
-            linhaSeloAprovacao = '<div class="kb-cartao-selo-aprovacao" style="font-size:10px; font-weight:bold; color:#b45309; margin-top:4px;">⏳ Aguardando aprovação</div>' + botoesAprovacaoFinalizacao;
+            linhaSeloAprovacao = '<div class="kb-cartao-selo-aprovacao" style="font-size:10px; font-weight:bold; color:#b45309; margin-top:4px;"><svg class="icon"><use href="#icon-hourglass"></use></svg> Aguardando aprovação</div>' + botoesAprovacaoFinalizacao;
         } else if (t.aprovacaoFinalizacao === 'aprovada') {
-            linhaSeloAprovacao = '<div class="kb-cartao-selo-aprovacao" style="font-size:10px; font-weight:bold; color:#166534; margin-top:4px;">✅ Aprovada</div>';
+            linhaSeloAprovacao = '<div class="kb-cartao-selo-aprovacao" style="font-size:10px; font-weight:bold; color:#166534; margin-top:4px;"><svg class="icon"><use href="#icon-check"></use></svg> Aprovada</div>';
         }
     }
 
@@ -786,7 +814,7 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
         if (temAutoridadeDeRevisarSessoes) {
             linhaSessoesRevisaoPendentes =
                 '<div class="kb-cartao-apontamento-manual">' +
-                '<button class="kb-btn-apontamento-manual" style="background:#fef3c7; color:#92400e;" onclick="event.stopPropagation(); abrirModalSessoesRevisaoPendentesKanban(\'' + caminhoJs + '\')">⏳ ' + sessoesRevisaoDaTarefaPendentes + ' sessão(ões) de revisão aguardando aprovação</button>' +
+                '<button class="kb-btn-apontamento-manual" style="background:#fef3c7; color:#92400e;" onclick="event.stopPropagation(); abrirModalSessoesRevisaoPendentesKanban(\'' + caminhoJs + '\')"><svg class="icon"><use href="#icon-hourglass"></use></svg> ' + sessoesRevisaoDaTarefaPendentes + ' sessão(ões) de revisão aguardando aprovação</button>' +
                 '</div>';
         }
     }
@@ -798,9 +826,10 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
 
     return '<div class="kb-cartao" draggable="true" style="border-left:4px solid ' + cor + ';' + estiloOpacidade + '" ' +
         'ondragstart="iniciarArrastoCartaoKanban(event, \'' + t.caminho + '\')">' +
-        '<div class="kb-cartao-caminho" style="font-size:10px; color:#94a3b8; margin-bottom:2px;">' + t.projeto + (localizacaoSemTarefaCartao ? ' › ' + localizacaoSemTarefaCartao : '') + '</div>' +
+        '<div class="kb-cartao-caminho" style="font-size:10px; color:#64748b; margin-bottom:2px;">' + t.projeto + (localizacaoSemTarefaCartao ? ' › ' + localizacaoSemTarefaCartao : '') + '</div>' +
         '<div class="kb-cartao-tarefa">' + t.tarefa + '</div>' +
         linhaExecutorRevisao +
+        linhaVerificador +
         linhaVezesEmRevisao +
         '<div class="kb-cartao-pontos">Pontos: ' + (t.pontos || '—') + '</div>' +
         linhaData +
@@ -886,15 +915,21 @@ function renderizarQuadroKanban() {
         });
     }
 
-    // Botão "Meu Calendário" — só fica disponível quando dá pra apontar
-    // pra UMA pessoa específica (Meu Kanban, ou uso administrativo na
-    // outra aba); "sob minha responsabilidade" mistura gente, sem
-    // calendário único pra mostrar.
+    // Botão "Meu Calendário" — disponível em qualquer aba/filtro aberto
+    // do Kanban (pedido do usuário). Variável PRÓPRIA, separada de
+    // `nomeParaCalendario`, de propósito: aquela também decide o título
+    // da tela (que precisa continuar genérico quando a lista mistura
+    // várias pessoas — ver acima); só o botão precisa de um alvo
+    // sempre, então cai no próprio usuário logado quando não há uma
+    // pessoa específica sendo mostrada (mesma lógica de
+    // obterNomeSujeitoCalendarioKanban(), usada de verdade quando o
+    // botão é clicado).
+    const nomeParaCalendarioBotao = nomeParaCalendario || (usuarioAtual ? usuarioAtual.nome : null);
     const btnCalendario = document.getElementById('kb-btn-meu-calendario');
     if (btnCalendario) {
-        btnCalendario.disabled = !nomeParaCalendario;
-        const ehOProprio = usuarioAtual && nomeParaCalendario === usuarioAtual.nome;
-        btnCalendario.innerText = (ehOProprio || !nomeParaCalendario) ? '⚙️ Meu Calendário' : ('⚙️ Calendário de ' + nomeParaExibicao(nomeParaCalendario));
+        btnCalendario.disabled = !nomeParaCalendarioBotao;
+        const ehOProprio = usuarioAtual && nomeParaCalendarioBotao === usuarioAtual.nome;
+        btnCalendario.innerHTML = (ehOProprio || !nomeParaCalendarioBotao) ? '<svg class="icon"><use href="#icon-settings"></use></svg> Meu Calendário' : ('<svg class="icon"><use href="#icon-settings"></use></svg> Calendário de ' + nomeParaExibicao(nomeParaCalendarioBotao));
     }
 
     // Aprovação de Finalização (prompt_gemini.md §12.9): avisa no
@@ -905,7 +940,7 @@ function renderizarQuadroKanban() {
     if (avisoFinalizacoes) {
         const n = (kbAbaAtiva === 'meu' && typeof contarFinalizacoesPendentes === 'function') ? contarFinalizacoesPendentes() : 0;
         if (n > 0) {
-            avisoFinalizacoes.innerText = '⏳ ' + n + ' finalização(ões) aguardando sua aprovação — clique pra ver na tela Aprovações';
+            avisoFinalizacoes.innerHTML = '<svg class="icon"><use href="#icon-hourglass"></use></svg> ' + n + ' finalização(ões) aguardando sua aprovação — clique pra ver na tela Aprovações';
             avisoFinalizacoes.style.display = 'block';
         } else {
             avisoFinalizacoes.style.display = 'none';
@@ -1100,7 +1135,7 @@ function iniciarRelogioVivoKanban() {
             const horas = (Date.now() - inicio) / 3600000;
             const h = Math.floor(horas);
             const m = Math.floor((horas - h) * 60);
-            el.innerText = '🔴 ' + h + 'h' + String(m).padStart(2, '0') + 'min';
+            el.innerHTML = '<span class="status-dot status-dot-urgente"></span> ' + h + 'h' + String(m).padStart(2, '0') + 'min';
         });
     }, 1000);
 }
@@ -1132,10 +1167,13 @@ function podeAlterarCalendarioColaborador() {
 // único definindo "de quem é o quadro" — cada aba decide isso sozinha
 // (ver renderizarQuadroKanban). Essa função repete a MESMA lógica só
 // pra descobrir o "sujeito" atual do botão Meu Calendário: "Meu
-// Kanban" é sempre a própria pessoa; "Kanban" só tem um sujeito único
+// Kanban" é sempre a própria pessoa; em "Tarefas a supervisionar" (e no
+// Ranking), só tem um sujeito ESPECÍFICO diferente do usuário logado
 // quando o filtro de Executor está sendo usado no modo administrativo
-// (Administrador/Supervisor escolheu alguém) — sem isso, retorna null
-// (lista mistura várias pessoas, sem calendário único pra abrir).
+// (Administrador/Supervisor escolheu alguém) — sem isso, cai no
+// próprio usuário logado, pra "Meu Calendário" ficar sempre disponível
+// em qualquer aba aberta do Kanban (pedido do usuário — antes ficava
+// desabilitado quando a lista misturava várias pessoas).
 function obterNomeSujeitoCalendarioKanban() {
     const usuarioAtual = (typeof usuarioLogado !== 'undefined' && usuarioLogado) ? usuarioLogado : null;
     if (!usuarioAtual) return null;
@@ -1144,7 +1182,7 @@ function obterNomeSujeitoCalendarioKanban() {
     const elExecutor = document.getElementById('kb-filtro-executor');
     const filtroExecutor = elExecutor ? elExecutor.value : '';
     const podeAbrirQuadroDeQualquerUm = usuarioAtual.nivel === 'administrador' || usuarioAtual.nivel === 'supervisor';
-    return (filtroExecutor && podeAbrirQuadroDeQualquerUm) ? filtroExecutor : null;
+    return (filtroExecutor && podeAbrirQuadroDeQualquerUm) ? filtroExecutor : usuarioAtual.nome;
 }
 
 function abrirModalCalendarioKanban() {
@@ -1183,7 +1221,7 @@ function renderizarTabelaExcecoesCalendarioKanban(nomeExecutor) {
 
     const tbody = document.getElementById('kb-cal-tabela-excecoes-body');
     if (excecoes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:12px;">Nenhuma exceção registrada ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:12px;">Nenhuma exceção registrada ainda.</td></tr>';
         return;
     }
 
@@ -1191,7 +1229,7 @@ function renderizarTabelaExcecoesCalendarioKanban(nomeExecutor) {
     excecoes.reverse();
 
     const corStatus = { pendente: '#f59e0b', aprovado: '#10b981', recusado: '#ef4444' };
-    const rotuloStatus = { pendente: '⏳ Pendente', aprovado: '✅ Aprovado', recusado: '❌ Recusado' };
+    const rotuloStatus = { pendente: '<svg class="icon"><use href="#icon-hourglass"></use></svg> Pendente', aprovado: '<svg class="icon"><use href="#icon-check"></use></svg> Aprovado', recusado: '<svg class="icon"><use href="#icon-close"></use></svg> Recusado' };
 
     tbody.innerHTML = excecoes.map(ex => {
         const periodo = ex.data_inicio === ex.data_fim
@@ -1335,7 +1373,7 @@ function renderizarTabelaSessoesRevisaoPendentesKanban(caminho) {
         .filter(item => item.sessao.status === 'pendente');
 
     if (pendentes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:15px;">Nenhuma sessão pendente.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:15px;">Nenhuma sessão pendente.</td></tr>';
         return;
     }
 
@@ -1346,8 +1384,8 @@ function renderizarTabelaSessoesRevisaoPendentesKanban(caminho) {
             '<td>' + (s.inicio ? new Date(s.inicio).toLocaleString('pt-BR') : '—') + '</td>' +
             '<td>' + (parseFloat(s.duracao) || 0).toFixed(2) + 'h</td>' +
             '<td style="text-align:center; white-space:nowrap;">' +
-            '<button class="kb-btn-aprovar" style="background:#166534; color:white; border:none; font-size:11px; padding:4px 8px; border-radius:3px; cursor:pointer; margin-right:4px;" onclick="aprovarSessaoRevisao(\'' + caminho + '\', ' + item.idx + '); renderizarTabelaSessoesRevisaoPendentesKanban(\'' + caminho + '\');">✅ Aprovar</button>' +
-            '<button class="kb-btn-recusar" style="background:#991b1b; color:white; border:none; font-size:11px; padding:4px 8px; border-radius:3px; cursor:pointer;" onclick="recusarSessaoRevisao(\'' + caminho + '\', ' + item.idx + '); renderizarTabelaSessoesRevisaoPendentesKanban(\'' + caminho + '\');">✖ Recusar</button>' +
+            '<button class="kb-btn-aprovar" style="background:#166534; color:white; border:none; font-size:11px; padding:4px 8px; border-radius:3px; cursor:pointer; margin-right:4px;" onclick="aprovarSessaoRevisao(\'' + caminho + '\', ' + item.idx + '); renderizarTabelaSessoesRevisaoPendentesKanban(\'' + caminho + '\');"><svg class="icon"><use href="#icon-check"></use></svg> Aprovar</button>' +
+            '<button class="kb-btn-recusar" style="background:#991b1b; color:white; border:none; font-size:11px; padding:4px 8px; border-radius:3px; cursor:pointer;" onclick="recusarSessaoRevisao(\'' + caminho + '\', ' + item.idx + '); renderizarTabelaSessoesRevisaoPendentesKanban(\'' + caminho + '\');"><svg class="icon"><use href="#icon-close"></use></svg> Recusar</button>' +
             '</td></tr>';
     }).join('');
 }
@@ -1363,12 +1401,12 @@ function renderizarTabelaApontamentosManuaisKanban(caminho) {
         // têm "data"/"motivo" nesse sentido, são início/fim de sessão).
         const lista = (tarefa && Array.isArray(tarefa.sessoes_revisao)) ? tarefa.sessoes_revisao.filter(s => s.manual).slice() : [];
         if (lista.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:12px;">Nenhum apontamento manual de revisão registrado ainda.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:12px;">Nenhum apontamento manual de revisão registrado ainda.</td></tr>';
             return;
         }
         lista.reverse();
         const corStatusRevisao = { pendente: '#f59e0b', aprovada: '#10b981', recusada: '#ef4444' };
-        const rotuloStatusRevisao = { pendente: '⏳ Pendente', aprovada: '✅ Aprovado', recusada: '❌ Recusado' };
+        const rotuloStatusRevisao = { pendente: '<svg class="icon"><use href="#icon-hourglass"></use></svg> Pendente', aprovada: '<svg class="icon"><use href="#icon-check"></use></svg> Aprovado', recusada: '<svg class="icon"><use href="#icon-close"></use></svg> Recusado' };
         tbody.innerHTML = lista.map(s => {
             const cor = corStatusRevisao[s.status] || '#64748b';
             const rotulo = rotuloStatusRevisao[s.status] || s.status;
@@ -1385,7 +1423,7 @@ function renderizarTabelaApontamentosManuaisKanban(caminho) {
     const lista = (tarefa && Array.isArray(tarefa.apontamentos_manuais)) ? tarefa.apontamentos_manuais.slice() : [];
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:12px;">Nenhum apontamento manual registrado ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:12px;">Nenhum apontamento manual registrado ainda.</td></tr>';
         return;
     }
 
@@ -1393,7 +1431,7 @@ function renderizarTabelaApontamentosManuaisKanban(caminho) {
     lista.reverse();
 
     const corStatus = { pendente: '#f59e0b', aprovado: '#10b981', recusado: '#ef4444' };
-    const rotuloStatus = { pendente: '⏳ Pendente', aprovado: '✅ Aprovado', recusado: '❌ Recusado' };
+    const rotuloStatus = { pendente: '<svg class="icon"><use href="#icon-hourglass"></use></svg> Pendente', aprovado: '<svg class="icon"><use href="#icon-check"></use></svg> Aprovado', recusado: '<svg class="icon"><use href="#icon-close"></use></svg> Recusado' };
 
     tbody.innerHTML = lista.map(ap => {
         const cor = corStatus[ap.status] || '#64748b';
