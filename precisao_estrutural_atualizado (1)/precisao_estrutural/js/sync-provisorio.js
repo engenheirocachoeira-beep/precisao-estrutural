@@ -95,7 +95,7 @@ function _syncCriarOverlay() {
     const div = document.createElement('div');
     div.id = 'sync-provisorio-overlay';
     div.style.cssText = 'position:fixed;inset:0;background:#0a192f;color:#ffffff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:99999;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;font-size:14px;';
-    div.innerHTML = '<div style="font-size:28px;"><svg class="icon"><use href="#icon-refresh"></use></svg></div><div id="sync-provisorio-overlay-texto">Sincronizando dados da equipe...</div>';
+    div.innerHTML = '<div style="font-size:28px;">🔄</div><div id="sync-provisorio-overlay-texto">Sincronizando dados da equipe...</div>';
     document.body.appendChild(div);
 }
 function _syncAtualizarOverlay(texto) {
@@ -111,7 +111,7 @@ function _syncMostrarBannerAtualizacao() {
     const div = document.createElement('div');
     div.id = 'sync-provisorio-banner';
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f97316;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;z-index:99998;cursor:pointer;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;';
-    div.innerHTML = '<svg class="icon"><use href="#icon-refresh"></use></svg> A equipe atualizou dados no servidor. Clique aqui pra recarregar e ver a versão mais recente.';
+    div.textContent = '🔄 A equipe atualizou dados no servidor. Clique aqui pra recarregar e ver a versão mais recente.';
     div.onclick = function () { location.reload(); };
     document.body.appendChild(div);
 }

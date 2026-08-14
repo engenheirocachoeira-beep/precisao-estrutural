@@ -246,7 +246,7 @@ function carregarAbaDistribuicaoAnalista() {
     const tbody = document.getElementById('dca-tabela-body');
 
     if (etapas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>' +
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>' +
             // Pedido do usuário (prompt_gemini.md §14, item 3): Fundo
             // Garantidor vem com valor default de 10%, editável — antes
             // vinha em branco até alguém digitar algo.
@@ -265,7 +265,7 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     const verba = (parseFloat(pct) || 0) / 100 * dcaValorAnalistaAtual;
     const marcador = ehFundoGarantidor ? 'data-fundo-garantidor="1"' : 'data-etapa="' + nomeLinha + '"';
     const estiloLinha = ehFundoGarantidor ? ' style="background:#fffbeb;"' : '';
-    const rotulo = ehFundoGarantidor ? '<svg class="icon"><use href="#icon-money"></use></svg> <i>Fundo Garantidor</i> <small style="color:#64748b;">(vinculado ao projeto)</small>' : nomeLinha;
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(vinculado ao projeto)</small>' : nomeLinha;
 
     return '<tr' + estiloLinha + '>' +
         '<td>' + rotulo + '</td>' +
@@ -292,10 +292,10 @@ function recalcularSomaPercentuaisAnalista() {
         alerta.innerHTML = '';
     } else if (Math.abs(soma - 100) < 0.01) {
         alerta.style.background = '#f0fdf4'; alerta.style.color = '#166534';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-check"></use></svg> Percentuais somam 100%.';
+        alerta.innerHTML = '✅ Percentuais somam 100%.';
     } else {
         alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> Percentuais somam ' + soma.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
+        alerta.innerHTML = '⚠️ Percentuais somam ' + soma.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
     }
 }
 
@@ -333,7 +333,7 @@ function salvarDistribuicaoAnalista() {
 
     salvos[nomeProjeto] = { etapas: dadosEtapas, fundo_garantidor: dadosFundoGarantidor };
     localStorage.setItem('banco_distribuicao_custos_analista', JSON.stringify(salvos));
-    mostrarToast('Distribuição por etapa salva.');
+    alert('Distribuição por etapa (e Fundo Garantidor) salva para "' + nomeProjeto + '".');
 }
 
 // --- CÁLCULO COMPARTILHADO: FÓRMULA ESPECIAL DA ETAPA "DETALHAMENTO" ---
@@ -489,7 +489,7 @@ function carregarAbaVerbaDetalhamento() {
 
     const tbody = document.getElementById('vd-tabela-body');
     if (verbasPorEtapa.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>';
         aviso.style.display = 'none';
         document.getElementById('vd-verba-liquida').innerText = formatarMoeda(0);
         return;
@@ -498,14 +498,14 @@ function carregarAbaVerbaDetalhamento() {
     const etapaSemPct = verbasPorEtapa.some(v => v.pctEtapa === 0);
     if (etapaSemPct) {
         aviso.style.display = 'block';
-        aviso.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> Uma ou mais Etapas ainda não têm percentual salvo na aba "Distribuição de Custos Analista". Preencha e salve lá primeiro — por enquanto essas Etapas entram aqui com verba R$ 0,00.';
+        aviso.innerHTML = '⚠️ Uma ou mais Etapas ainda não têm percentual salvo na aba "Distribuição de Custos Analista". Preencha e salve lá primeiro — por enquanto essas Etapas entram aqui com verba R$ 0,00.';
     } else {
         aviso.style.display = 'none';
         aviso.innerHTML = '';
     }
 
     tbody.innerHTML = verbasPorEtapa.map(v => {
-        const rotulo = v.ehDetalhamento ? v.nome + ' <small style="color:#64748b;">(Analista+Escritório+Supervisor)</small>' : v.nome;
+        const rotulo = v.ehDetalhamento ? v.nome + ' <small style="color:#94a3b8;">(Analista+Escritório+Supervisor)</small>' : v.nome;
         return '<tr>' +
             '<td>' + rotulo + '</td>' +
             '<td>' + v.pctEtapa.toFixed(2) + '%</td>' +
@@ -560,7 +560,7 @@ function salvarDistribuicaoLucros() {
     const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
     lucrosSalvos[nomeProjeto] = { pct: document.getElementById('vd-pct-lucros').value };
     localStorage.setItem('banco_distribuicao_lucros', JSON.stringify(lucrosSalvos));
-    mostrarToast('% Distribuição Lucros salvo.');
+    alert('% Distribuição Lucros salvo para "' + nomeProjeto + '".');
 }
 
 // Mesma coisa que calcularVerbaPorEtapa, mas lendo os percentuais JÁ
@@ -777,7 +777,7 @@ function carregarAbaVerbaPavimento() {
     const conferencia = document.getElementById('vp-conferencia');
 
     if (pavimentos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">Nenhum pavimento cadastrado neste projeto ainda. Monte a árvore primeiro.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Nenhum pavimento cadastrado neste projeto ainda. Monte a árvore primeiro.</td></tr>';
         document.getElementById('vp-total-verba').innerText = formatarMoeda(0);
         conferencia.innerHTML = '';
         return;
@@ -833,10 +833,10 @@ function exibirSeloConferencia(elemento, valorCalculado, valorEsperado, rotuloCa
     const diferenca = Math.abs(valorCalculado - valorEsperado);
     if (diferenca < 0.01) {
         elemento.style.background = '#f0fdf4'; elemento.style.color = '#166534';
-        elemento.innerHTML = '<svg class="icon"><use href="#icon-check"></use></svg> ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') bate com ' + rotuloEsperado + '.';
+        elemento.innerHTML = '✅ ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') bate com ' + rotuloEsperado + '.';
     } else {
         elemento.style.background = '#fef9c3'; elemento.style.color = '#854d0e';
-        elemento.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') não bate com ' + rotuloEsperado + ' (' + formatarMoeda(valorEsperado) + '). Diferença: ' + formatarMoeda(diferenca) + '.';
+        elemento.innerHTML = '⚠️ ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') não bate com ' + rotuloEsperado + ' (' + formatarMoeda(valorEsperado) + '). Diferença: ' + formatarMoeda(diferenca) + '.';
     }
 }
 
@@ -871,7 +871,7 @@ function carregarAbaVerbaPorTarefa() {
     const pavimentosComTarefas = pavimentos.filter(p => p.tarefas.length > 0);
 
     if (pavimentosComTarefas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">Nenhuma tarefa plugada em nenhum pavimento deste projeto ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma tarefa plugada em nenhum pavimento deste projeto ainda.</td></tr>';
         return;
     }
 
@@ -1118,10 +1118,10 @@ function recalcularDistribuicaoCustos() {
         alerta.innerHTML = '';
     } else if (Math.abs(somaPct - 100) < 0.01) {
         alerta.style.background = '#f0fdf4'; alerta.style.color = '#166534';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-check"></use></svg> Percentuais somam 100%.';
+        alerta.innerHTML = '✅ Percentuais somam 100%.';
     } else {
         alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> Percentuais somam ' + somaPct.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
+        alerta.innerHTML = '⚠️ Percentuais somam ' + somaPct.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
     }
 }
 
@@ -1145,5 +1145,5 @@ function salvarDistribuicaoCustos() {
     localStorage.setItem('banco_distribuicao_custos', JSON.stringify(todasDistribuicoes));
     localStorage.setItem('banco_ultimo_percentual_impostos', pctImpostos);
 
-    mostrarToast('Distribuição salva.');
+    alert('Distribuição salva para "' + nomeProjeto + '".');
 }

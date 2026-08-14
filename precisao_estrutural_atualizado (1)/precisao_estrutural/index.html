@@ -8,101 +8,53 @@
 </head>
 <body>
 
-    <!-- Sprite de ícones (Nível 1, item 1 — pedido do usuário: trocar emoji
-         por ícone, seguindo a regra "proibido emoji na UI" do manual de
-         marca/design system do projeto irmão Dashboard Precisão). Lucide
-         (MIT/ISC) — mesmo conjunto que o Dashboard usa via lucide-react.
-         <symbol> nunca renderiza sozinho; cada uso é <svg class="icon"><use
-         href="#icon-NOME"></use></svg>, que herda cor do texto ao redor
-         (stroke="currentColor" no CSS, ver .icon em estilos.css). -->
-    <svg style="display:none;">
-        <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></symbol>
-        <symbol id="icon-bar-chart" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></symbol>
-        <symbol id="icon-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol>
-        <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></symbol>
-        <symbol id="icon-kanban" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M8 7v7" /><path d="M12 7v4" /><path d="M16 7v9" /></symbol>
-        <symbol id="icon-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M8 13h.01" /><path d="M12 13h.01" /><path d="M16 13h.01" /><path d="M8 17h.01" /><path d="M12 17h.01" /><path d="M16 17h.01" /></symbol>
-        <symbol id="icon-money" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol>
-        <symbol id="icon-graduation-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></symbol>
-        <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M10 5H3" /><path d="M12 19H3" /><path d="M14 3v4" /><path d="M16 17v4" /><path d="M21 12h-9" /><path d="M21 19h-5" /><path d="M21 5h-7" /><path d="M8 10v4" /><path d="M8 12H3" /></symbol>
-        <symbol id="icon-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></symbol>
-        <symbol id="icon-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></symbol>
-        <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></symbol>
-        <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol>
-        <symbol id="icon-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M16 3.128a4 4 0 0 1 0 7.744" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><circle cx="9" cy="7" r="4" /></symbol>
-        <symbol id="icon-id-card" viewBox="0 0 24 24"><path d="M16 10h2" /><path d="M16 14h2" /><path d="M6.17 15a3 3 0 0 1 5.66 0" /><circle cx="9" cy="11" r="2" /><rect x="2" y="5" width="20" height="14" rx="2" /></symbol>
-        <symbol id="icon-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol>
-        <symbol id="icon-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></symbol>
-        <symbol id="icon-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /><line x1="8" x2="16" y1="6" y2="6" /><line x1="16" x2="16" y1="14" y2="18" /><path d="M16 10h.01" /><path d="M12 10h.01" /><path d="M8 10h.01" /><path d="M12 14h.01" /><path d="M8 14h.01" /><path d="M12 18h.01" /><path d="M8 18h.01" /></symbol>
-        <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></symbol>
-        <symbol id="icon-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></symbol>
-        <symbol id="icon-sort" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" /></symbol>
-        <symbol id="icon-clipboard" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11h4" /><path d="M12 16h4" /><path d="M8 11h.01" /><path d="M8 16h.01" /></symbol>
-        <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></symbol>
-        <symbol id="icon-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></symbol>
-        <symbol id="icon-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></symbol>
-        <symbol id="icon-trophy" viewBox="0 0 24 24"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /><path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /><path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /><path d="M4 22h16" /><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /><path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></symbol>
-        <symbol id="icon-close" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol>
-        <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
-        <symbol id="icon-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></symbol>
-        <symbol id="icon-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /><path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol>
-        <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
-        <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
-        <symbol id="icon-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /><rect x="6" y="14" width="12" height="8" rx="1" /></symbol>
-        <symbol id="icon-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol>
-        <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol>
-        <symbol id="icon-building" viewBox="0 0 24 24"><path d="M10 12h4" /><path d="M10 8h4" /><path d="M14 21v-3a2 2 0 0 0-4 0v3" /><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" /><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /></symbol>
-        <symbol id="icon-lightbulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /><path d="M9 18h6" /><path d="M10 22h4" /></symbol>
-        <symbol id="icon-microscope" viewBox="0 0 24 24"><path d="M6 18h8" /><path d="M3 22h18" /><path d="M14 22a7 7 0 1 0 0-14h-1" /><path d="M9 14h2" /><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z" /><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" /></symbol>
-        <symbol id="icon-flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></symbol>
-        <symbol id="icon-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" /></symbol>
-        <symbol id="icon-flask" viewBox="0 0 24 24"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2" /><path d="M6.453 15h11.094" /><path d="M8.5 2h7" /></symbol>
-        <symbol id="icon-hourglass" viewBox="0 0 24 24"><path d="M5 22h14" /><path d="M5 2h14" /><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" /><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" /></symbol>
-        <symbol id="icon-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1" /><rect x="5" y="3" width="5" height="18" rx="1" /></symbol>
-    </svg>
-
     <div id="tela-login" class="modal-overlay" style="display:flex; z-index:5000;">
         <div class="modal-caixa" style="width:380px;">
-            <img src="img/logo-vertical.png" alt="Precisão Estrutural" style="display:block; width:150px; margin:0 auto 10px;">
+            <h3 style="margin-top:0; text-align:center;">🔒 Precisão Estrutural</h3>
             <p style="font-size:12px; color:#64748b; text-align:center; margin-top:-8px;">Entre com seu CPF ou nome e sua senha.</p>
             <div class="form-group"><label>CPF ou Nome:</label><input type="text" id="login-identificador" autocomplete="username" onkeydown="if(event.key==='Enter') tentarLogin();"></div>
             <div class="form-group"><label>Senha:</label><input type="password" id="login-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') tentarLogin();"></div>
             <div id="login-erro" style="color:#ef4444; font-size:12px; min-height:16px; margin-bottom:6px;"></div>
             <button type="button" class="btn-primary" style="width:100%;" onclick="tentarLogin()">Entrar</button>
-            <p style="font-size:11px; color:#64748b; text-align:center; margin-bottom:4px;">
+            <p style="font-size:11px; color:#94a3b8; text-align:center; margin-bottom:4px;">
                 Instalando em um computador novo? Não tem nenhum usuário cadastrado ainda?
             </p>
             <label style="display:block; text-align:center; font-size:12px; color:#2563eb; cursor:pointer;">
-                <svg class="icon"><use href="#icon-folder"></use></svg> Restaurar de um arquivo de backup
+                📁 Restaurar de um arquivo de backup
                 <input type="file" accept="application/json" style="display:none;" onchange="restaurarBackupDoLogin(this)">
             </label>
         </div>
     </div>
 
     <div class="browser-window">
+        <div class="browser-header">
+            <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+            <div class="browser-tab" id="browser-tab-title">Precisão Estrutural - Sistema</div>
+        </div>
+        
         <header class="app-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="app-title" style="display:flex; align-items:center; gap:10px;"><img src="img/logo-icon-neg.png" alt="" style="height:26px; width:auto;">PRECISÃO ESTRUTURAL &bull; Controle de Produção</div>
+            <div class="app-title">🏙️ PRECISÃO ESTRUTURAL &bull; Controle de Produção</div>
             <div id="cabecalho-usuario-logado" style="font-size:12px; color:#cbd5e1; display:flex; align-items:center; gap:10px;"></div>
         </header>
         
         <div class="app-body">
             <aside class="sidebar">
                 <div>
-                    <div class="menu-item" onclick="alternarModulo('progresso')"><svg class="icon"><use href="#icon-bar-chart"></use></svg> Dashboard</div>
+                    <div class="menu-item" onclick="alternarModulo('progresso')">📊 Dashboard</div>
                     
-                    <div class="menu-item" id="nav-cadastro" onclick="alternarModulo('cadastro')"><svg class="icon"><use href="#icon-pencil"></use></svg> Cadastro</div>
+                    <div class="menu-item" id="nav-cadastro" onclick="alternarModulo('cadastro')">📝 Cadastro</div>
 
-                    <div class="menu-item" id="nav-arvore" onclick="alternarModulo('arvore')"><svg class="icon"><use href="#icon-folder"></use></svg> Projetos</div>
+                    <div class="menu-item" id="nav-arvore" style="font-weight: 600; color: #00b4d8;" onclick="alternarModulo('arvore')">📁 Projetos</div>
                 </div>
                 <div>
-                    <div class="menu-item" id="nav-atribuicao_tarefas" style="color:#f97316; font-weight:bold;" onclick="alternarModulo('atribuicao_tarefas')"><svg class="icon"><use href="#icon-target"></use></svg> Atribuição de Tarefas</div>
-                    <div class="menu-item" id="nav-kanban" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('kanban')"><svg class="icon"><use href="#icon-kanban"></use></svg> Kanban</div>
-                    <div class="menu-item" id="nav-aprovacoes_calendario" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('aprovacoes_calendario')"><svg class="icon"><use href="#icon-calendar"></use></svg> Aprovações<span id="badge-pendencias-aprovacoes" class="badge-menu-pendencia" style="display:none;"></span></div>
-                    <div class="menu-item" id="nav-relatorios" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('relatorios')"><svg class="icon"><use href="#icon-bar-chart"></use></svg> Relatórios</div>
-                    <div class="menu-item" id="nav-fundo-global" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('controladoria_global')"><svg class="icon"><use href="#icon-money"></use></svg> Fundo Global Fechamento</div>
-                    <div class="menu-item" id="nav-distribuicao-lucro" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('distribuicao_lucro')"><svg class="icon"><use href="#icon-graduation-cap"></use></svg> Distribuição de Lucro (Estagiários)</div>
-                    <div class="menu-item" id="nav-bi-calibracao" style="color:#ffbd2e; font-weight:bold;" onclick="alternarModulo('bi_calibracao')"><svg class="icon"><use href="#icon-sliders"></use></svg> Painel de Calibração BI</div>
-                    <div class="menu-item" onclick="alternarModulo('configuracoes')" style="border-top:1px solid #1e3a66;"><svg class="icon"><use href="#icon-lock"></use></svg> Configurações</div>
+                    <div class="menu-item" id="nav-atribuicao_tarefas" style="color:#f97316; font-weight:bold;" onclick="alternarModulo('atribuicao_tarefas')">🎯 Atribuição de Tarefas</div>
+                    <div class="menu-item" id="nav-kanban" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('kanban')">🗂️ Kanban</div>
+                    <div class="menu-item" id="nav-aprovacoes_calendario" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('aprovacoes_calendario')">🗓️ Aprovações<span id="badge-pendencias-aprovacoes" class="badge-menu-pendencia" style="display:none;"></span></div>
+                    <div class="menu-item" id="nav-relatorios" style="color:#0ea5e9; font-weight:bold;" onclick="alternarModulo('relatorios')">📊 Relatórios</div>
+                    <div class="menu-item" id="nav-fundo-global" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('controladoria_global')">💰 Fundo Global Fechamento</div>
+                    <div class="menu-item" id="nav-distribuicao-lucro" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('distribuicao_lucro')">🎓 Distribuição de Lucro (Estagiários)</div>
+                    <div class="menu-item" id="nav-bi-calibracao" style="color:#ffbd2e; font-weight:bold;" onclick="alternarModulo('bi_calibracao')">🎛️ Painel de Calibração BI</div>
+                    <div class="menu-item" onclick="alternarModulo('configuracoes')" style="border-top:1px solid #1e3a66;">🔒 Configurações</div>
                 </div>
             </aside>
             
@@ -110,7 +62,7 @@
                 <div class="context-title" id="page-context-title">Aguardando Ação</div>
                 
                 <div id="panel-blank-state" class="workspace-blank active">
-                    <div class="workspace-blank-icon"><svg class="icon"><use href="#icon-monitor"></use></svg></div>
+                    <div class="workspace-blank-icon">🖥️</div>
                     <h2>Escolha sua ação no menu lateral</h2>
                     <p style="font-size: 13px;">Selecione uma categoria estrutural ou acesse os painéis econômicos e analíticos.</p>
                 </div>
@@ -123,7 +75,7 @@
                 <div id="panel-configuracoes" class="content-panel">
                     <div style="max-width:560px;">
                         <div class="form-section">
-                            <div class="form-section-title"><svg class="icon"><use href="#icon-download"></use></svg> Backup Completo</div>
+                            <div class="form-section-title">⬇️ Backup Completo</div>
                             <p style="font-size:12px; color:#64748b;">
                                 Baixa um arquivo com TODOS os dados do sistema (clientes, funcionários,
                                 projetos, árvores de tarefas, feriados, distribuição de custos etc.) —
@@ -131,42 +83,42 @@
                                 Guarde esse arquivo em lugar seguro. Sem ele, se os dados desse
                                 navegador forem perdidos, não tem como recuperar.
                             </p>
-                            <button class="btn-primary" onclick="baixarBackupCompleto()"><svg class="icon"><use href="#icon-download"></use></svg> Baixar Backup Completo</button>
+                            <button class="btn-primary" onclick="baixarBackupCompleto()">⬇️ Baixar Backup Completo</button>
                         </div>
 
                         <div class="form-section" style="margin-top:20px;">
-                            <div class="form-section-title"><svg class="icon"><use href="#icon-upload"></use></svg> Restaurar Backup</div>
+                            <div class="form-section-title">⬆️ Restaurar Backup</div>
                             <p style="font-size:12px; color:#b91c1c; font-weight:600;">
-                                <svg class="icon"><use href="#icon-alert"></use></svg> Isso APAGA e SUBSTITUI todos os dados atuais deste navegador pelos
+                                ⚠️ Isso APAGA e SUBSTITUI todos os dados atuais deste navegador pelos
                                 dados do arquivo escolhido. Não tem como desfazer — se tiver dúvida,
                                 baixe um backup do estado atual primeiro (botão acima).
                             </p>
                             <input type="file" id="config-arquivo-restauracao" accept="application/json" style="margin-bottom:10px;">
                             <br>
-                            <button class="btn-secondary" onclick="restaurarBackupCompleto()"><svg class="icon"><use href="#icon-upload"></use></svg> Restaurar Backup</button>
+                            <button class="btn-secondary" onclick="restaurarBackupCompleto()">⬆️ Restaurar Backup</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="panel-cadastro" class="content-panel" style="flex-direction:column;">
                     <div class="aprov-abas">
-                        <button type="button" id="cad-aba-clientes" class="aprov-aba" onclick="alternarModulo('clientes')"><svg class="icon"><use href="#icon-users"></use></svg> Clientes</button>
-                        <button type="button" id="cad-aba-funcionarios" class="aprov-aba" onclick="alternarModulo('funcionarios')"><svg class="icon"><use href="#icon-id-card"></use></svg> Funcionários</button>
-                        <button type="button" id="cad-aba-projetos" class="aprov-aba" onclick="alternarModulo('projetos')"><svg class="icon"><use href="#icon-folder"></use></svg> Projetos</button>
-                        <button type="button" id="cad-aba-etapas" class="aprov-aba" onclick="alternarModulo('etapas')"><svg class="icon"><use href="#icon-layers"></use></svg> Etapas</button>
-                        <button type="button" id="cad-aba-setores" class="aprov-aba" onclick="alternarModulo('setores')"><svg class="icon"><use href="#icon-ruler"></use></svg> Setores</button>
-                        <button type="button" id="cad-aba-pavimentos" class="aprov-aba" onclick="alternarModulo('pavimentos')"><svg class="icon"><use href="#icon-calculator"></use></svg> Pavimentos</button>
-                        <button type="button" id="cad-aba-tarefas" class="aprov-aba" onclick="alternarModulo('tarefas')"><svg class="icon"><use href="#icon-settings"></use></svg> Tarefas</button>
-                        <button type="button" id="cad-aba-feriados" class="aprov-aba" onclick="alternarModulo('feriados')"><svg class="icon"><use href="#icon-calendar"></use></svg> Feriados</button>
+                        <button type="button" id="cad-aba-clientes" class="aprov-aba" onclick="alternarModulo('clientes')">👥 Clientes</button>
+                        <button type="button" id="cad-aba-funcionarios" class="aprov-aba" onclick="alternarModulo('funcionarios')">🪪 Funcionários</button>
+                        <button type="button" id="cad-aba-projetos" class="aprov-aba" onclick="alternarModulo('projetos')">📁 Projetos</button>
+                        <button type="button" id="cad-aba-etapas" class="aprov-aba" onclick="alternarModulo('etapas')">🧱 Etapas</button>
+                        <button type="button" id="cad-aba-setores" class="aprov-aba" onclick="alternarModulo('setores')">📐 Setores</button>
+                        <button type="button" id="cad-aba-pavimentos" class="aprov-aba" onclick="alternarModulo('pavimentos')">🧮 Pavimentos</button>
+                        <button type="button" id="cad-aba-tarefas" class="aprov-aba" onclick="alternarModulo('tarefas')">⚙️ Tarefas</button>
+                        <button type="button" id="cad-aba-feriados" class="aprov-aba" onclick="alternarModulo('feriados')">📅 Feriados</button>
                     </div>
 
                 <div id="panel-clientes-lista" class="sub-panel-cadastro">
-                    <div class="search-container"><input type="text" class="search-input" id="search-clientes" placeholder="Pesquisar por Razão Social ou CNPJ..." oninput="filtrarTabela('clientes')"></div>
-                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Razão Social <span class="cad-ordenar-seta" data-tabela="clientes" data-campo="nome" onclick="alternarOrdenacaoCadastro('clientes', 'nome')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th>CNPJ <span class="cad-ordenar-seta" data-tabela="clientes" data-campo="cnpj" onclick="alternarOrdenacaoCadastro('clientes', 'cnpj')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-clientes-body"></tbody></table></div>
+                    <div class="search-container"><input type="text" class="search-input" id="search-clientes" placeholder="🔍 Pesquisar por Razão Social ou CNPJ..." oninput="filtrarTabela('clientes')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Razão Social</th><th>CNPJ</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-clientes-body"></tbody></table></div>
                     <div class="footer-actions">
                         <button class="btn-primary" onclick="abrirFormulario('clientes', true)">+ Incluir Novo Cliente</button>
-                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('clientes')"><svg class="icon"><use href="#icon-download"></use></svg> Exportar Planilha</button>
-                        <label class="btn-secondary" style="cursor:pointer; margin:0;"><svg class="icon"><use href="#icon-upload"></use></svg> Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('clientes', this)"></label>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('clientes')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('clientes', this)"></label>
                     </div>
                 </div>
                 <div id="panel-clientes-form" class="sub-panel-cadastro">
@@ -174,11 +126,10 @@
                         <input type="hidden" id="cli-index">
                         <div class="form-section"><div class="form-section-title">1. Dados Institucionais</div><div class="form-grid"><div class="form-group col-6"><label>Razão Social / Nome *:</label><input type="text" id="cli-nome"></div><div class="form-group col-6"><label>CNPJ / CPF:</label><input type="text" id="cli-cnpj"></div></div></div>
                         <div class="form-section"><div class="form-section-title">2. Endereço</div><div class="form-grid">
-                            <div class="form-group col-6"><label>Rua:</label><input type="text" id="cli-rua"></div>
-                            <div class="form-group col-2"><label>Nº:</label><input type="text" id="cli-numero"></div>
-                            <div class="form-group col-4"><label>Bairro:</label><input type="text" id="cli-bairro"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>CEP:</label><input type="text" id="cli-cep" placeholder="00000-000" maxlength="9"></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="cli-cidade"></div>
+                            <div class="form-group col-8"><label>Rua:</label><input type="text" id="cli-rua"></div>
+                            <div class="form-group col-4"><label>Nº:</label><input type="text" id="cli-numero"></div>
+                            <div class="form-group col-4" style="margin-top:10px;"><label>Bairro:</label><input type="text" id="cli-bairro"></div>
+                            <div class="form-group col-5" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="cli-cidade"></div>
                             <div class="form-group col-3" style="margin-top:10px;"><label>UF:</label><input type="text" id="cli-uf" maxlength="2" style="text-transform:uppercase;"></div>
                         </div></div>
                         <div class="form-section"><div class="form-section-title">3. Contatos</div><div class="form-grid"><div class="form-group col-4"><label>Contato:</label><input type="text" id="cli-contato"></div><div class="form-group col-4"><label>WhatsApp:</label><input type="text" id="cli-whatsapp"></div><div class="form-group col-4"><label>E-mail:</label><input type="text" id="cli-email"></div></div></div>
@@ -187,12 +138,12 @@
                 </div>
 
                 <div id="panel-funcionarios-lista" class="sub-panel-cadastro">
-                    <div class="search-container"><input type="text" class="search-input" id="search-funcionarios" placeholder="Pesquisar por Nome, CPF ou Cargo..." oninput="filtrarTabela('funcionarios')"></div>
+                    <div class="search-container"><input type="text" class="search-input" id="search-funcionarios" placeholder="🔍 Pesquisar por Nome, CPF ou Cargo..." oninput="filtrarTabela('funcionarios')"></div>
                     <div class="table-wrapper"><table><thead><tr><th>CPF</th><th>Nome</th><th>Codinome</th><th>Cargo</th><th>Nível</th><th>Forma de Pagamento</th><th>Valor/Hora</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-funcionarios-body"></tbody></table></div>
                     <div class="footer-actions">
                         <button class="btn-primary" onclick="abrirFormulario('funcionarios', true)">+ Incluir Novo Funcionário</button>
-                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('funcionarios')"><svg class="icon"><use href="#icon-download"></use></svg> Exportar Planilha</button>
-                        <label class="btn-secondary" style="cursor:pointer; margin:0;"><svg class="icon"><use href="#icon-upload"></use></svg> Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('funcionarios', this)"></label>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('funcionarios')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('funcionarios', this)"></label>
                     </div>
                 </div>
                 <div id="panel-funcionarios-form" class="sub-panel-cadastro">
@@ -221,15 +172,14 @@
                         </div>
                         <div class="form-section"><div class="form-section-title">2. Dados Pessoais</div><div class="form-grid">
                             <div class="form-group col-3"><label>Nascimento:</label><input type="text" id="func-dt-nascimento" class="input-data-mask"></div>
+                            <div class="form-group col-6"><label>Rua:</label><input type="text" id="func-rua"></div>
+                            <div class="form-group col-2"><label>Nº:</label><input type="text" id="func-numero"></div>
+                            <div class="form-group col-4"><label>Bairro:</label><input type="text" id="func-bairro"></div>
+                            <div class="form-group col-5" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="func-cidade"></div>
+                            <div class="form-group col-2" style="margin-top:10px;"><label>UF:</label><input type="text" id="func-uf" maxlength="2" style="text-transform:uppercase;"></div>
                             <div class="form-group col-3"><label>Telefone:</label><input type="text" id="func-telefone"></div>
                             <div class="form-group col-6"><label>E-mail:</label><input type="text" id="func-email"></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Rua:</label><input type="text" id="func-rua"></div>
-                            <div class="form-group col-2" style="margin-top:10px;"><label>Nº:</label><input type="text" id="func-numero"></div>
-                            <div class="form-group col-4" style="margin-top:10px;"><label>Bairro:</label><input type="text" id="func-bairro"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>CEP:</label><input type="text" id="func-cep" placeholder="00000-000" maxlength="9"></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="func-cidade"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>UF:</label><input type="text" id="func-uf" maxlength="2" style="text-transform:uppercase;"></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Senha:</label><input type="password" id="func-senha"></div>
+                            <div class="form-group col-6"><label>Senha:</label><input type="password" id="func-senha"></div>
                         </div></div>
                         <div class="form-section"><div class="form-section-title">3. Calendário Semanal (horas disponíveis por dia)</div><div class="form-grid">
                             <div class="form-group col-2"><label>Segunda:</label><input type="number" id="func-cal-seg" step="0.5" value="8"></div>
@@ -237,19 +187,19 @@
                             <div class="form-group col-2"><label>Quarta:</label><input type="number" id="func-cal-qua" step="0.5" value="8"></div>
                             <div class="form-group col-2"><label>Quinta:</label><input type="number" id="func-cal-qui" step="0.5" value="8"></div>
                             <div class="form-group col-2"><label>Sexta:</label><input type="number" id="func-cal-sex" step="0.5" value="8"></div>
-                            <div class="form-group col-12" style="margin-top:6px; font-size:11px; color:#64748b;">Sábado e domingo não são dias úteis pra ninguém (não aparecem aqui). Deixe 0 num dia da semana pra quem não vem naquele dia (ex: por causa de faculdade).</div>
+                            <div class="form-group col-12" style="margin-top:6px; font-size:11px; color:#94a3b8;">Sábado e domingo não são dias úteis pra ninguém (não aparecem aqui). Deixe 0 num dia da semana pra quem não vem naquele dia (ex: por causa de faculdade).</div>
                         </div></div>
                         <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('funcionarios')">Voltar</button><button class="btn-success" onclick="salvarFuncionario()">Salvar</button></div>
                     </div>
                 </div>
 
                 <div id="panel-projetos-lista" class="sub-panel-cadastro">
-                    <div class="search-container"><input type="text" class="search-input" id="search-projetos" placeholder="Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
-                    <div class="table-wrapper"><table><thead><tr><th>Prefixo <span class="cad-ordenar-seta" data-tabela="projetos" data-campo="prefixo" onclick="alternarOrdenacaoCadastro('projetos', 'prefixo')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th>Nome da Obra <span class="cad-ordenar-seta" data-tabela="projetos" data-campo="nome" onclick="alternarOrdenacaoCadastro('projetos', 'nome')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th>Cliente <span class="cad-ordenar-seta" data-tabela="projetos" data-campo="cliente" onclick="alternarOrdenacaoCadastro('projetos', 'cliente')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th>Analista <span class="cad-ordenar-seta" data-tabela="projetos" data-campo="analista" onclick="alternarOrdenacaoCadastro('projetos', 'analista')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th>Supervisor <span class="cad-ordenar-seta" data-tabela="projetos" data-campo="supervisor" onclick="alternarOrdenacaoCadastro('projetos', 'supervisor')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th>Detalhista <span class="cad-ordenar-seta" data-tabela="projetos" data-campo="detalhista" onclick="alternarOrdenacaoCadastro('projetos', 'detalhista')"><svg class="icon"><use href="#icon-sort"></use></svg></span></th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-projetos-body"></tbody></table></div>
+                    <div class="search-container"><input type="text" class="search-input" id="search-projetos" placeholder="🔍 Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Prefixo</th><th>Nome da Obra</th><th>Cliente</th><th>Analista</th><th>Supervisor</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-projetos-body"></tbody></table></div>
                     <div class="footer-actions">
                         <button class="btn-primary" onclick="abrirFormulario('projetos', true)">+ Incluir Novo Projeto</button>
-                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('projetos')"><svg class="icon"><use href="#icon-download"></use></svg> Exportar Planilha</button>
-                        <label class="btn-secondary" style="cursor:pointer; margin:0;"><svg class="icon"><use href="#icon-upload"></use></svg> Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('projetos', this)"></label>
+                        <button class="btn-secondary" onclick="exportarPlanilhaElaborada('projetos')">⬇ Exportar Planilha</button>
+                        <label class="btn-secondary" style="cursor:pointer; margin:0;">⬆ Importar Planilha<input type="file" accept=".xls,.csv" style="display:none;" onchange="detectarEImportarPlanilha('projetos', this)"></label>
                     </div>
                 </div>
                 <div id="panel-projetos-form" class="sub-panel-cadastro">
@@ -260,32 +210,31 @@
                             <div class="form-group col-6"><label>Nome Obra *:</label><input type="text" id="proj-nome"></div>
                             <div class="form-group col-3"><label>Prefixo:</label><input type="text" id="proj-prefixo"></div>
                             <div class="form-group col-3"><label>Cliente *:</label><select id="proj-cliente"></select></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Rua:</label><input type="text" id="proj-rua"></div>
-                            <div class="form-group col-2" style="margin-top:10px;"><label>Nº:</label><input type="text" id="proj-numero"></div>
-                            <div class="form-group col-4" style="margin-top:10px;"><label>Bairro:</label><input type="text" id="proj-bairro"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>CEP:</label><input type="text" id="proj-cep" placeholder="00000-000" maxlength="9"></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Cidade:</label><input type="text" id="proj-cidade"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>UF:</label><input type="text" id="proj-uf" maxlength="2" style="text-transform:uppercase;"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>Área:</label><input type="text" id="proj-area"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>Pavimentos:</label><input type="text" id="proj-pavimentos"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>Altura:</label><input type="text" id="proj-altura"></div>
-                            <div class="form-group col-3" style="margin-top:10px;"><label>Esbeltez:</label><input type="text" id="proj-esbeltez"></div>
+                            <div class="form-group col-6" style="margin-top:6px;"><label>Rua:</label><input type="text" id="proj-rua"></div>
+                            <div class="form-group col-2" style="margin-top:6px;"><label>Nº:</label><input type="text" id="proj-numero"></div>
+                            <div class="form-group col-4" style="margin-top:6px;"><label>Bairro:</label><input type="text" id="proj-bairro"></div>
+                            <div class="form-group col-5" style="margin-top:6px;"><label>Cidade:</label><input type="text" id="proj-cidade"></div>
+                            <div class="form-group col-2" style="margin-top:6px;"><label>UF:</label><input type="text" id="proj-uf" maxlength="2" style="text-transform:uppercase;"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Área (m²):</label><input type="text" id="proj-area" placeholder="0,00"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Pavimentos:</label><input type="text" id="proj-pavimentos"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Altura:</label><input type="text" id="proj-altura"></div>
+                            <div class="form-group col-3" style="margin-top:6px;"><label>Esbeltez:</label><input type="text" id="proj-esbeltez"></div>
                         </div></div>
                         <div class="form-section"><div class="form-section-title">2. Gerenciamento</div><div class="form-grid">
-                            <div class="form-group col-3"><label>Dificuldade:</label><input type="text" id="proj-dificuldade"></div>
-                            <div class="form-group col-3"><label>Valor:</label><input type="text" id="proj-valor"></div>
+                            <div class="form-group col-3"><label>Dificuldade:</label><select id="proj-dificuldade"><option value="1">1 (mais fácil)</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5 (mais difícil)</option></select></div>
+                            <div class="form-group col-3"><label>Valor (R$):</label><input type="text" id="proj-valor" placeholder="0,00"></div>
                             <div class="form-group col-3"><label>Pagamento *:</label><select id="proj-pagamento"><option>Por entrega</option><option>Mensal</option><option>Permuta</option><option>Permuta e mensal</option><option>Permuta e entrega</option></select></div>
-                            <div class="form-group col-3"><label>Início:</label><input type="text" id="proj-dt-inicio" class="input-data-mask"></div>
-                            <div class="form-group col-6"><label>Analista:</label><select id="proj-analista"></select></div>
-                            <div class="form-group col-6"><label>Supervisor:</label><select id="proj-supervisor"></select></div>
-                            <div class="form-group col-6" style="margin-top:10px;"><label>Detalhista:</label><select id="proj-detalhista"></select></div>
+                            <div class="form-group col-3"><label>INÍCIO (DD/MM/AAAA):</label><input type="text" id="proj-dt-inicio" class="input-data-mask" placeholder="dd/mm/aaaa" maxlength="10"></div>
+                            <div class="form-group col-4"><label>Analista:</label><select id="proj-analista"></select></div>
+                            <div class="form-group col-4"><label>Supervisor:</label><select id="proj-supervisor"></select></div>
+                            <div class="form-group col-4"><label>Detalhista:</label><select id="proj-detalhista"></select></div>
                         </div></div>
                         <div class="form-section"><div class="form-section-title">3. E-mails dos Responsáveis (lado do Cliente)</div><div class="form-grid">
                             <div class="form-group col-5"><label>Novo e-mail:</label><input type="email" id="proj-novo-email" placeholder="responsavel@cliente.com.br"></div>
                             <div class="form-group col-5"><label>Cargo/Atribuição (opcional):</label><input type="text" id="proj-novo-email-cargo" placeholder="Ex: Engenheiro Responsável"></div>
                             <div class="form-group col-2" style="display:flex; align-items:flex-end;"><button type="button" class="btn-primary" style="width:100%;" onclick="adicionarEmailResponsavelProjeto()">+ Adicionar</button></div>
-                            <div class="form-group col-12" style="margin-top:10px;">
-                                <div class="table-wrapper" style="max-height:160px;">
+                            <div class="form-group col-12" style="margin-top:6px;">
+                                <div class="table-wrapper" style="max-height:110px;">
                                     <table><thead><tr><th>E-mail</th><th>Cargo/Atribuição</th><th style="width:70px;">Ação</th></tr></thead>
                                     <tbody id="proj-tabela-emails-body"></tbody></table>
                                 </div>
@@ -296,7 +245,7 @@
                             <div class="form-group col-12">
                                 <div id="proj-tabela-etapas-body" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:6px;"></div>
                             </div>
-                            <div class="form-group col-12" style="margin-top:10px;"><button type="button" class="btn-secondary" onclick="adicionarEtapaProjeto()">+ Adicionar Linha</button></div>
+                            <div class="form-group col-12" style="margin-top:6px;"><button type="button" class="btn-secondary" onclick="adicionarEtapaProjeto()">+ Adicionar Linha</button></div>
                         </div></div>
                         <div class="footer-actions"><button class="btn-secondary" onclick="fecharFormulario('projetos')">Voltar</button><button class="btn-success" onclick="salvarProjeto()">Salvar</button></div>
                     </div>
@@ -341,16 +290,16 @@
 
                 <div id="panel-arvore-projetos" class="content-panel" style="flex-direction: row; gap: 20px; height: 100%; overflow: hidden;">
                     <div id="subpanel-lista-projetos-arvore" style="width: 380px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden;">
-                        <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #E35F13;"><svg class="icon"><use href="#icon-folder"></use></svg> Escolha o Projeto Estrutural</div>
-                        <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="search-proj-arvore" placeholder="Buscar obra ativa..." oninput="filtrarTabelaProjetosArvore()"></div>
+                        <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #00b4d8;">📁 Escolha o Projeto Estrutural</div>
+                        <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="search-proj-arvore" placeholder="🔍 Buscar obra ativa..." oninput="filtrarTabelaProjetosArvore()"></div>
                         <div class="table-wrapper" style="flex: 1; max-height: none;"><table style="font-size: 12px;"><thead><tr><th>Prefixo</th><th>Nome da Obra</th></tr></thead><tbody id="tabela-projetos-arvore-body"></tbody></table></div>
                     </div>
 
                     <div id="subpanel-arvore-visual" style="width: 480px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: none; flex-direction: column; overflow: hidden;">
                         <div style="background: #1e3a66; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
-                            <span id="nome-projeto-titulo-arvore"><svg class="icon"><use href="#icon-clipboard"></use></svg> Projeto</span>
+                            <span id="nome-projeto-titulo-arvore">📋 Projeto</span>
                             <div style="display:flex; gap:6px;">
-                                <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px; background:#7c3aed;" onclick="irParaDistribuicaoCustosDoProjetoAtivo()" title="Ver Distribuição de Custos deste mesmo projeto"><svg class="icon"><use href="#icon-bar-chart"></use></svg> Custos</button>
+                                <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px; background:#7c3aed;" onclick="irParaDistribuicaoCustosDoProjetoAtivo()" title="Ver Distribuição de Custos deste mesmo projeto">📊 Custos</button>
                                 <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px; background:#475569;" onclick="fecharProjetoAtivoNaArvore()">Fechar</button>
                             </div>
                         </div>
@@ -362,7 +311,7 @@
 
                 <div id="panel-bi-calibracao" class="content-panel">
                     <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
-                        <h3><svg class="icon"><use href="#icon-sliders"></use></svg> Centro de Calibração Manual BI (Abordagem C)</h3>
+                        <h3>🎛️ Centro de Calibração Manual BI (Abordagem C)</h3>
                         <p style="font-size:13px; color:#64748b; margin-top:4px;">O sistema compara as Horas Reais consolidadas com os parâmetros atuais de catálogo.</p>
                     </div>
                     <div class="table-wrapper"><table style="font-size:12px;"><thead><tr><th>Componente</th><th>Índice Atual</th><th>Média Real Apurada ($K_{real}$)</th><th>Desvio Global</th><th>Ações Administrativas</th></tr></thead><tbody id="tabela-bi-calibracao-body"></tbody></table></div>
@@ -370,7 +319,7 @@
 
                 <div id="panel-controladoria-global" class="content-panel">
                     <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
-                        <h3><svg class="icon"><use href="#icon-money"></use></svg> Fechamento do Fundo Global e Distribuição de Sobras</h3>
+                        <h3>💰 Fechamento do Fundo Global e Distribuição de Sobras</h3>
                         <p style="font-size:13px; color:#64748b; margin-top:4px;">Lógica Periódica Consolidada: As sobras de todas as obras cobrem os prejuízos do trimestre antes do rateio.</p>
                     </div>
                     <div class="form-grid" style="margin-bottom:20px;">
@@ -380,7 +329,7 @@
                         <div class="form-group col-3" style="background:#ffbd2e; color:#334155; padding:15px; border-radius:6px;"><label style="color:#475569;">Fator Coparticipação Empresa</label><h2 id="bi-fator-escritorio-txt">52%</h2></div>
                     </div>
                     <div class="table-wrapper" style="max-height: 250px; margin-bottom:15px;">
-                        <div style="padding:10px; font-weight:bold; background:#f1f5f9; font-size:12px;"><svg class="icon"><use href="#icon-bar-chart"></use></svg> Demonstrativo de Balanço Individualizado por Projeto</div>
+                        <div style="padding:10px; font-weight:bold; background:#f1f5f9; font-size:12px;">📊 Demonstrativo de Balanço Individualizado por Projeto</div>
                         <table><thead><tr><th>Projeto</th><th>Status de Caixa</th><th>Custo Alocado (Analista)</th><th>Custo Pago (Escritório)</th><th>Resultado Líquido Obras</th></tr></thead><tbody id="tabela-fechamento-projetos-body"></tbody></table>
                     </div>
                     <div style="background:white; border:1px solid #e2e8f0; padding:15px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
@@ -394,7 +343,7 @@
 
                 <div id="panel-distribuicao-lucro" class="content-panel">
                     <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
-                        <h3><svg class="icon"><use href="#icon-graduation-cap"></use></svg> Distribuição de Lucro entre Estagiários</h3>
+                        <h3>🎓 Distribuição de Lucro entre Estagiários</h3>
                         <p style="font-size:13px; color:#64748b; margin-top:4px;">Verba de Distribuição de Lucros (aba 3 da Distribuição de Custos) rateada por Pavimento/Tarefa, somada de toda tarefa finalizada no período escolhido, dividida entre os Estagiários — parte igualitária, parte proporcional aos Pontos conquistados no período. Comissionados não participam.</p>
                     </div>
                     <div class="search-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end; margin-bottom:15px;">
@@ -411,7 +360,7 @@
                             <input type="number" id="dl-pct-igualitaria" value="50" min="0" max="100" onchange="apurarDistribuicaoLucro()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
                         </div>
                         <div>
-                            <button type="button" class="btn-primary" style="width:100%; padding:8px 12px;" onclick="apurarDistribuicaoLucro()"><svg class="icon"><use href="#icon-refresh"></use></svg> Apurar</button>
+                            <button type="button" class="btn-primary" style="width:100%; padding:8px 12px;" onclick="apurarDistribuicaoLucro()">🔄 Apurar</button>
                         </div>
                     </div>
                     <div class="form-grid" style="margin-bottom:20px;">
@@ -430,8 +379,8 @@
 
                 <div id="panel-distribuicao-custos" class="content-panel" style="flex-direction: row; gap: 20px; height: 100%; overflow: hidden;">
                     <div id="dc-portal-selecao-projeto" style="width: 380px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden;">
-                        <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #E35F13;"><svg class="icon"><use href="#icon-folder"></use></svg> Escolha o Projeto</div>
-                        <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="dc-portal-busca-projeto" placeholder="Buscar obra..." oninput="filtrarTabelaProjetosDistribuicao()"></div>
+                        <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #00b4d8;">📁 Escolha o Projeto</div>
+                        <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="dc-portal-busca-projeto" placeholder="🔍 Buscar obra..." oninput="filtrarTabelaProjetosDistribuicao()"></div>
                         <div class="table-wrapper" style="flex: 1; max-height: none;"><table style="font-size:12px;"><thead><tr><th>Prefixo</th><th>Nome da Obra</th></tr></thead><tbody id="dc-portal-tabela-projetos-body"></tbody></table></div>
                     </div>
 
@@ -442,8 +391,8 @@
                         <div id="aba-verba-detalhamento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-detalhamento')">Verba para Detalhamento</div>
                         <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
                         <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
-                        <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;"><svg class="icon"><use href="#icon-folder"></use></svg> Estrutura de Projeto</button>
-                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;"><svg class="icon"><use href="#icon-repeat"></use></svg> Trocar Projeto</button>
+                        <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
+                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;">🔁 Trocar Projeto</button>
                     </div>
 
                     <div id="conteudo-orcamento-global" class="tab-content">
@@ -483,7 +432,7 @@
                     </div>
 
                     <div id="conteudo-distribuicao-analista" class="tab-content" style="display:none;">
-                        <div id="dca-sem-projeto" style="padding:40px 20px; text-align:center; color:#64748b;">
+                        <div id="dca-sem-projeto" style="padding:40px 20px; text-align:center; color:#94a3b8;">
                             Selecione um projeto na aba "Orçamento Global" primeiro.
                         </div>
                         <div id="dca-conteudo" style="display:none;">
@@ -510,21 +459,29 @@
                     <div id="conteudo-verba-detalhamento" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vd-projeto-ref">—</b></div>
                         <div id="vd-aviso" style="display:none; background:#fef9c3; color:#854d0e; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"></div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px;">
+                            <label>% Distribuição Lucros <small style="color:#94a3b8;">(descontado da verba bruta de CADA etapa, igualmente)</small>:</label>
+                            <input type="number" step="0.01" id="vd-pct-lucros" style="width:100px;" oninput="recalcularDistribuicaoLucros()">
+                            <button class="btn-success" style="margin-left:auto;" onclick="salvarDistribuicaoLucros()">Salvar % Distribuição Lucros</button>
+                        </div>
                         <div class="table-wrapper">
-                            <table>
-                                <thead><tr><th>Campo</th><th style="width:200px;">Valor</th></tr></thead>
-                                <tbody>
-                                    <tr><td>Verba Analista <small style="color:#64748b;">(etapa Detalhamento, vinda da aba anterior)</small></td><td id="vd-verba-analista" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                    <tr><td>Verba Escritório</td><td id="vd-verba-escritorio" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                    <tr><td>Verba Supervisor</td><td id="vd-verba-supervisor" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                    <tr style="background:#f0fdf4;"><td><b>Verba Detalhamento (total)</b></td><td id="vd-verba-total" style="font-weight:bold; color:#166534;"></td></tr>
-                                    <tr><td>% Distribuição Lucros <small style="color:#64748b;">(sobre a Verba Detalhamento total, acima)</small></td><td><input type="number" step="0.01" id="vd-pct-lucros" style="width:100px;" oninput="recalcularDistribuicaoLucros()"></td></tr>
-                                    <tr><td>Valor Distribuição Lucros</td><td id="vd-valor-lucros" style="font-weight:bold; color:#b45309;"></td></tr>
-                                    <tr style="background:#eff6ff;"><td><b>Verba Detalhamento Líquida</b> <small style="color:#64748b;">(após Distribuição de Lucros)</small></td><td id="vd-verba-liquida" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                </tbody>
+                            <table class="tabela-compacta">
+                                <thead><tr>
+                                    <th>Etapa</th>
+                                    <th style="width:90px;">% (Aba 2)</th>
+                                    <th style="width:150px;">Verba Bruta</th>
+                                    <th style="width:150px;">Valor Lucros</th>
+                                    <th style="width:150px;">Verba Líquida</th>
+                                </tr></thead>
+                                <tbody id="vd-tabela-body"></tbody>
+                                <tfoot>
+                                    <tr style="background:#f0fdf4; font-weight:bold;">
+                                        <td colspan="4" style="text-align:right;">Total (soma de todas as Etapas)</td>
+                                        <td id="vd-verba-liquida" style="color:#166534;"></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
-                        <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoLucros()">Salvar % Distribuição Lucros</button></div>
                     </div>
 
                     <div id="conteudo-verba-pavimento" class="tab-content" style="display:none;">
@@ -532,7 +489,24 @@
                         <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
                             Área Total Equivalente: <b id="vp-area-total-equivalente">0</b>
                             &nbsp;|&nbsp;
-                            Verba Detalhamento Líquida (aba anterior), a ser distribuída entre os pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                            Soma da Verba Líquida de todas as Etapas (aba anterior), cascateada por Etapa até os Pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                        </div>
+                        <div id="vp-setores-wrapper" style="display:none; margin-bottom:18px;">
+                            <div style="font-weight:bold; color:#0f223f; font-size:12px; margin-bottom:6px;">🗂️ Verba por Setor <small style="color:#94a3b8; font-weight:normal;">(Área/Peso editáveis aqui — Setores competem entre si dentro da mesma Etapa/Setor pai)</small></div>
+                            <div class="table-wrapper" style="max-height:250px;">
+                                <table class="tabela-compacta">
+                                    <thead><tr>
+                                        <th>Setor</th>
+                                        <th style="width:100px;">Etapa/Setor pai</th>
+                                        <th class="col-centralizada" style="width:90px;">Área</th>
+                                        <th class="col-centralizada" style="width:90px;">Peso de Esforço</th>
+                                        <th class="col-centralizada" style="width:120px;">Área Equivalente</th>
+                                        <th class="col-centralizada" style="width:80px;">% da Verba</th>
+                                        <th style="width:130px;">Verba</th>
+                                    </tr></thead>
+                                    <tbody id="vp-setores-tabela-body"></tbody>
+                                </table>
+                            </div>
                         </div>
                         <div class="table-wrapper" style="max-height:400px;">
                             <table>
@@ -541,7 +515,7 @@
                                     <th style="width:110px;">Área</th>
                                     <th style="width:120px;">Peso de Esforço</th>
                                     <th style="width:140px;">Área Equivalente</th>
-                                    <th style="width:90px;">% da Verba</th>
+                                    <th style="width:90px;">% da Verba <small style="font-weight:normal;">(da própria Etapa)</small></th>
                                     <th style="width:150px;">Valor da Verba</th>
                                 </tr></thead>
                                 <tbody id="vp-tabela-body"></tbody>
@@ -559,13 +533,12 @@
                     <div id="conteudo-verba-por-tarefa" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vt-projeto-ref">—</b></div>
                         <div class="table-wrapper" style="max-height:450px;">
-                            <table>
+                            <table class="tabela-compacta">
                                 <thead><tr>
-                                    <th>Pavimento</th>
                                     <th>Tarefa</th>
-                                    <th>Executor</th>
-                                    <th style="width:90px;">Horas Máximas</th>
-                                    <th style="width:70px;">Pontos</th>
+                                    <th style="width:200px;">Executor</th>
+                                    <th class="col-centralizada" style="width:90px;">Horas Máximas</th>
+                                    <th class="col-centralizada" style="width:70px;">Pontos</th>
                                     <th style="width:120px;">Valor</th>
                                 </tr></thead>
                                 <tbody id="vt-tabela-body"></tbody>
@@ -578,7 +551,7 @@
                 <div id="panel-atribuicao-tarefas" class="content-panel">
                     <div id="at-aviso-verificacao" style="display:none; background:#fffbeb; border:1px solid #f59e0b; color:#92400e; font-weight:600; padding:10px 14px; border-radius:6px; font-size:13px;"></div>
                     <div style="display:flex; align-items:center; gap:8px; padding:8px 4px; font-size:13px; color:#334155;">
-                        <span style="font-weight:600;"><svg class="icon"><use href="#icon-calendar"></use></svg> Período (Data de Início):</span>
+                        <span style="font-weight:600;">📅 Período (Data de Início):</span>
                         <span>De</span>
                         <input type="date" id="at-filtro-periodo-de" onchange="aplicarFiltroPeriodoAtribuicao()" style="border:1px solid #cbd5e1; border-radius:4px; padding:3px 6px; font-size:12px;">
                         <span>Até</span>
@@ -589,14 +562,14 @@
                         <table class="tabela-compacta">
                             <thead><tr>
                                 <th id="at-th-projeto" style="width:60px;">Projeto <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'projeto')">▾</span></th>
-                                <th style="width:330px;">Localização <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'localizacao')">▾</span></th>
+                                <th style="width:110px;">Localização <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'localizacao')">▾</span></th>
                                 <th style="width:50px;">Data de Início</th>
                                 <th style="width:100px;">Data Limite</th>
                                 <th id="at-th-tarefa">Tarefa <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'tarefa')">▾</span></th>
                                 <th class="col-centralizada" style="width:60px;">Pontos</th>
                                 <th class="col-centralizada" style="width:80px;">Pontos Máximo</th>
-                                <th id="at-th-executor" style="width:150px;">Executor <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'executor')">▾</span></th>
-                                <th style="width:150px;">Responsável <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'responsavel')">▾</span></th>
+                                <th id="at-th-executor" style="width:260px;">Executor <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'executor')">▾</span></th>
+                                <th style="width:260px;">Responsável <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'responsavel')">▾</span></th>
                                 <th style="width:120px; padding-left:24px;">Status <span class="at-filtro-seta" onclick="abrirFiltroColuna(event, 'status')">▾</span></th>
                                 <th class="col-centralizada" style="width:70px;">Horas Apontadas</th>
                             </tr></thead>
@@ -610,10 +583,9 @@
 
                 <div id="panel-kanban" class="content-panel">
                     <div class="aprov-abas">
-                        <button type="button" id="kb-aba-meu" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaKanban('meu')"><svg class="icon"><use href="#icon-user"></use></svg> Meu Kanban</button>
-                        <button type="button" id="kb-aba-outros" class="aprov-aba" onclick="alternarAbaKanban('outros')"><svg class="icon"><use href="#icon-kanban"></use></svg> Tarefas a supervisionar</button>
-                        <button type="button" id="kb-btn-meu-calendario" class="aprov-aba" onclick="abrirModalCalendarioKanban()"><svg class="icon"><use href="#icon-settings"></use></svg> Meu Calendário</button>
-                        <button type="button" id="kb-aba-ranking" class="aprov-aba" onclick="alternarAbaKanban('ranking')"><svg class="icon"><use href="#icon-trophy"></use></svg> Ranking</button>
+                        <button type="button" id="kb-aba-meu" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaKanban('meu')">🧍 Meu Kanban</button>
+                        <button type="button" id="kb-aba-outros" class="aprov-aba" onclick="alternarAbaKanban('outros')">🗂️ Kanban</button>
+                        <button type="button" id="kb-aba-ranking" class="aprov-aba" onclick="alternarAbaKanban('ranking')">🏆 Ranking</button>
                     </div>
                     <div id="kb-area-quadro">
                         <div class="search-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end;">
@@ -649,7 +621,10 @@
                                 <input type="date" id="kb-filtro-data-fim" onchange="renderizarQuadroKanban()" style="width:100%; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
                             </div>
                             <div>
-                                <button type="button" onclick="limparFiltrosKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;"><svg class="icon"><use href="#icon-close"></use></svg> Limpar filtros</button>
+                                <button type="button" onclick="limparFiltrosKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;">✖ Limpar filtros</button>
+                            </div>
+                            <div>
+                                <button type="button" id="kb-btn-meu-calendario" onclick="abrirModalCalendarioKanban()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer;">⚙️ Meu Calendário</button>
                             </div>
                         </div>
                         <div id="kb-aviso-finalizacoes-pendentes" style="display:none; margin-top:12px; padding:10px 14px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; color:#92400e; font-size:13px; cursor:pointer;" onclick="alternarModulo('aprovacoes_calendario')"></div>
@@ -686,7 +661,7 @@
                 <div id="kb-modal-calendario" class="modal-overlay" style="display:none;">
                     <div class="modal-caixa">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                            <h3 style="margin:0;"><svg class="icon"><use href="#icon-settings"></use></svg> Meu Calendário — <span id="kb-modal-cal-nome-executor"></span></h3>
+                            <h3 style="margin:0;">⚙️ Meu Calendário — <span id="kb-modal-cal-nome-executor"></span></h3>
                             <span class="modal-fechar" onclick="fecharModalCalendarioKanban()">&times;</span>
                         </div>
                         <p style="font-size:12px; color:#64748b; margin-top:0;">
@@ -712,10 +687,10 @@
 
                 <div id="panel-aprovacoes_calendario" class="content-panel">
                     <div class="aprov-abas">
-                        <button type="button" id="aprov-aba-calendario" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaAprovacoes('calendario')"><svg class="icon"><use href="#icon-calendar"></use></svg> Calendário</button>
-                        <button type="button" id="aprov-aba-apontamento" class="aprov-aba" onclick="alternarAbaAprovacoes('apontamento')"><svg class="icon"><use href="#icon-clock"></use></svg> Apontamento de Horas</button>
-                        <button type="button" id="aprov-aba-finalizacoes" class="aprov-aba" onclick="alternarAbaAprovacoes('finalizacoes')"><svg class="icon"><use href="#icon-check"></use></svg> Finalizações</button>
-                        <button type="button" id="aprov-aba-revisao" class="aprov-aba" onclick="alternarAbaAprovacoes('revisao')"><svg class="icon"><use href="#icon-repeat"></use></svg> Sessões de Revisão</button>
+                        <button type="button" id="aprov-aba-calendario" class="aprov-aba aprov-aba-ativa" onclick="alternarAbaAprovacoes('calendario')">🗓️ Calendário</button>
+                        <button type="button" id="aprov-aba-apontamento" class="aprov-aba" onclick="alternarAbaAprovacoes('apontamento')">🕐 Apontamento de Horas</button>
+                        <button type="button" id="aprov-aba-finalizacoes" class="aprov-aba" onclick="alternarAbaAprovacoes('finalizacoes')">✅ Finalizações</button>
+                        <button type="button" id="aprov-aba-revisao" class="aprov-aba" onclick="alternarAbaAprovacoes('revisao')">🔁 Sessões de Revisão</button>
                     </div>
                     <div id="aprov-sub-calendario" style="display:block;">
                         <div class="table-wrapper" style="max-height:600px;">
@@ -784,7 +759,7 @@
                 <div id="kb-modal-apontamento" class="modal-overlay" style="display:none;">
                     <div class="modal-caixa">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                            <h3 style="margin:0;"><svg class="icon"><use href="#icon-pencil"></use></svg> Apontar horas — <span id="kb-apo-modal-nome-tarefa"></span></h3>
+                            <h3 style="margin:0;">📝 Apontar horas — <span id="kb-apo-modal-nome-tarefa"></span></h3>
                             <span class="modal-fechar" onclick="fecharModalApontamentoManualKanban()">&times;</span>
                         </div>
                         <p style="font-size:12px; color:#64748b; margin-top:0;">
@@ -810,7 +785,7 @@
                 <div id="kb-modal-sessoes-revisao" class="modal-overlay" style="display:none;">
                     <div class="modal-caixa">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                            <h3 style="margin:0;"><svg class="icon"><use href="#icon-hourglass"></use></svg> Sessões de Revisão pendentes — <span id="kb-sessoes-revisao-modal-nome-tarefa"></span></h3>
+                            <h3 style="margin:0;">⏳ Sessões de Revisão pendentes — <span id="kb-sessoes-revisao-modal-nome-tarefa"></span></h3>
                             <span class="modal-fechar" onclick="fecharModalSessoesRevisaoPendentesKanban()">&times;</span>
                         </div>
                         <p style="font-size:12px; color:#64748b; margin-top:0;">
@@ -832,13 +807,13 @@
                             <select id="rel-seletor-visao" onchange="carregarVisaoSelecionadaRelatorio()"></select>
                         </div>
                         <div class="separador-vertical"></div>
-                        <button class="btn-secondary" onclick="salvarVisaoAtualRelatorio()"><svg class="icon"><use href="#icon-save"></use></svg> Salvar visão atual</button>
-                        <button class="btn-secondary" id="rel-btn-apagar-visao" onclick="apagarVisaoSelecionadaRelatorio()" style="display:none;"><svg class="icon"><use href="#icon-trash"></use></svg> Apagar visão</button>
+                        <button class="btn-secondary" onclick="salvarVisaoAtualRelatorio()">💾 Salvar visão atual</button>
+                        <button class="btn-secondary" id="rel-btn-apagar-visao" onclick="apagarVisaoSelecionadaRelatorio()" style="display:none;">🗑️ Apagar visão</button>
                     </div>
 
                     <div class="painel-filtro">
                         <div class="painel-filtro-cabecalho" onclick="alternarPainelFiltroRelatorio()">
-                            <span class="titulo"><svg class="icon"><use href="#icon-chevron-down"></use></svg> Filtro avançado</span>
+                            <span class="titulo">🔽 Filtro avançado</span>
                             <span class="seta aberto" id="rel-seta-filtro">▲</span>
                         </div>
                         <div class="painel-filtro-corpo aberto" id="rel-corpo-filtro">
@@ -878,7 +853,7 @@
                             <div class="rodape-filtro">
                                 <button class="btn-texto" onclick="limparFiltrosRelatorio()">Limpar filtros</button>
                                 <div style="display:flex; gap:8px;">
-                                    <button class="btn-primary" onclick="window.print()"><svg class="icon"><use href="#icon-printer"></use></svg> Imprimir</button>
+                                    <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
                                 </div>
                             </div>
                         </div>
@@ -887,7 +862,7 @@
                     <div id="rel-area-resultado"></div>
                 </div>
 
-            </main>
+</main>
         </div>
     </div>
 

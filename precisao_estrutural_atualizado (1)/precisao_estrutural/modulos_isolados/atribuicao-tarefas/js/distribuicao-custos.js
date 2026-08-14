@@ -74,11 +74,6 @@ function carregarPainelDistribuicaoCustos() {
         if (permitidos) projetos = projetos.filter(p => permitidos.has(p.nome));
     }
 
-    // Item 6 (prompt_gemini.md §14): lista de projetos em ordem
-    // alfabética pelo Nome da Obra — vale pro portal e pro dropdown
-    // #dc-projeto juntos, já que os dois usam a mesma lista `projetos`.
-    projetos.sort((a, b) => a.nome.localeCompare(b.nome));
-
     // Melhoria #12 (prompt_gemini.md §12): portal de seleção inicial
     // virou lista clicável com busca (mesmo padrão da tela "Escolha o
     // Projeto" da Árvore, `renderizerProjetosParaSelecaoArvore`), no
@@ -246,7 +241,7 @@ function carregarAbaDistribuicaoAnalista() {
     const tbody = document.getElementById('dca-tabela-body');
 
     if (etapas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>' +
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>' +
             // Pedido do usuário (prompt_gemini.md §14, item 3): Fundo
             // Garantidor vem com valor default de 10%, editável — antes
             // vinha em branco até alguém digitar algo.
@@ -265,7 +260,7 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     const verba = (parseFloat(pct) || 0) / 100 * dcaValorAnalistaAtual;
     const marcador = ehFundoGarantidor ? 'data-fundo-garantidor="1"' : 'data-etapa="' + nomeLinha + '"';
     const estiloLinha = ehFundoGarantidor ? ' style="background:#fffbeb;"' : '';
-    const rotulo = ehFundoGarantidor ? '<svg class="icon"><use href="#icon-money"></use></svg> <i>Fundo Garantidor</i> <small style="color:#64748b;">(vinculado ao projeto)</small>' : nomeLinha;
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(vinculado ao projeto)</small>' : nomeLinha;
 
     return '<tr' + estiloLinha + '>' +
         '<td>' + rotulo + '</td>' +
@@ -292,10 +287,10 @@ function recalcularSomaPercentuaisAnalista() {
         alerta.innerHTML = '';
     } else if (Math.abs(soma - 100) < 0.01) {
         alerta.style.background = '#f0fdf4'; alerta.style.color = '#166534';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-check"></use></svg> Percentuais somam 100%.';
+        alerta.innerHTML = '✅ Percentuais somam 100%.';
     } else {
         alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> Percentuais somam ' + soma.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
+        alerta.innerHTML = '⚠️ Percentuais somam ' + soma.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
     }
 }
 
@@ -333,26 +328,21 @@ function salvarDistribuicaoAnalista() {
 
     salvos[nomeProjeto] = { etapas: dadosEtapas, fundo_garantidor: dadosFundoGarantidor };
     localStorage.setItem('banco_distribuicao_custos_analista', JSON.stringify(salvos));
-    mostrarToast('Distribuição por etapa salva.');
+    alert('Distribuição por etapa (e Fundo Garantidor) salva para "' + nomeProjeto + '".');
 }
 
-// --- CÁLCULO COMPARTILHADO: FÓRMULA ESPECIAL DA ETAPA "DETALHAMENTO" ---
-// Item 10 (prompt_gemini.md §14, leva 4): esta fórmula pura
-// (calcularVerbaDetalhamentoPuro) não depende de DOM nem de
-// localStorage, só dos números que recebe — continua em uso, agora
-// chamada de dentro de calcularVerbaPorEtapa/calcularVerbaPorEtapaSalvo
-// (abaixo), só para a Etapa cujo nome contém "Detalhamento" (regra de
-// negócio: essa Etapa tem custo compartilhado com Escritório e
-// Supervisor, as demais Etapas usam só a fatia do Analista). As duas
-// funções que existiam aqui antes desta mudança —
-// calcularVerbaDetalhamento(nomeProjeto) e
-// calcularVerbaDetalhamentoSalvo(nomeProjeto) — calculavam um bolo
-// ÚNICO pro projeto inteiro a partir só dessa etapa, ignorando as
-// demais; foram REMOVIDAS nesta leva, substituídas por
-// calcularVerbaPorEtapa/calcularVerbaPorEtapaSalvo, que calculam a
-// verba de CADA Etapa (usando esta fórmula só pra "Detalhamento").
-// buscarPctDetalhamentoEAviso() também foi removida — só existia pra
-// alimentar as duas funções acima.
+// --- CÁLCULO COMPARTILHADO: VERBA PARA DETALHAMENTO ---
+// A fórmula em si é pura (calcularVerbaDetalhamentoPuro) — não depende de
+// DOM nem de localStorage, só dos números que recebe. Duas funções por
+// cima dela buscam esses números de lugares diferentes:
+// - calcularVerbaDetalhamento(nomeProjeto): lê os percentuais da aba 1 AO
+//   VIVO do DOM (preview em tempo real antes de salvar). Usada pelas
+//   próprias abas 3/4/5 da Distribuição de Custos.
+// - calcularVerbaDetalhamentoSalvo(nomeProjeto): lê os percentuais JÁ
+//   SALVOS em 'banco_distribuicao_custos' (sem tocar no DOM). Usada por
+//   telas fora da Distribuição de Custos, como a Atribuição de Tarefas,
+//   que precisa calcular a verba de tarefas de VÁRIOS projetos ao mesmo
+//   tempo — nenhum deles necessariamente "aberto" na tela.
 function calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctDetalhamento, pctLucros, avisoDetalhamento) {
     const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
     const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
@@ -368,212 +358,50 @@ function calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, 
     return { verbaAnalista, verbaEscritorio, verbaSupervisor, verbaTotal, pctLucros, valorLucros, verbaLiquida, avisoDetalhamento: avisoDetalhamento || '' };
 }
 
-// --- ITEM 10 (prompt_gemini.md §14, leva 4): CASCATA DE VERBA POR ETAPA ---
-// Motor genérico que substitui a distribuição antiga (que ratava a
-// Verba Líquida do projeto INTEIRO direto entre todos os Pavimentos,
-// ignorando de qual Etapa cada um era). Agora: cada Etapa recebe sua
-// própria verba (calcularVerbaPorEtapa, abaixo) e essa verba cascateia
-// recursivamente pelos filhos dela — Setor ou Pavimento usam Área
-// Equivalente (área×peso) entre si, Tarefa usa Pontos — nunca os dois
-// juntos no mesmo nível, porque a regra de negócio (confirmada pelo
-// usuário) já garante que os filhos de um mesmo nó nunca são de tipos
-// misturados. Escreve o resultado em `no._verbaCalc`, EM MEMÓRIA
-// apenas (no objeto já carregado via JSON.parse, que é descartado
-// depois de usado) — não persiste em localStorage, mesmo padrão
-// "tudo calculado, sem storage próprio" que as Abas 4/5 já seguiam
-// antes desta mudança. Não mexe no campo `no.verba` (esse é outro
-// campo, editável manualmente na Árvore, usado pelo Painel de
-// Progresso como peso — propositalmente fora do escopo do item 10).
-function distribuirVerbaRecursiva(no, verba) {
-    no._verbaCalc = verba;
-    const filhos = no.filhos || [];
-    if (filhos.length === 0) return; // folha (Tarefa, ou qualquer nível agindo como folha) — já recebeu tudo acima
-
-    const filhosSaoTarefa = filhos[0].nivel === 'tarefa';
-    if (filhosSaoTarefa) {
-        const totalPontos = filhos.reduce((soma, f) => soma + (parseFloat(f.pontos) || 0), 0);
-        filhos.forEach(f => {
-            const pontos = parseFloat(f.pontos) || 0;
-            const parte = totalPontos > 0 ? (pontos / totalPontos) * verba : 0;
-            distribuirVerbaRecursiva(f, parte);
-        });
-    } else {
-        // Filhos são Setor ou Pavimento — competem por Área Equivalente
-        // (área_fisica × peso_esforco, mesmo campo em ambos os níveis).
-        const totalAreaEq = filhos.reduce((soma, f) => soma + (parseFloat(f.area_fisica) || 0) * (parseFloat(f.peso_esforco) || 0), 0);
-        filhos.forEach(f => {
-            const areaEq = (parseFloat(f.area_fisica) || 0) * (parseFloat(f.peso_esforco) || 0);
-            const parte = totalAreaEq > 0 ? (areaEq / totalAreaEq) * verba : 0;
-            distribuirVerbaRecursiva(f, parte);
-        });
-    }
-}
-
-// Verba de CADA Etapa do projeto — substitui o antigo "1 bolo único pro
-// projeto inteiro" (calcularVerbaDetalhamento, que só olhava a etapa
-// chamada "Detalhamento"). Regra fechada pelo usuário: Etapa
-// "Detalhamento" tem fórmula especial (Analista + parcela de
-// Escritório + parcela de Supervisor, mesma fórmula que já existia em
-// calcularVerbaDetalhamentoPuro); as demais Etapas usam só a fatia do
-// Analista já calculada por linha na Aba 2 (% daquela Etapa × Valor
-// Analista). % Distribuição de Lucros continua descontando — agora
-// aplicado uniformemente sobre a verba BRUTA de CADA etapa (antes só
-// existia sobre o bolo único de Detalhamento). ASSUNÇÃO (não
-// especificada pelo usuário, sinalizar se precisar ajustar): Lucros é
-// uma margem da empresa sobre todo trabalho de detalhamento, faz
-// sentido descontar de toda Etapa igualmente, não só da que se chama
-// "Detalhamento".
-function calcularVerbaPorEtapa(nomeProjeto) {
+// Busca o % Detalhamento salvo (aba 2) e monta o aviso, se faltar algo —
+// usado pelas duas variantes abaixo, que só diferem em ONDE buscam os
+// percentuais de impostos/analista/supervisor/escritório (aba 1).
+function buscarPctDetalhamentoEAviso(nomeProjeto) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
     const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
+    const etapaDetalhamento = etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
+
+    if (!etapaDetalhamento) {
+        return { pctDetalhamento: 0, aviso: '⚠️ Nenhuma etapa com "Detalhamento" no nome foi encontrada na árvore deste projeto. Verba Analista considerada R$ 0,00.' };
+    }
+
+    const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
+    const salvoProjeto = salvos[nomeProjeto] || {};
+    const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
+    const dadosDetalhamento = salvoEtapas[etapaDetalhamento.nome];
+
+    if (!dadosDetalhamento || dadosDetalhamento.pct === undefined || dadosDetalhamento.pct === '') {
+        return { pctDetalhamento: 0, aviso: '⚠️ A etapa "' + etapaDetalhamento.nome + '" ainda não tem percentual salvo na aba "Distribuição de Custos Analista". Preencha e salve lá primeiro. Verba Analista considerada R$ 0,00 por enquanto.' };
+    }
+
+    return { pctDetalhamento: parseFloat(dadosDetalhamento.pct) || 0, aviso: '' };
+}
+
+function calcularVerbaDetalhamento(nomeProjeto) {
+    const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
+    const pctSupervisor = parseFloat(document.getElementById('dc-pct-supervisor').value) || 0;
+    const pctEscritorio = parseFloat(document.getElementById('dc-pct-escritorio').value) || 0;
+    const pctImpostos = parseFloat(document.getElementById('dc-pct-impostos').value) || 0;
 
     const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     const projeto = projetos.find(p => p.nome === nomeProjeto);
     const valorContrato = projeto ? (parseFloat(projeto.valor) || 0) : 0;
 
-    const pctImpostos = parseFloat(document.getElementById('dc-pct-impostos').value) || 0;
-    const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
-    const pctSupervisor = parseFloat(document.getElementById('dc-pct-supervisor').value) || 0;
-    const pctEscritorio = parseFloat(document.getElementById('dc-pct-escritorio').value) || 0;
-
-    const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
-    const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
-
-    const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
-    const salvoProjeto = salvos[nomeProjeto] || {};
-    const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
+    const { pctDetalhamento, aviso } = buscarPctDetalhamentoEAviso(nomeProjeto);
 
     const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
     const pctLucros = (lucrosSalvos[nomeProjeto] && parseFloat(lucrosSalvos[nomeProjeto].pct)) || 0;
 
-    return etapas.map(etapa => {
-        const dadosEtapa = salvoEtapas[etapa.nome];
-        const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
-        const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
-
-        let verbaBruta;
-        if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctEtapa, 0, '');
-            verbaBruta = r.verbaTotal;
-        } else {
-            verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
-        }
-
-        const valorLucros = pctLucros / 100 * verbaBruta;
-        const verbaLiquida = verbaBruta - valorLucros;
-
-        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta, valorLucros, verbaLiquida };
-    });
+    return calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctDetalhamento, pctLucros, aviso);
 }
 
-
-// Tudo aqui é calculado, sem campo editável (exceto % Distribuição
-// Lucros) — não guarda nada em localStorage próprio além disso, sempre
-// deriva ao vivo da aba 1 (percentuais) e da aba 2 (percentuais salvos
-// por Etapa). Item 10 (prompt_gemini.md §14, leva 4): antes só existia
-// UMA linha (a etapa cujo nome continha "Detalhamento"); agora toda
-// Etapa do projeto aparece aqui, cada uma com sua própria verba —
-// "Detalhamento" continua com a fórmula especial (Analista + parcela
-// de Escritório + parcela de Supervisor), as demais usam só a fatia do
-// Analista (calcularVerbaPorEtapa, já faz essa distinção).
-let vdVerbasPorEtapaAtual = [];
-
-function carregarAbaVerbaDetalhamento() {
-    const nomeProjeto = document.getElementById('dc-projeto').value;
-    document.getElementById('vd-projeto-ref').innerText = nomeProjeto;
-    const aviso = document.getElementById('vd-aviso');
-
-    const verbasPorEtapa = calcularVerbaPorEtapa(nomeProjeto);
-    vdVerbasPorEtapaAtual = verbasPorEtapa;
-
-    const tbody = document.getElementById('vd-tabela-body');
-    if (verbasPorEtapa.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>';
-        aviso.style.display = 'none';
-        document.getElementById('vd-verba-liquida').innerText = formatarMoeda(0);
-        return;
-    }
-
-    const etapaSemPct = verbasPorEtapa.some(v => v.pctEtapa === 0);
-    if (etapaSemPct) {
-        aviso.style.display = 'block';
-        aviso.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> Uma ou mais Etapas ainda não têm percentual salvo na aba "Distribuição de Custos Analista". Preencha e salve lá primeiro — por enquanto essas Etapas entram aqui com verba R$ 0,00.';
-    } else {
-        aviso.style.display = 'none';
-        aviso.innerHTML = '';
-    }
-
-    tbody.innerHTML = verbasPorEtapa.map(v => {
-        const rotulo = v.ehDetalhamento ? v.nome + ' <small style="color:#64748b;">(Analista+Escritório+Supervisor)</small>' : v.nome;
-        return '<tr>' +
-            '<td>' + rotulo + '</td>' +
-            '<td>' + v.pctEtapa.toFixed(2) + '%</td>' +
-            '<td>' + formatarMoeda(v.verbaBruta) + '</td>' +
-            '<td style="color:#b45309;">' + formatarMoeda(v.valorLucros) + '</td>' +
-            '<td style="font-weight:bold; color:#166534;">' + formatarMoeda(v.verbaLiquida) + '</td>' +
-            '</tr>';
-    }).join('');
-
-    const totalLiquido = verbasPorEtapa.reduce((soma, v) => soma + v.verbaLiquida, 0);
-    document.getElementById('vd-verba-liquida').innerText = formatarMoeda(totalLiquido);
-
-    const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
-    // Melhoria #16 (prompt_gemini.md §12): padrão 10% (editável) quando
-    // o projeto ainda não tem nada salvo pra esse percentual.
-    const pctLucrosSalvo = (lucrosSalvos[nomeProjeto] && lucrosSalvos[nomeProjeto].pct !== undefined) ? lucrosSalvos[nomeProjeto].pct : '10';
-    document.getElementById('vd-pct-lucros').value = pctLucrosSalvo;
-}
-
-// --- DISTRIBUIÇÃO DE LUCROS ---
-// Fundo de distribuição de lucros (ou compensação de prejuízos), formado
-// por um percentual — definido pelo analista/administrador — descontado
-// da verba BRUTA de cada Etapa, igualmente (item 10, leva 4 — antes só
-// existia sobre o bolo único de Detalhamento). Único campo editável da
-// aba 3, por isso é o único que precisa de "Salvar". Recalcula em
-// memória (preview, sem persistir) só pra atualizar a tabela ao vivo
-// enquanto o usuário digita — precisa salvar pra valer pra Abas 4/5,
-// que leem o % já salvo, não o campo ao vivo (mesmo comportamento de
-// antes desta mudança).
-function recalcularDistribuicaoLucros() {
-    const pctLucros = parseFloat(document.getElementById('vd-pct-lucros').value) || 0;
-    const tbody = document.getElementById('vd-tabela-body');
-    let totalLiquido = 0;
-    Array.from(tbody.querySelectorAll('tr')).forEach((linha, idx) => {
-        const v = vdVerbasPorEtapaAtual[idx];
-        if (!v) return;
-        const valorLucros = pctLucros / 100 * v.verbaBruta;
-        const verbaLiquida = v.verbaBruta - valorLucros;
-        totalLiquido += verbaLiquida;
-        const celulas = linha.querySelectorAll('td');
-        if (celulas[3]) celulas[3].innerText = formatarMoeda(valorLucros);
-        if (celulas[4]) celulas[4].innerText = formatarMoeda(verbaLiquida);
-    });
-    document.getElementById('vd-verba-liquida').innerText = formatarMoeda(totalLiquido);
-}
-
-function salvarDistribuicaoLucros() {
-    if (distribuicaoCustosSomenteLeitura()) return alert('Você só tem acesso de visualização à Distribuição de Custos.');
-    const nomeProjeto = document.getElementById('dc-projeto').value;
-    if (!nomeProjeto) return alert('Selecione um projeto na aba "Orçamento Global" primeiro.');
-
-    const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
-    lucrosSalvos[nomeProjeto] = { pct: document.getElementById('vd-pct-lucros').value };
-    localStorage.setItem('banco_distribuicao_lucros', JSON.stringify(lucrosSalvos));
-    mostrarToast('% Distribuição Lucros salvo.');
-}
-
-// Mesma coisa que calcularVerbaPorEtapa, mas lendo os percentuais JÁ
-// SALVOS em 'banco_distribuicao_custos' em vez do DOM ao vivo — usada
-// por telas fora da Distribuição de Custos (Atribuição de Tarefas,
-// Painel de Progresso), que precisam calcular a verba de vários
-// projetos ao mesmo tempo, nenhum necessariamente "aberto" na tela.
-// Mesmo padrão de calcularVerbaDetalhamento/calcularVerbaDetalhamentoSalvo.
-function calcularVerbaPorEtapaSalvo(nomeProjeto) {
-    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = arvores[nomeProjeto];
-    const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
-
+function calcularVerbaDetalhamentoSalvo(nomeProjeto) {
     const orcamentosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos')) || {};
     const orcamento = orcamentosSalvos[nomeProjeto] || {};
     const pctImpostos = parseFloat(orcamento.pct_impostos) || 0;
@@ -584,62 +412,95 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
     const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     const projeto = projetos.find(p => p.nome === nomeProjeto);
     const valorContrato = projeto ? (parseFloat(projeto.valor) || 0) : 0;
-    const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
-    const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
 
-    const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
-    const salvoProjeto = salvos[nomeProjeto] || {};
-    const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
+    const { pctDetalhamento, aviso } = buscarPctDetalhamentoEAviso(nomeProjeto);
 
     const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
     const pctLucros = (lucrosSalvos[nomeProjeto] && parseFloat(lucrosSalvos[nomeProjeto].pct)) || 0;
 
-    return etapas.map(etapa => {
-        const dadosEtapa = salvoEtapas[etapa.nome];
-        const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
-        const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
+    return calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctDetalhamento, pctLucros, aviso);
+}
 
-        let verbaBruta;
-        if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctEtapa, 0, '');
-            verbaBruta = r.verbaTotal;
-        } else {
-            verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
-        }
+// --- ABA 3: VERBA PARA DETALHAMENTO ---
+// Tudo aqui é calculado, sem campo editável (exceto % Distribuição
+// Lucros) — não guarda nada em localStorage próprio além disso, sempre
+// deriva ao vivo da aba 1 (percentuais) e da aba 2 (percentual salvo na
+// etapa cujo nome contém "Detalhamento").
+let vdVerbaTotalAtual = 0;
 
-        const valorLucros = pctLucros / 100 * verbaBruta;
-        const verbaLiquida = verbaBruta - valorLucros;
+function carregarAbaVerbaDetalhamento() {
+    const nomeProjeto = document.getElementById('dc-projeto').value;
+    document.getElementById('vd-projeto-ref').innerText = nomeProjeto;
+    const aviso = document.getElementById('vd-aviso');
 
-        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta, valorLucros, verbaLiquida };
-    });
+    const r = calcularVerbaDetalhamento(nomeProjeto);
+
+    if (r.avisoDetalhamento) {
+        aviso.style.display = 'block';
+        aviso.innerHTML = r.avisoDetalhamento;
+    } else {
+        aviso.style.display = 'none';
+        aviso.innerHTML = '';
+    }
+
+    document.getElementById('vd-verba-analista').innerText = formatarMoeda(r.verbaAnalista);
+    document.getElementById('vd-verba-escritorio').innerText = formatarMoeda(r.verbaEscritorio);
+    document.getElementById('vd-verba-supervisor').innerText = formatarMoeda(r.verbaSupervisor);
+    document.getElementById('vd-verba-total').innerText = formatarMoeda(r.verbaTotal);
+
+    vdVerbaTotalAtual = r.verbaTotal;
+
+    const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
+    // Melhoria #16 (prompt_gemini.md §12): padrão 10% (editável) quando
+    // o projeto ainda não tem nada salvo pra esse percentual.
+    const pctLucrosSalvo = (lucrosSalvos[nomeProjeto] && lucrosSalvos[nomeProjeto].pct !== undefined) ? lucrosSalvos[nomeProjeto].pct : '10';
+    document.getElementById('vd-pct-lucros').value = pctLucrosSalvo;
+
+    recalcularDistribuicaoLucros();
+}
+
+// --- DISTRIBUIÇÃO DE LUCROS ---
+// Fundo de distribuição de lucros (ou compensação de prejuízos), formado
+// por um percentual — definido pelo analista/administrador — descontado
+// da Verba Detalhamento (total). Único campo editável da aba 3, por isso
+// é o único que precisa de "Salvar".
+function recalcularDistribuicaoLucros() {
+    const pctLucros = parseFloat(document.getElementById('vd-pct-lucros').value) || 0;
+    const valorLucros = pctLucros / 100 * vdVerbaTotalAtual;
+    const verbaLiquida = vdVerbaTotalAtual - valorLucros;
+
+    document.getElementById('vd-valor-lucros').innerText = formatarMoeda(valorLucros);
+    document.getElementById('vd-verba-liquida').innerText = formatarMoeda(verbaLiquida);
+}
+
+function salvarDistribuicaoLucros() {
+    if (distribuicaoCustosSomenteLeitura()) return alert('Você só tem acesso de visualização à Distribuição de Custos.');
+    const nomeProjeto = document.getElementById('dc-projeto').value;
+    if (!nomeProjeto) return alert('Selecione um projeto na aba "Orçamento Global" primeiro.');
+
+    const lucrosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_lucros')) || {};
+    lucrosSalvos[nomeProjeto] = { pct: document.getElementById('vd-pct-lucros').value };
+    localStorage.setItem('banco_distribuicao_lucros', JSON.stringify(lucrosSalvos));
+    alert('% Distribuição Lucros salvo para "' + nomeProjeto + '".');
 }
 
 // --- ABA 4: VERBA POR PAVIMENTO ---
 // Lista todos os pavimentos de todas as Etapas/Setores do projeto, com a
 // Área e o Peso de Esforço que o analista já preencheu na Estrutura de
-// Projeto. Área Equivalente = Área × Peso de Esforço. Item 10 (leva 4):
-// a verba de cada pavimento agora vem da CASCATA por Etapa
-// (distribuirVerbaRecursiva, acima) — cada Etapa cascateia sua própria
-// verba (calcularVerbaPorEtapa) até chegar nos Pavimentos, em vez de
-// ratear um bolo único do projeto inteiro ignorando de qual Etapa cada
-// Pavimento é (comportamento antigo, causava a mistura relatada pelo
-// usuário). Tudo calculado, sem storage próprio.
+// Projeto. Área Equivalente = Área × Peso de Esforço. A Verba Detalhamento
+// Líquida (aba 3, depois de descontar a Distribuição de Lucros) é
+// distribuída entre os pavimentos proporcionalmente à Área Equivalente de
+// cada um. Tudo calculado, sem campo editável, sem storage próprio.
 // --- CÁLCULO COMPARTILHADO: LISTA DE PAVIMENTOS COM VERBA ---
-// listarPavimentosDoProjeto(verbasPorEtapa) roda a cascata por Etapa
-// (usando a lista de verbas já calculada por calcularVerbaPorEtapa ou
-// calcularVerbaPorEtapaSalvo, dependendo de quem chama) e devolve os
-// Pavimentos já com a verba certa — precisa ser a MESMA árvore
-// carregada em memória pra cascata (rodada nos nós de Etapa) e a
-// coleta de Pavimentos (que lê `_verbaCalc` desses mesmos nós)
-// baterem, por isso não separa mais em duas funções puras como antes.
-function listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa) {
+// listarPavimentosDoProjeto() é pura estrutura (área/peso/tarefas), sem
+// verba nenhuma ainda. aplicarVerbaProporcionalAosPavimentos() distribui
+// uma Verba Detalhamento Líquida já calculada entre eles. As duas funções
+// por cima diferem só em de onde vem essa verba líquida — mesmo padrão de
+// calcularVerbaDetalhamento / calcularVerbaDetalhamentoSalvo acima.
+function listarPavimentosDoProjeto(nomeProjeto) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
     const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
-
-    const verbaPorNomeEtapa = {};
-    (verbasPorEtapa || []).forEach(v => { verbaPorNomeEtapa[v.nome] = v.verbaLiquida; });
-    etapas.forEach(etapa => distribuirVerbaRecursiva(etapa, verbaPorNomeEtapa[etapa.nome] || 0));
 
     // Árvore Genérica Recursiva v2 (prompt_gemini.md §12.31): Pavimento
     // pode estar em QUALQUER profundidade agora (Etapa>Pavimento direto,
@@ -648,136 +509,56 @@ function listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa) {
     // descer além do Pavimento encontrado: pela ordem obrigatória, o
     // único filho que ele pode ter é Tarefa.
     const pavimentos = [];
-    function caminhar(no, path, nomeEtapaDoPav) {
+    function caminhar(no, path) {
         if (no.nivel === 'pavimento') {
             const area = parseFloat(no.area_fisica) || 0;
             const peso = parseFloat(no.peso_esforco) || 0;
             const tarefasFilhas = (no.filhos || []).filter(f => f.nivel === 'tarefa');
-            const verbaDaEtapaDele = verbaPorNomeEtapa[nomeEtapaDoPav] || 0;
-            pavimentos.push({
-                nome: no.nome, area: area, peso: peso, areaEquivalente: area * peso,
-                tarefas: tarefasFilhas, caminho: path, etapa: nomeEtapaDoPav,
-                valorVerba: no._verbaCalc || 0,
-                pctVerba: verbaDaEtapaDele > 0 ? ((no._verbaCalc || 0) / verbaDaEtapaDele * 100) : 0
-            });
+            pavimentos.push({ nome: no.nome, area: area, peso: peso, areaEquivalente: area * peso, tarefas: tarefasFilhas, caminho: path });
             return;
         }
-        (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, nomeEtapaDoPav));
+        (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx));
     }
-    etapas.forEach((etapa, fIdx) => caminhar(etapa, '' + fIdx, etapa.nome));
+    etapas.forEach((etapa, fIdx) => caminhar(etapa, '' + fIdx));
     return pavimentos;
 }
 
-// Item 10 (prompt_gemini.md §14, leva 4): mesma ideia de
-// listarPavimentosDoProjeto, mas coleta nós nivel==='setor' — usa a
-// MESMA árvore/cascata (reexecuta distribuirVerbaRecursiva, idempotente
-// — os nós já tinham `_verbaCalc` de uma chamada anterior na mesma
-// função que a chama, mas rodar de novo aqui não muda o resultado,
-// só garante que funciona mesmo se chamada isoladamente). `nomePai` é
-// só pra exibição (saber de qual Etapa/Setor o Setor listado depende).
-function listarSetoresDoProjeto(nomeProjeto, verbasPorEtapa) {
-    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = arvores[nomeProjeto];
-    const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
-
-    const verbaPorNomeEtapa = {};
-    (verbasPorEtapa || []).forEach(v => { verbaPorNomeEtapa[v.nome] = v.verbaLiquida; });
-    etapas.forEach(etapa => distribuirVerbaRecursiva(etapa, verbaPorNomeEtapa[etapa.nome] || 0));
-
-    const setores = [];
-    function caminhar(no, path, nomePai, verbaDoPai) {
-        if (no.nivel === 'setor') {
-            const area = parseFloat(no.area_fisica) || 0;
-            const peso = parseFloat(no.peso_esforco) || 0;
-            setores.push({
-                nome: no.nome, nomePai: nomePai, area: area, peso: peso, areaEquivalente: area * peso,
-                caminho: path, valorVerba: no._verbaCalc || 0,
-                pctVerba: verbaDoPai > 0 ? ((no._verbaCalc || 0) / verbaDoPai * 100) : 0
-            });
-            (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, no.nome, no._verbaCalc || 0));
-            return;
-        }
-        (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, nomePai, verbaDoPai));
-    }
-    etapas.forEach((etapa, fIdx) => caminhar(etapa, '' + fIdx, etapa.nome, verbaPorNomeEtapa[etapa.nome] || 0));
-    return setores;
-}
-
-// Item 10 (prompt_gemini.md §14, leva 4): Área Física e Peso do
-// Esforço do Setor editáveis direto na Aba 4 — mesmo padrão de
-// editarAreaPesoVerbaPavimento (item 13).
-function editarAreaPesoVerbaSetor(inputEl) {
-    if (distribuicaoCustosSomenteLeitura()) return;
-    const nomeProjeto = document.getElementById('dc-projeto').value;
-    if (!nomeProjeto) return;
-
-    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = todas[nomeProjeto];
-    if (!arv) return;
-
-    const setor = resolverNoPorPath(arv, inputEl.dataset.caminho);
-    if (!setor) return; // caminho não existe mais (árvore mudou entre carregar e editar) — ignora
-    setor[inputEl.dataset.campo] = inputEl.value;
-
-    localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    carregarAbaVerbaPavimento();
+function aplicarVerbaProporcionalAosPavimentos(pavimentos, verbaLiquida) {
+    const areaTotalEquivalente = pavimentos.reduce((soma, p) => soma + p.areaEquivalente, 0);
+    pavimentos.forEach(p => {
+        p.pctVerba = areaTotalEquivalente > 0 ? (p.areaEquivalente / areaTotalEquivalente * 100) : 0;
+        p.valorVerba = p.pctVerba / 100 * verbaLiquida;
+    });
+    return areaTotalEquivalente;
 }
 
 function calcularListaPavimentosComVerba(nomeProjeto) {
-    const verbasPorEtapa = calcularVerbaPorEtapa(nomeProjeto);
-    const pavimentos = listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa);
-    const verbaLiquida = verbasPorEtapa.reduce((soma, v) => soma + v.verbaLiquida, 0);
-    const areaTotalEquivalente = pavimentos.reduce((soma, p) => soma + p.areaEquivalente, 0);
-    return { pavimentos: pavimentos, areaTotalEquivalente: areaTotalEquivalente, verbaLiquida: verbaLiquida, verbasPorEtapa: verbasPorEtapa };
+    const pavimentos = listarPavimentosDoProjeto(nomeProjeto);
+    const { verbaLiquida } = calcularVerbaDetalhamento(nomeProjeto);
+    const areaTotalEquivalente = aplicarVerbaProporcionalAosPavimentos(pavimentos, verbaLiquida);
+    return { pavimentos: pavimentos, areaTotalEquivalente: areaTotalEquivalente, verbaLiquida: verbaLiquida };
 }
 
-
 function calcularListaPavimentosComVerbaSalva(nomeProjeto) {
-    const verbasPorEtapa = calcularVerbaPorEtapaSalvo(nomeProjeto);
-    const pavimentos = listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa);
-    const verbaLiquida = verbasPorEtapa.reduce((soma, v) => soma + v.verbaLiquida, 0);
-    const areaTotalEquivalente = pavimentos.reduce((soma, p) => soma + p.areaEquivalente, 0);
-    return { pavimentos: pavimentos, areaTotalEquivalente: areaTotalEquivalente, verbaLiquida: verbaLiquida, verbasPorEtapa: verbasPorEtapa };
+    const pavimentos = listarPavimentosDoProjeto(nomeProjeto);
+    const { verbaLiquida } = calcularVerbaDetalhamentoSalvo(nomeProjeto);
+    const areaTotalEquivalente = aplicarVerbaProporcionalAosPavimentos(pavimentos, verbaLiquida);
+    return { pavimentos: pavimentos, areaTotalEquivalente: areaTotalEquivalente, verbaLiquida: verbaLiquida };
 }
 
 function carregarAbaVerbaPavimento() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     document.getElementById('vp-projeto-ref').innerText = nomeProjeto;
-    const { pavimentos, areaTotalEquivalente, verbaLiquida, verbasPorEtapa } = calcularListaPavimentosComVerba(nomeProjeto);
+    const { pavimentos, areaTotalEquivalente, verbaLiquida } = calcularListaPavimentosComVerba(nomeProjeto);
 
     document.getElementById('vp-area-total-equivalente').innerText = areaTotalEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
     document.getElementById('vp-verba-liquida-ref').innerText = formatarMoeda(verbaLiquida);
-
-    // Item 10 (prompt_gemini.md §14, leva 4): tabela de Setores, só
-    // aparece se o projeto realmente tiver algum Setor cadastrado —
-    // reaproveita a mesma cascata já rodada acima (calcularListaPavimentosComVerba
-    // já executou distribuirVerbaRecursiva em toda a árvore; aqui só
-    // colhe os nós nivel==='setor', que já ficaram com `_verbaCalc`
-    // preenchido).
-    const setoresWrapper = document.getElementById('vp-setores-wrapper');
-    const setores = listarSetoresDoProjeto(nomeProjeto, verbasPorEtapa);
-    if (setores.length === 0) {
-        setoresWrapper.style.display = 'none';
-    } else {
-        setoresWrapper.style.display = 'block';
-        document.getElementById('vp-setores-tabela-body').innerHTML = setores.map(s => {
-            return '<tr>' +
-                '<td>' + s.nome + '</td>' +
-                '<td style="color:#64748b; font-size:11px;">' + s.nomePai + '</td>' +
-                '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.area + '" data-caminho="' + s.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaSetor(this)" style="width:80px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-                '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.peso + '" data-caminho="' + s.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaSetor(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-                '<td class="col-centralizada">' + s.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
-                '<td class="col-centralizada">' + s.pctVerba.toFixed(2) + '%</td>' +
-                '<td style="font-weight:bold; color:#166534;">' + formatarMoeda(s.valorVerba) + '</td>' +
-                '</tr>';
-        }).join('');
-    }
 
     const tbody = document.getElementById('vp-tabela-body');
     const conferencia = document.getElementById('vp-conferencia');
 
     if (pavimentos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">Nenhum pavimento cadastrado neste projeto ainda. Monte a árvore primeiro.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Nenhum pavimento cadastrado neste projeto ainda. Monte a árvore primeiro.</td></tr>';
         document.getElementById('vp-total-verba').innerText = formatarMoeda(0);
         conferencia.innerHTML = '';
         return;
@@ -786,8 +567,8 @@ function carregarAbaVerbaPavimento() {
     tbody.innerHTML = pavimentos.map(p => {
         return '<tr>' +
             '<td>' + p.nome + '</td>' +
-            '<td><input type="number" step="0.01" value="' + p.area + '" data-caminho="' + p.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaPavimento(this)" style="width:90px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-            '<td><input type="number" step="0.01" value="' + p.peso + '" data-caminho="' + p.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaPavimento(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
+            '<td>' + p.area.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' m²</td>' +
+            '<td>' + p.peso.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
             '<td>' + p.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
             '<td>' + p.pctVerba.toFixed(2) + '%</td>' +
             '<td style="font-weight:bold; color:#166534;">' + formatarMoeda(p.valorVerba) + '</td>' +
@@ -800,31 +581,6 @@ function carregarAbaVerbaPavimento() {
     exibirSeloConferencia(conferencia, totalVerba, verbaLiquida, 'Soma das Verbas por Pavimento', 'Verba Detalhamento Líquida');
 }
 
-// Item 13 (prompt_gemini.md §14, leva 4): Área Física e Peso do
-// Esforço do Pavimento passam a ser editáveis direto nesta aba (antes
-// só na Árvore/Estrutura de Projeto). Grava no próprio nó Pavimento
-// (mesmo padrão de editarPontosVerbaPorTarefa — sem botão Salvar) e
-// recarrega a aba inteira, recalculando toda a cascata que depende
-// disso: Área Equivalente, % Verba, Valor da Verba de cada pavimento
-// (e, por consequência, a Aba 5/Verba por Tarefa também, já que parte
-// do Valor da Verba do pavimento pai).
-function editarAreaPesoVerbaPavimento(inputEl) {
-    if (distribuicaoCustosSomenteLeitura()) return;
-    const nomeProjeto = document.getElementById('dc-projeto').value;
-    if (!nomeProjeto) return;
-
-    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = todas[nomeProjeto];
-    if (!arv) return;
-
-    const pavimento = resolverNoPorPath(arv, inputEl.dataset.caminho);
-    if (!pavimento) return; // caminho não existe mais (árvore mudou entre carregar e editar) — ignora
-    pavimento[inputEl.dataset.campo] = inputEl.value;
-
-    localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    carregarAbaVerbaPavimento();
-}
-
 // Compara um total calculado (soma de partes) com o valor total esperado
 // no contexto da aba, e mostra ✅/⚠️. Usa uma tolerância pequena porque
 // somas de percentuais em ponto flutuante raramente batem 100,00000%
@@ -833,10 +589,10 @@ function exibirSeloConferencia(elemento, valorCalculado, valorEsperado, rotuloCa
     const diferenca = Math.abs(valorCalculado - valorEsperado);
     if (diferenca < 0.01) {
         elemento.style.background = '#f0fdf4'; elemento.style.color = '#166534';
-        elemento.innerHTML = '<svg class="icon"><use href="#icon-check"></use></svg> ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') bate com ' + rotuloEsperado + '.';
+        elemento.innerHTML = '✅ ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') bate com ' + rotuloEsperado + '.';
     } else {
         elemento.style.background = '#fef9c3'; elemento.style.color = '#854d0e';
-        elemento.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') não bate com ' + rotuloEsperado + ' (' + formatarMoeda(valorEsperado) + '). Diferença: ' + formatarMoeda(diferenca) + '.';
+        elemento.innerHTML = '⚠️ ' + rotuloCalculado + ' (' + formatarMoeda(valorCalculado) + ') não bate com ' + rotuloEsperado + ' (' + formatarMoeda(valorEsperado) + '). Diferença: ' + formatarMoeda(diferenca) + '.';
     }
 }
 
@@ -871,7 +627,7 @@ function carregarAbaVerbaPorTarefa() {
     const pavimentosComTarefas = pavimentos.filter(p => p.tarefas.length > 0);
 
     if (pavimentosComTarefas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">Nenhuma tarefa plugada em nenhum pavimento deste projeto ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma tarefa plugada em nenhum pavimento deste projeto ainda.</td></tr>';
         return;
     }
 
@@ -888,7 +644,7 @@ function carregarAbaVerbaPorTarefa() {
         const estiloOcultoSeRecolhido = recolhido ? ' style="display:none;"' : '';
 
         html += '<tr style="background:#e2e8f0; cursor:pointer;" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')">' +
-                '<td colspan="5" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</td>' +
+                '<td colspan="6" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</td>' +
                 '</tr>';
 
         pav.tarefas.forEach((tarefa, idxTarefa) => {
@@ -901,10 +657,11 @@ function carregarAbaVerbaPorTarefa() {
             const opcoesExecutor = typeof construirOpcoesExecutor === 'function' ? construirOpcoesExecutor(funcionarios, tarefa.executor) : '';
 
             html += '<tr class="vt-linha-tarefa" data-grupo="' + pav.caminho + '" data-valor-verba="' + pav.valorVerba + '"' + estiloOcultoSeRecolhido + '>' +
+                '<td></td>' +
                 '<td>' + tarefa.nome + '</td>' +
                 '<td><select class="vt-select-executor" data-caminho="' + caminhoJs + '" style="min-width:160px;" onchange="atribuirExecutorVerbaPorTarefa(this)"' + (podeAtribuir ? '' : ' disabled title="Só Administrador ou Supervisor podem atribuir executor por aqui"') + '>' + opcoesExecutor + '</select></td>' +
                 '<td class="vt-horas-maximas col-centralizada">—</td>' +
-                '<td class="col-centralizada"><input type="number" step="0.1" class="vt-input-pontos" data-caminho="' + caminhoJs + '" value="' + pontos + '" style="width:60px; border:1px solid #cbd5e1; border-radius:4px; padding:2px;" oninput="recalcularGrupoVerbaPorTarefa(this)" onchange="editarPontosVerbaPorTarefa(this)"></td>' +
+                '<td><input type="number" step="0.1" class="vt-input-pontos" data-caminho="' + caminhoJs + '" value="' + pontos + '" style="width:80px; border:1px solid #cbd5e1; border-radius:4px; padding:4px;" oninput="recalcularGrupoVerbaPorTarefa(this)" onchange="editarPontosVerbaPorTarefa(this)"></td>' +
                 '<td class="vt-valor" style="font-weight:bold; color:#166534;"></td>' +
                 '</tr>';
         });
@@ -914,11 +671,11 @@ function carregarAbaVerbaPorTarefa() {
         // linha de conferência (texto auxiliar) some junto com as
         // Tarefas, por ser detalhe, não resumo.
         html += '<tr style="background:#f8fafc;" data-subtotal-grupo="' + pav.caminho + '">' +
-                '<td colspan="3"></td>' +
+                '<td colspan="4"></td>' +
                 '<td style="text-align:right; font-weight:bold; white-space:nowrap;">Subtotal:</td>' +
                 '<td class="vt-subtotal" style="font-weight:bold; color:#0a192f;"></td>' +
                 '</tr>' +
-                '<tr class="vt-linha-tarefa" data-conferencia-grupo="' + pav.caminho + '"' + estiloOcultoSeRecolhido + '><td colspan="5" class="vt-conferencia" style="font-size:11px; padding:4px 8px;"></td></tr>';
+                '<tr class="vt-linha-tarefa" data-conferencia-grupo="' + pav.caminho + '"' + estiloOcultoSeRecolhido + '><td colspan="6" class="vt-conferencia" style="font-size:11px; padding:4px 8px;"></td></tr>';
     });
 
     tbody.innerHTML = html;
@@ -1078,12 +835,11 @@ function carregarProjetoDistribuicao() {
     } else {
         // Melhoria #13 (prompt_gemini.md §12): percentuais padrão
         // pré-preenchidos (editáveis) quando o projeto ainda não tem
-        // NADA salvo — Impostos 23% (item 1, leva 4 — antes 21%),
-        // Analista 30%, Supervisor 10%, Escritório 60%. O campo de
-        // Impostos mantém a prioridade pro "último valor usado"
-        // (`banco_ultimo_percentual_impostos`, já existia) — o 23% é
-        // só o fallback quando nem isso existe ainda.
-        document.getElementById('dc-pct-impostos').value = localStorage.getItem('banco_ultimo_percentual_impostos') || '23';
+        // NADA salvo — Impostos 21%, Analista 30%, Supervisor 10%,
+        // Escritório 60%. O campo de Impostos mantém a prioridade pro
+        // "último valor usado" (`banco_ultimo_percentual_impostos`, já
+        // existia) — o 21% é só o fallback quando nem isso existe ainda.
+        document.getElementById('dc-pct-impostos').value = localStorage.getItem('banco_ultimo_percentual_impostos') || '21';
         document.getElementById('dc-pct-analista').value = '30';
         document.getElementById('dc-pct-supervisor').value = '10';
         document.getElementById('dc-pct-escritorio').value = '60';
@@ -1118,10 +874,10 @@ function recalcularDistribuicaoCustos() {
         alerta.innerHTML = '';
     } else if (Math.abs(somaPct - 100) < 0.01) {
         alerta.style.background = '#f0fdf4'; alerta.style.color = '#166534';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-check"></use></svg> Percentuais somam 100%.';
+        alerta.innerHTML = '✅ Percentuais somam 100%.';
     } else {
         alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
-        alerta.innerHTML = '<svg class="icon"><use href="#icon-alert"></use></svg> Percentuais somam ' + somaPct.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
+        alerta.innerHTML = '⚠️ Percentuais somam ' + somaPct.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
     }
 }
 
@@ -1145,5 +901,5 @@ function salvarDistribuicaoCustos() {
     localStorage.setItem('banco_distribuicao_custos', JSON.stringify(todasDistribuicoes));
     localStorage.setItem('banco_ultimo_percentual_impostos', pctImpostos);
 
-    mostrarToast('Distribuição salva.');
+    alert('Distribuição salva para "' + nomeProjeto + '".');
 }

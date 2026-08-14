@@ -239,12 +239,12 @@ function renderizarPainelAprovacoesCalendario() {
 
     const tbody = document.getElementById('aprov-cal-tabela-body');
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">Nenhuma exceção de calendário registrada ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma exceção de calendário registrada ainda.</td></tr>';
         return;
     }
 
     const corStatus = { pendente: '#f59e0b', aprovado: '#10b981', recusado: '#ef4444' };
-    const rotuloStatus = { pendente: '<svg class="icon"><use href="#icon-hourglass"></use></svg> Pendente', aprovado: '<svg class="icon"><use href="#icon-check"></use></svg> Aprovado', recusado: '<svg class="icon"><use href="#icon-close"></use></svg> Recusado' };
+    const rotuloStatus = { pendente: '⏳ Pendente', aprovado: '✅ Aprovado', recusado: '❌ Recusado' };
 
     tbody.innerHTML = lista.map(ex => {
         const periodo = ex.data_inicio === ex.data_fim
@@ -311,12 +311,12 @@ function renderizarPainelAprovacoesApontamento() {
 
     const tbody = document.getElementById('aprov-apo-tabela-body');
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">Nenhum apontamento manual registrado ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">Nenhum apontamento manual registrado ainda.</td></tr>';
         return;
     }
 
     const corStatus = { pendente: '#f59e0b', aprovado: '#10b981', recusado: '#ef4444' };
-    const rotuloStatus = { pendente: '<svg class="icon"><use href="#icon-hourglass"></use></svg> Pendente', aprovado: '<svg class="icon"><use href="#icon-check"></use></svg> Aprovado', recusado: '<svg class="icon"><use href="#icon-close"></use></svg> Recusado' };
+    const rotuloStatus = { pendente: '⏳ Pendente', aprovado: '✅ Aprovado', recusado: '❌ Recusado' };
 
     tbody.innerHTML = lista.map(ap => {
         const cor = corStatus[ap.status] || '#64748b';
@@ -330,7 +330,7 @@ function renderizarPainelAprovacoesApontamento() {
 
         return '<tr>' +
             '<td>' + nomeParaExibicao(ap.executor) + '</td>' +
-            '<td>' + ap.tarefaNome + ' <span style="color:#64748b; font-size:11px;">(' + ap.projeto + ')</span></td>' +
+            '<td>' + ap.tarefaNome + ' <span style="color:#94a3b8; font-size:11px;">(' + ap.projeto + ')</span></td>' +
             '<td>' + formatarDataPrevistaExibicao(ap.data) + '</td>' +
             '<td class="col-centralizada">' + ap.horas + 'h</td>' +
             '<td>' + (ap.motivo || '—') + '</td>' +
@@ -363,21 +363,21 @@ function renderizarPainelAprovacoesFinalizacoes() {
     if (!tbody) return;
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">Nenhuma finalização pendente de aprovação.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma finalização pendente de aprovação.</td></tr>';
         return;
     }
 
     tbody.innerHTML = lista.map(f => {
         const caminhoJs = f.caminho.replace(/'/g, "\\'");
         const acoes = f.podeAprovar
-            ? '<button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="aprovarFinalizacaoNaTela(\'' + caminhoJs + '\')"><svg class="icon"><use href="#icon-check"></use></svg> Aprovar</button>'
-            : '<span style="color:#64748b; font-size:11px;">Aguardando outro aprovador</span>';
+            ? '<button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="aprovarFinalizacaoNaTela(\'' + caminhoJs + '\')">✅ Aprovar</button>'
+            : '<span style="color:#94a3b8; font-size:11px;">Aguardando outro aprovador</span>';
 
         return '<tr>' +
             '<td>' + f.projeto + '</td>' +
             '<td style="color:#64748b; font-size:12px;">' + f.localizacao + '</td>' +
             '<td>' + f.tarefa + '</td>' +
-            '<td>' + nomeParaExibicao(f.executor) + (f.responsavel && f.responsavel !== f.executor ? ' <span style="color:#64748b; font-size:11px;">(resp: ' + nomeParaExibicao(f.responsavel) + ')</span>' : '') + '</td>' +
+            '<td>' + nomeParaExibicao(f.executor) + (f.responsavel && f.responsavel !== f.executor ? ' <span style="color:#94a3b8; font-size:11px;">(resp: ' + nomeParaExibicao(f.responsavel) + ')</span>' : '') + '</td>' +
             '<td>' + nomeParaExibicao(f.finalizadaPor) + '</td>' +
             '<td class="col-centralizada">' + f.horasReais.toFixed(2) + 'h</td>' +
             '<td class="col-centralizada">' + acoes + '</td>' +
@@ -398,7 +398,7 @@ function renderizarPainelAprovacoesRevisao() {
     if (!tbody) return;
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">Nenhuma sessão de revisão pendente de aprovação.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma sessão de revisão pendente de aprovação.</td></tr>';
         return;
     }
 
@@ -411,8 +411,8 @@ function renderizarPainelAprovacoesRevisao() {
             '<td style="font-size:11px; color:#64748b;">' + formatarDataHoraExibicao(s.inicio) + ' → ' + formatarDataHoraExibicao(s.fim) + '</td>' +
             '<td class="col-centralizada">' + s.horas.toFixed(2) + 'h</td>' +
             '<td class="col-centralizada" style="white-space:nowrap;">' +
-            '<button class="btn-primary" style="padding:4px 10px; font-size:12px; margin-right:4px;" onclick="aprovarSessaoRevisaoNaTela(\'' + caminhoJs + '\', ' + s.idxSessao + ')"><svg class="icon"><use href="#icon-check"></use></svg> Aprovar</button>' +
-            '<button class="btn-secondary" style="padding:4px 10px; font-size:12px; background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;" onclick="recusarSessaoRevisaoNaTela(\'' + caminhoJs + '\', ' + s.idxSessao + ')"><svg class="icon"><use href="#icon-close"></use></svg> Recusar</button>' +
+            '<button class="btn-primary" style="padding:4px 10px; font-size:12px; margin-right:4px;" onclick="aprovarSessaoRevisaoNaTela(\'' + caminhoJs + '\', ' + s.idxSessao + ')">✅ Aprovar</button>' +
+            '<button class="btn-secondary" style="padding:4px 10px; font-size:12px; background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;" onclick="recusarSessaoRevisaoNaTela(\'' + caminhoJs + '\', ' + s.idxSessao + ')">✖ Recusar</button>' +
             '</td>' +
             '</tr>';
     }).join('');

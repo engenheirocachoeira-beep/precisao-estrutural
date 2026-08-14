@@ -95,7 +95,7 @@
             projetoSelecionadoAtivo = nomeProj;
             document.getElementById('subpanel-lista-projetos-arvore').style.display = 'none';
             document.getElementById('subpanel-arvore-visual').style.display = 'flex';
-            document.getElementById('nome-projeto-titulo-arvore').innerHTML = '<svg class="icon"><use href="#icon-clipboard"></use></svg> ' + nomeProj.substring(0,18) + '...';
+            document.getElementById('nome-projeto-titulo-arvore').innerText = "📋 " + nomeProj.substring(0,18) + "...";
             
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
             if (!todas[projetoSelecionadoAtivo]) {
@@ -195,7 +195,7 @@
         // devolve quais níveis ainda cabem como filho de um nó de um
         // certo nível (tudo que vem DEPOIS dele nesta lista).
         const NIVEIS_ORDEM = ['etapa', 'setor', 'pavimento', 'tarefa'];
-        const ICONE_POR_NIVEL = { etapa: '<svg class="icon"><use href="#icon-folder"></use></svg>', setor: '<svg class="icon"><use href="#icon-ruler"></use></svg>', pavimento: '<svg class="icon"><use href="#icon-calculator"></use></svg>', tarefa: '<svg class="icon"><use href="#icon-settings"></use></svg>' };
+        const ICONE_POR_NIVEL = { etapa: '📁', setor: '📐', pavimento: '🧮', tarefa: '⚙️' };
         const COR_BOTAO_POR_NIVEL = { setor: '#10b981', pavimento: '#64748b', tarefa: '#475569' };
         const ROTULO_BOTAO_POR_NIVEL = { setor: 'Set', pavimento: 'Pav', tarefa: 'Tar' };
 
@@ -214,7 +214,7 @@
             if (no.status === "Aguardando Verificação") badgeClass = "status-verificacao";
             if (no.status === "Finalizada") badgeClass = "status-finalizada";
             if (no.status === "Para revisão") badgeClass = "status-validacao";
-            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;"><svg class="icon"><use href="#icon-user"></use></svg> '+(no.executor ? nomeParaExibicao(no.executor) : '<svg class="icon"><use href="#icon-alert"></use></svg> sem executor')+'</span>' +
+            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;">👤 '+(no.executor ? nomeParaExibicao(no.executor) : '⚠️ sem executor')+'</span>' +
                    '<span class="badge-status '+badgeClass+'" style="font-size:8px; margin-left:6px;">'+(no.status || 'Apontada')+'</span>';
         }
 
@@ -236,7 +236,7 @@
             const isRecolhido = nosRecolhidosEstado[nKey];
             const ehFolha = ehNoFolha(no);
             const seta = ehFolha ? '•' : (isRecolhido ? '►' : '▼');
-            const icone = ehFolha ? '<svg class="icon"><use href="#icon-settings"></use></svg>' : ICONE_POR_NIVEL[nivel];
+            const icone = ehFolha ? '⚙️' : ICONE_POR_NIVEL[nivel];
             const isEtapa = nivel === 'etapa';
 
             let html = '<div style="margin-top:'+(isEtapa?'6px':'4px')+';">' +
@@ -279,8 +279,8 @@
 
             let html = '<div style="font-weight:bold; color:#0a192f; margin-bottom:12px; display:flex; align-items:center; background:#f0f2f5; padding:6px; border-radius:4px; cursor:pointer;" onclick="visualizarNo(\'raiz\')">' +
                        '<span onclick="event.stopPropagation(); alternarRecolhimentoNo(\'raiz\')" class="tree-toggle-icon">' + setaRaiz + '</span>' +
-                       '<span><svg class="icon"><use href="#icon-building"></use></svg> ' + projetoSelecionadoAtivo.toUpperCase() + '</span>' +
-                       '<button style="margin-left:auto; background:#E35F13; color:white; border:none; font-size:10px; padding:2px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); abrirFormEncaixe(\'etapa\', null)">+ Etapa</button>' +
+                       '<span>🏢 ' + projetoSelecionadoAtivo.toUpperCase() + '</span>' +
+                       '<button style="margin-left:auto; background:#00b4d8; color:white; border:none; font-size:10px; padding:2px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); abrirFormEncaixe(\'etapa\', null)">+ Etapa</button>' +
                        '</div>';
 
             if (!isRaizRecolhida && arv.etapas) {
@@ -341,7 +341,7 @@
             if(nivel === 'tarefa') {
                 html += '<div class="form-group col-12" style="margin-top:12px;"><label>Executor Designado:</label><select id="l-executor" style="background:white;">'+funcsHtml+'</select></div>' +
                         '<div class="form-group col-12" style="margin-top:12px;"><label>Custo Máximo Designado Teto (R$):</label><input type="number" id="l-custo-max" value="1200"></div>' +
-                        '<div style="margin-top:16px; font-weight:bold; font-size:11px; color:#1e3a66; border-top:1px solid #cbd5e1; padding-top:12px;"><svg class="icon"><use href="#icon-bar-chart"></use></svg> CALIBRAÇÃO DE PONTOS</div>' +
+                        '<div style="margin-top:16px; font-weight:bold; font-size:11px; color:#1e3a66; border-top:1px solid #cbd5e1; padding-top:12px;">📊 CALIBRAÇÃO DE PONTOS</div>' +
                         '<div class="form-group col-12" style="margin-top:8px;"><label>Índice de Medição Física:</label><select id="l-indice-desempenho" style="background:white;" onchange="calcularPontosPorQtdFisica()">'+indicesHtml+'</select></div>' +
                         '<div class="form-group col-8" style="margin-top:8px;"><label>Quantidade:</label><input type="number" id="l-qtd-fisica" value="15" oninput="calcularPontosPorQtdFisica()"></div>' +
                         '<div class="form-group col-4" style="margin-top:8px;"><label>Unidade Física:</label><input type="text" id="l-unidade-fisica" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
@@ -387,7 +387,7 @@
             
             let elPontos = document.getElementById('l-pontos');
             if(elPontos) elPontos.value = calculo;
-            if(box) box.innerHTML = '<svg class="icon"><use href="#icon-lightbulb"></use></svg> Indicador base de (' + FatorIndex + 'h) × Sensibilidade (' + f_analista + ') gerou: ' + calculo + ' Pontos.';
+            if(box) box.innerHTML = "💡 Indicador base de ("+FatorIndex+"h) × Sensibilidade ("+f_analista+") gerou: "+calculo+" Pontos.";
         }
 
         function salvarPecaNaArvore() {
@@ -478,7 +478,7 @@
                 const statusLiberacaoAtual = projCadastro ? (projCadastro.status_liberacao || 'liberado') : 'liberado';
                 const emAnalise = statusLiberacaoAtual === 'em_analise';
                 const corStatus = emAnalise ? '#f59e0b' : '#10b981';
-                const rotuloStatus = emAnalise ? '<svg class="icon"><use href="#icon-microscope"></use></svg> Em Análise' : '<svg class="icon"><use href="#icon-check"></use></svg> Liberado pra Detalhamento';
+                const rotuloStatus = emAnalise ? '🔬 Em Análise' : '✅ Liberado pra Detalhamento';
                 const rotuloBotao = emAnalise ? 'Liberar pra Detalhamento' : 'Voltar pra "Em Análise"';
 
                 // Item 2 (prompt_gemini.md §14, leva 4): "Valor Contratado
@@ -497,7 +497,7 @@
 
                 let html = '<div class="form-panel" style="border:none; padding:0;">' +
                            '<div class="form-section">' +
-                           '<div class="form-section-title"><svg class="icon"><use href="#icon-building"></use></svg> Propriedades Contratuais Macro do Projeto</div>' +
+                           '<div class="form-section-title">🏢 Propriedades Contratuais Macro do Projeto</div>' +
                            '<div class="form-group col-12" style="margin-top:14px; padding:10px 14px; border-radius:6px; display:flex; align-items:center; justify-content:space-between; background:'+(emAnalise ? '#fef9c3' : '#f0fdf4')+'; color:'+(emAnalise ? '#854d0e' : '#166534')+';">' +
                            '<span title="'+(emAnalise ? 'As tarefas deste projeto não aparecem na Atribuição de Tarefas ainda.' : 'As tarefas deste projeto já aparecem na Atribuição de Tarefas.')+'" style="font-size:14px; font-weight:bold;">'+rotuloStatus+'</span>' +
                            '<button type="button" onclick="alternarStatusLiberacaoProjeto()" style="white-space:nowrap; background:none; border:1px solid currentColor; border-radius:4px; color:inherit; font-size:11px; cursor:pointer; padding:4px 10px;">'+rotuloBotao+'</button>' +
@@ -513,7 +513,7 @@
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor:</label><input type="text" value="'+supervisorAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Analista:</label><input type="text" value="'+analistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Área, Valor, Analista e Supervisor são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
-                           '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#E35F13;"><svg class="icon"><use href="#icon-ruler"></use></svg> Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
+                           '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#00b4d8;">📐 Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
                            '</div></div>' +
                            '<button class="btn-primary" style="width:100%; margin-top:20px;" onclick="salvarDadosMacroProjetoRaiz()">Atualizar Diretrizes do Projeto</button></div>';
                 pd.innerHTML = html;
@@ -528,7 +528,7 @@
 
             let html = '<div class="form-panel" style="border:none; padding:0;">' +
                        '<div class="form-section">' +
-                       '<div class="form-section-title"><svg class="icon"><use href="#icon-info"></use></svg> Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
+                       '<div class="form-section-title">ℹ️ Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
                        '<div class="form-grid" style="margin-top:8px;">' +
                        '<div class="form-group col-12"><label>Componente Vinculado:</label><input type="text" value="' + no.nome + '" readonly style="background:#e2e8f0;"></div>';
 
@@ -551,8 +551,8 @@
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física (m²):</label><input type="number" id="edit-setor-area" value="' + (no.area_fisica || 0) + '"></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Peso de Esforço:</label><input type="number" id="edit-setor-peso" step="0.1" value="' + (no.peso_esforco || 0) + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span><svg class="icon"><use href="#icon-ruler"></use></svg> <b>Área Eq.:</b> ' + a_eq_setor + ' m²</span>' +
-                        '<span><svg class="icon"><use href="#icon-money"></use></svg> <b>Fração de Verba (entre Setores irmãos):</b> ' + pct_verba_setor + '%</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + a_eq_setor + ' m²</span>' +
+                        '<span>💰 <b>Fração de Verba (entre Setores irmãos):</b> ' + pct_verba_setor + '%</span>' +
                         '</div>';
             }
 
@@ -564,8 +564,8 @@
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física Real (m²):</label><input type="number" id="edit-pav-area" value="' + no.area_fisica + '"></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Pavimento:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span><svg class="icon"><use href="#icon-ruler"></use></svg> <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
-                        '<span><svg class="icon"><use href="#icon-money"></use></svg> <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
+                        '<span>💰 <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +
                         '</div>';
             }
 
@@ -616,7 +616,7 @@
                 const noTravadoParaRevisao = no.status === 'Aguardando Verificação' && souOExecutorDesteNo && !temAutoridadeDeRevisar;
                 const disabledSeTravada = noTravadoParaRevisao ? ' disabled' : '';
                 const avisoEmRevisao = noTravadoParaRevisao
-                    ? '<div class="form-group col-12" style="margin-top:6px; background:#eff6ff; color:#1e40af; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;"><svg class="icon"><use href="#icon-lock"></use></svg> Este item está em revisão — só leitura até o Responsável liberar (mover pra "Para revisão" ou "Finalizada").</div>'
+                    ? '<div class="form-group col-12" style="margin-top:6px; background:#eff6ff; color:#1e40af; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;">🔒 Este item está em revisão — só leitura até o Responsável liberar (mover pra "Para revisão" ou "Finalizada").</div>'
                     : '';
 
                 html += avisoEmRevisao +
@@ -638,7 +638,7 @@
                         '</select></div>';
 
                 if(no.is_outlier) {
-                    html += '<div class="form-group col-12" style="margin-top:6px; background:#fee2e2; color:#991b1b; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;"><svg class="icon"><use href="#icon-alert"></use></svg> Outlier detectado (>40% desvio). Excluído do histórico.</div>';
+                    html += '<div class="form-group col-12" style="margin-top:6px; background:#fee2e2; color:#991b1b; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;">⚠️ Outlier detectado (>40% desvio). Excluído do histórico.</div>';
                 }
             }
 

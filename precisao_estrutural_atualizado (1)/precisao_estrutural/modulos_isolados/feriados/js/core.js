@@ -35,106 +35,6 @@ function nomeParaExibicao(nomeCompleto) {
     return nomeCompleto.trim().split(/\s+/)[0];
 }
 
-// Travessia genérica da Árvore Genérica Recursiva (prompt_gemini.md
-// §12.31, arvore.js): devolve uma lista achatada de TODOS os nós-folha
-// de um array de Etapas — Etapa/Setor/Pavimento agindo como tarefa
-// (sem filho no próximo nível), OU Tarefa de verdade dentro de um
-// Pavimento container. Cada item:
-// { no: <objeto com os campos de Tarefa>,
-//   path: "0"/"0-1"/"0-1-2"/"0-1-2-3" — MESMO formato que
-//   arvore.js::visualizarNo()/salvarAlteracoesNo()/removerNo() usam,
-//   já serve pra chamar essas funções direto;
-//   localizacao: "Nome da Etapa"/"Etapa › Setor"/"Etapa › Setor › Pav"
-//   — breadcrumb legível pra exibir em telas de lista (Atribuição de
-//   Tarefas, Kanban "sob responsabilidade", etc.) }.
-// Substitui, em qualquer arquivo que precise varrer a árvore pra achar
-// as tarefas, o padrão antigo
-// `if (etapa.tipo === 'unica' || etapa.tipo === 'subetapas') {...}`
-// (que não existe mais — não há mais campo `tipo`).
-// Árvore Genérica Recursiva v2 (prompt_gemini.md §12.31, revisão de
-// agosto/2026 — "níveis puláveis, mas ordem obrigatória"): não existem
-// mais campos fixos por nível (`etapa.setores`/`setor.pavimentos`/
-// `pavimento.tarefas`). Todo nó (Etapa e qualquer filho) guarda seus
-// filhos num ÚNICO array `filhos`, e cada filho carrega um campo
-// `nivel` ('setor'|'pavimento'|'tarefa') dizendo o que ele é. Isso
-// permite que uma Etapa tenha um Setor, OU um Pavimento direto, OU uma
-// Tarefa direto como filho — a ORDEM relativa continua obrigatória
-// (Setor sempre antes de Pavimento, que sempre antes de Tarefa,
-// nunca invertido), mas cada nível pode ser PULADO. Etapa continua
-// vivendo em `arv.etapas` (array de topo, sem mudança); só o que está
-// ABAIXO da Etapa virou genérico.
-
-// Acha um nó em qualquer profundidade, andando pelo path
-// ("0", "0-1", "0-1-2", "0-2-1-0" etc.) — primeiro dígito é o índice
-// da Etapa em `arv.etapas`, cada dígito seguinte é o índice dentro do
-// `.filhos` do nó anterior. Usado por TODO arquivo que precisa achar
-// um nó a partir de um "caminho" salvo — substitui os acessos diretos
-// tipo `arv.etapas[p[0]].setores[p[1]].pavimentos[p[2]].tarefas[p[3]]`
-// que só faziam sentido na hierarquia rígida antiga.
-function resolverNoPorPath(arv, path) {
-    if (!arv || path === undefined || path === null || path === '') return null;
-    const p = String(path).split('-').map(s => parseInt(s, 10));
-    let no = arv.etapas[p[0]];
-    for (let i = 1; i < p.length; i++) {
-        if (!no || !Array.isArray(no.filhos)) return null;
-        no = no.filhos[p[i]];
-    }
-    return no || null;
-}
-
-// Um nó é folha quando não tem filhos (array vazio/ausente) — Tarefa é
-// sempre folha (nunca tem `.filhos` usado).
-function ehNoFolha(no) {
-    return !no || !Array.isArray(no.filhos) || no.filhos.length === 0;
-}
-
-// Item 5/6/7 (prompt_gemini.md §14, leva 4 — bug confirmado): banco_arvores_projetos
-// é indexado por nome de projeto, mas nada garante que toda chave ali
-// ainda corresponda a um projeto vivo em banco_projetos — deletar ou
-// renomear um projeto no Cadastro podia deixar (ou ainda deixa, se
-// veio de antes desta correção) uma árvore órfã sob o nome antigo, que
-// o Kanban e a Atribuição de Tarefas mostravam porque liam
-// Object.keys(banco_arvores_projetos) direto, sem cruzar com a lista
-// atual do Cadastro. deletarProjeto()/salvarProjeto() (cadastros.js)
-// já foram corrigidas pra não deixar órfãos NOVOS — esta função aqui é
-// o filtro defensivo usado por quem LISTA projetos/tarefas, cobrindo
-// tanto órfãos futuros (por segurança) quanto órfãos que já existiam
-// no localStorage de antes da correção.
-function obterArvoresProjetosAtivas() {
-    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const projetosCadastro = JSON.parse(localStorage.getItem('banco_projetos')) || [];
-    const nomesValidos = new Set(projetosCadastro.map(p => p.nome));
-    const ativas = {};
-    Object.keys(arvores).forEach(nome => {
-        if (nomesValidos.has(nome)) ativas[nome] = arvores[nome];
-    });
-    return ativas;
-}
-
-// Devolve uma lista achatada de TODOS os nós-folha de um array de
-// Etapas, em QUALQUER profundidade (já que os níveis agora são
-// puláveis, não dá mais pra saber de antemão se a folha vai estar a 1,
-// 2, 3 ou mais níveis de distância). Cada item:
-// { no: <objeto com os campos de Tarefa>, path: "0"/"0-1"/"0-2-0" etc,
-//   localizacao: "Etapa › Setor › Pavimento" — breadcrumb legível,
-//   só com os nomes dos nós realmente presentes no caminho até ali }.
-function coletarNosFolhaDaArvore(etapas) {
-    const resultado = [];
-    function caminhar(no, path, breadcrumb) {
-        if (ehNoFolha(no)) {
-            resultado.push({ no: no, path: path, localizacao: breadcrumb });
-            return;
-        }
-        no.filhos.forEach((filho, idx) => {
-            caminhar(filho, path + '-' + idx, breadcrumb + ' › ' + filho.nome);
-        });
-    }
-    (etapas || []).forEach((etapa, fIdx) => {
-        caminhar(etapa, '' + fIdx, etapa.nome);
-    });
-    return resultado;
-}
-
 // =========================================================================
 // MÓDULO: NÚCLEO (seeds, estado global, navegação entre painéis, boot)
 //
@@ -582,7 +482,7 @@ function filtrarTabela(modulo) {
 // Cadastro em abas (pedido do usuário) — substitui o antigo menu em
 // cascata (7 itens sempre visíveis na barra lateral) por 1 item só
 // ("📝 Cadastro"), que abre uma tela com essas 7 abas dentro.
-const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'setores', 'pavimentos', 'tarefas', 'feriados'];
+const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'setores', 'pavimentos', 'tarefas'];
 let cadAbaAtiva = 'clientes'; // lembra a última aba usada, mesmo padrão de aprovAbaAtiva (aprovacoes-calendario.js)
 
 function abrirAbaCadastro(modulo) {
@@ -610,19 +510,13 @@ function abrirAbaCadastro(modulo) {
         etapas: 'Gestão de ETAPAS',
         setores: 'Gestão de SETORES',
         pavimentos: 'Gestão de PAVIMENTOS',
-        tarefas: 'Gestão de TAREFAS',
-        feriados: 'Feriados'
+        tarefas: 'Gestão de TAREFAS'
     };
     document.getElementById('page-context-title').innerText = titulosPorAba[modulo] || 'Cadastro';
 
     if (modulo === 'clientes') renderizarTabelaClientes();
     else if (modulo === 'funcionarios') renderizarTabelaFuncionarios();
     else if (modulo === 'projetos') renderizarTabelaProjetos();
-    // Pedido do usuário (prompt_gemini.md §14, item 1): Feriados virou
-    // aba do Cadastro em vez de item próprio no menu principal — tela
-    // própria (calendário de feriados), não o padrão genérico de
-    // catálogo (Etapas/Setores/Pavimentos/Tarefas).
-    else if (modulo === 'feriados') carregarPainelFeriados();
     else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
 }
 
@@ -651,10 +545,6 @@ function alternarModulo(modulo) {
         document.getElementById('panel-controladoria-global').style.display = 'flex';
         document.getElementById('page-context-title').innerText = "Controladoria - Distribuição Periódica";
         renderizarControladoriaGlobalFechamento();
-    } else if (modulo === 'distribuicao_lucro') {
-        document.getElementById('panel-distribuicao-lucro').style.display = 'flex';
-        document.getElementById('page-context-title').innerText = "Distribuição de Lucro (Estagiários)";
-        carregarPainelDistribuicaoLucro();
     } else if (modulo === 'distribuicao_custos') {
         document.getElementById('panel-distribuicao-custos').style.display = 'flex';
         document.getElementById('page-context-title').innerText = "Distribuição de Custos";
@@ -675,6 +565,10 @@ function alternarModulo(modulo) {
         document.getElementById('panel-relatorios').style.display = 'flex';
         document.getElementById('page-context-title').innerText = "Relatórios";
         carregarPainelRelatorios();
+    } else if (modulo === 'feriados') {
+        document.getElementById('panel-feriados').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Feriados";
+        carregarPainelFeriados();
     } else if (modulo === 'cadastro') {
         // Item novo do menu — abre a tela de Cadastro em abas, na
         // última aba usada (ou "clientes" na primeira vez).
@@ -696,37 +590,6 @@ function alternarModulo(modulo) {
     }
 
     if (typeof aplicarMascarasLocais === 'function') aplicarMascarasLocais();
-}
-
-// Hub "📁 Projetos" (prompt_gemini.md §14, item 2): Distribuição de
-// Custos e Estrutura de Projeto agora compartilham a mesma seleção de
-// projeto (`projetoSelecionadoAtivo`, já existia só pra Árvore) — esses
-// 2 atalhos deixam pular de um pro outro SEM re-escolher o projeto.
-// O item de menu "📁 Projetos" continua sendo `nav-arvore`/`alternarModulo('arvore')`
-// por baixo (é a mesma tela "Escolha o Projeto" de sempre) — só o
-// rótulo visível mudou; nenhum painel novo foi necessário.
-function irParaDistribuicaoCustosDoProjetoAtivo() {
-    const nome = projetoSelecionadoAtivo;
-    if (!nome) return;
-    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
-    document.getElementById('panel-distribuicao-custos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Distribuição de Custos";
-    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
-    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    carregarPainelDistribuicaoCustos();
-    escolherProjetoDistribuicaoInicial(nome);
-}
-
-function irParaEstruturaProjetoDoProjetoAtivo() {
-    const elProjeto = document.getElementById('dc-projeto');
-    const nome = elProjeto ? elProjeto.value : '';
-    if (!nome) return;
-    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
-    document.getElementById('panel-arvore-projetos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Estrutura de Projeto Construtiva";
-    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
-    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    abrirProjetoNaArvore(nome);
 }
 
 // --- BACKUP E RESTAURAÇÃO COMPLETA ---
@@ -1045,7 +908,7 @@ function tentarLogin() {
 
     const cabecalho = document.getElementById('cabecalho-usuario-logado');
     if (cabecalho) {
-        cabecalho.innerHTML = '<svg class="icon"><use href="#icon-user"></use></svg> ' + nomeParaExibicao(usuarioLogado.nome) +
+        cabecalho.innerHTML = '👤 ' + nomeParaExibicao(usuarioLogado.nome) +
             ' <span style="color:#94a3b8;">(' + usuarioLogado.nivel + ')</span> ' +
             '<button type="button" onclick="sair()" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">Sair</button>';
     }
@@ -1093,7 +956,7 @@ function renderizarCabecalhoIdentidadeTeste() {
     const cabecalho = document.getElementById('cabecalho-usuario-logado');
     if (!cabecalho) return;
     cabecalho.innerHTML =
-        '<span style="color:#f59e0b; font-weight:bold;" title="Login suspenso temporariamente pra facilitar testes — ver prompt_gemini.md"><svg class="icon"><use href="#icon-flask"></use></svg> TESTE</span>' +
+        '<span style="color:#f59e0b; font-weight:bold;" title="Login suspenso temporariamente pra facilitar testes — ver prompt_gemini.md">🧪 TESTE</span>' +
         '<select onchange="trocarIdentidadeTeste(this.value)" style="background:#0f223f; color:#fff; border:1px solid #475569; border-radius:4px; padding:3px 6px; font-size:11px;">' + opcoes + '</select>' +
         '<button type="button" onclick="sair()" title="Volta pro Administrador padrão" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">↺ Resetar</button>';
 }
@@ -1109,16 +972,16 @@ function renderizarCabecalhoIdentidadeTeste() {
 // no fallback `|| []`, ou seja, falha FECHADA (esconde tudo) em vez de
 // aberta.
 const MENU_POR_NIVEL = {
-    administrador: ['nav-cadastro', 'nav-arvore', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios', 'nav-fundo-global', 'nav-distribuicao-lucro', 'nav-bi-calibracao'],
-    supervisor: ['nav-arvore', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios'],
-    analista: ['nav-arvore', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios'],
+    administrador: ['nav-cadastro', 'nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios', 'nav-feriados', 'nav-fundo-global', 'nav-bi-calibracao'],
+    supervisor: ['nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios'],
+    analista: ['nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios'],
     executor: ['nav-kanban']
 };
 
 // Todos os itens de menu que participam do controle de acesso (Dashboard
 // e Configurações ficam de fora de propósito — são acessíveis pra
 // qualquer nível, sempre).
-const TODOS_ITENS_MENU_CONTROLADOS = ['nav-cadastro', 'nav-arvore', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios', 'nav-fundo-global', 'nav-distribuicao-lucro', 'nav-bi-calibracao'];
+const TODOS_ITENS_MENU_CONTROLADOS = ['nav-cadastro', 'nav-arvore', 'nav-distribuicao_custos', 'nav-atribuicao_tarefas', 'nav-kanban', 'nav-aprovacoes_calendario', 'nav-relatorios', 'nav-feriados', 'nav-fundo-global', 'nav-bi-calibracao'];
 
 // Função pura (não mexe em DOM, testável isolada): dado um nível,
 // devolve o Set de ids de menu que ele pode ver.
@@ -1209,58 +1072,7 @@ function projetoEstaLiberadoParaDetalhamento(nomeProjeto) {
 // que tentarLogin() confirma as credenciais — o app inteiro fica
 // escondido atrás da tela de login (#tela-login, z-index bem alto) até
 // esse momento.
-// Toast de confirmação (Nível 1, item 3 — pedido do usuário): feedback
-// visual depois de salvar, hoje silencioso em vários formulários (só
-// fecham e voltam pra lista). Empilha até 3 (o mais antigo some primeiro
-// se vier um 4º) — sem fila, sem depender de nenhuma outra tela.
-function mostrarToast(mensagem) {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'toast-container';
-        document.body.appendChild(container);
-    }
-    const MAX_TOASTS = 3;
-    while (container.children.length >= MAX_TOASTS) {
-        container.removeChild(container.firstChild);
-    }
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerText = mensagem;
-    container.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add('toast-visivel'));
-    setTimeout(() => {
-        toast.classList.remove('toast-visivel');
-        toast.classList.add('toast-saindo');
-        setTimeout(() => toast.remove(), 250);
-    }, 2500);
-}
-
-// Limpa referências a projetos que não existem mais em `banco_projetos` —
-// sobras de exclusões feitas ANTES de deletarProjeto() (cadastros.js)
-// passar a apagar tudo junto. Sem isso, a árvore de tarefas e os dados de
-// Distribuição de Custos/Lucro de um projeto já excluído ficavam órfãos
-// pra sempre. Roda a cada boot — idempotente, não faz nada se não sobrou
-// órfão nenhum. Complementa (não substitui) obterArvoresProjetosAtivas()
-// acima, que continua filtrando na leitura por segurança.
-function limparReferenciasOrfasDeProjetosExcluidos() {
-    const nomesValidos = new Set((JSON.parse(localStorage.getItem('banco_projetos')) || []).map(p => p.nome));
-    ['banco_arvores_projetos', 'banco_distribuicao_custos', 'banco_distribuicao_custos_analista', 'banco_distribuicao_lucros'].forEach(chave => {
-        const dados = JSON.parse(localStorage.getItem(chave)) || {};
-        let alterou = false;
-        Object.keys(dados).forEach(nomeProjeto => {
-            if (!nomesValidos.has(nomeProjeto)) {
-                delete dados[nomeProjeto];
-                alterou = true;
-            }
-        });
-        if (alterou) localStorage.setItem(chave, JSON.stringify(dados));
-    });
-}
-
 function iniciarAppPosLogin() {
-    limparReferenciasOrfasDeProjetosExcluidos();
     migrarStatusPendenteValidacao();
     migrarValorHoraParaHistorico();
     limparWorkspace();

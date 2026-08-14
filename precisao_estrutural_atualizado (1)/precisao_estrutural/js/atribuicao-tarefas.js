@@ -623,7 +623,7 @@ function contarAguardandoVerificacaoNaLista(listaCompleta, nivel) {
 
 function mensagemAvisoAguardandoVerificacao(quantidade) {
     if (quantidade === 0) return null;
-    return '<svg class="icon"><use href="#icon-clock"></use></svg> ' + quantidade + ' tarefa(s) do(s) seu(s) projeto(s) aguardando sua verificação.';
+    return '🕐 ' + quantidade + ' tarefa(s) do(s) seu(s) projeto(s) aguardando sua verificação.';
 }
 
 function atualizarAvisoAguardandoVerificacao(listaCompleta) {
@@ -635,7 +635,7 @@ function atualizarAvisoAguardandoVerificacao(listaCompleta) {
         aviso.style.display = 'none';
         return;
     }
-    aviso.innerHTML = mensagem;
+    aviso.innerText = mensagem;
     aviso.style.display = 'block';
 }
 
@@ -690,7 +690,7 @@ function renderizarPainelAtribuicaoTarefas(manterPagina) {
     const tbody = document.getElementById('at-tabela-body');
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">Nenhuma tarefa encontrada com os filtros atuais.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma tarefa encontrada com os filtros atuais.</td></tr>';
         document.getElementById('at-paginacao').innerHTML = '';
         return;
     }
@@ -708,10 +708,10 @@ function renderizarPainelAtribuicaoTarefas(manterPagina) {
     tbody.innerHTML = itensDaPagina.map(t => {
         const caminhoJs = t.caminho.replace(/'/g, "\\'");
         const executorJs = t.executor.replace(/'/g, "\\'");
-        const indicadorSessao = t.sessaoAtiva ? '<span class="status-dot status-dot-urgente"></span> ' : '';
+        const indicadorSessao = t.sessaoAtiva ? '🔴 ' : '';
         const estiloAlerta = t.temAlerta ? ' style="background:#fef2f2; color:#b91c1c; font-weight:bold; cursor:pointer;"' : ' style="cursor:pointer;"';
         const tituloAlerta = t.temAlerta ? ' title="' + t.motivoAlerta.replace(/"/g, '&quot;') + '"' : ' title="Ver/editar sessões de trabalho"';
-        const iconeAlerta = t.temAlerta ? '<svg class="icon"><use href="#icon-alert"></use></svg> ' : '';
+        const iconeAlerta = t.temAlerta ? '⚠️ ' : '';
 
         // Data de Início: editável só quando dá pra calcular fila (tem
         // executor e não está finalizada). O valor mostrado é a âncora
@@ -734,7 +734,7 @@ function renderizarPainelAtribuicaoTarefas(manterPagina) {
             const bolinhaSemaforo = typeof renderizarBolinhaSemaforoPrioridade === 'function' ? renderizarBolinhaSemaforoPrioridade(valorInput, hojeISO) : '';
             celulaDataInicio = '<td style="white-space:nowrap;">' + bolinhaSemaforo + '<input type="date" value="' + valorInput + '" data-caminho="' + caminhoJs + '" title="' + tituloInput + '" style="width:120px; border:1px solid #cbd5e1; border-radius:4px; padding:2px; font-size:11px;" onchange="editarDataInicioTarefa(this)">' + botaoLimpar + '</td>';
         } else {
-            celulaDataInicio = '<td style="text-align:center; color:#64748b;">—</td>';
+            celulaDataInicio = '<td style="text-align:center; color:#94a3b8;">—</td>';
         }
 
         // Data Limite (item 14, "Dead Line") — editável só por
@@ -1054,7 +1054,7 @@ function renderizarEditorSessoes(caminho) {
 
     if (tarefa.sessao_ativa_inicio) {
         html += '<div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:8px; margin-bottom:8px; font-size:11px;">' +
-            '<b><span class="status-dot status-dot-urgente"></span> Sessão ativa</b> desde ' + formatarDataHoraExibicao(tarefa.sessao_ativa_inicio) +
+            '<b>🔴 Sessão ativa</b> desde ' + formatarDataHoraExibicao(tarefa.sessao_ativa_inicio) +
             '<div style="display:flex; gap:4px; align-items:center; margin-top:6px;">' +
             '<input type="datetime-local" id="at-forcar-pausa-fim" value="' + isoParaDatetimeLocal(new Date().toISOString()) + '" style="font-size:10px; width:150px;">' +
             '<button class="btn-secondary" style="font-size:10px; padding:4px 8px;" onclick="forcarPausaComInput(\'' + caminhoJs + '\')">Forçar Pausa</button>' +
@@ -1063,7 +1063,7 @@ function renderizarEditorSessoes(caminho) {
 
     const sessoes = tarefa.sessoes_trabalho || [];
     if (sessoes.length === 0 && !tarefa.sessao_ativa_inicio) {
-        html += '<div style="font-size:11px; color:#64748b; padding:8px 4px;">Nenhuma sessão registrada ainda.</div>';
+        html += '<div style="font-size:11px; color:#94a3b8; padding:8px 4px;">Nenhuma sessão registrada ainda.</div>';
     }
 
     html += sessoes.map((s, idx) => {
@@ -1072,8 +1072,8 @@ function renderizarEditorSessoes(caminho) {
             '<span>→</span>' +
             '<input type="datetime-local" value="' + isoParaDatetimeLocal(s.fim) + '" style="font-size:10px; width:135px;" onchange="editarSessaoComInputs(\'' + caminhoJs + '\', ' + idx + ')" id="at-sessao-fim-' + idx + '">' +
             '<span style="color:#64748b; white-space:nowrap;">' + s.duracao.toFixed(2) + 'h</span>' +
-            (s.manual ? '<span title="Editado manualmente"><svg class="icon"><use href="#icon-pencil"></use></svg></span>' : '') +
-            '<button class="btn-delete" style="padding:2px 6px; font-size:10px;" title="Remover sessão" aria-label="Remover sessão" onclick="removerSessaoComConfirmacao(\'' + caminhoJs + '\', ' + idx + ')"><svg class="icon"><use href="#icon-trash"></use></svg></button>' +
+            (s.manual ? '<span title="Editado manualmente">✏️</span>' : '') +
+            '<button class="btn-delete" style="padding:2px 6px; font-size:10px;" onclick="removerSessaoComConfirmacao(\'' + caminhoJs + '\', ' + idx + ')">🗑️</button>' +
             '</div>';
     }).join('');
 

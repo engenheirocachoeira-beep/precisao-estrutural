@@ -57,12 +57,12 @@
         // depois. `nivel` é null pra Etapa (implícita, vive em
         // `arv.etapas`) ou 'setor'/'pavimento'/'tarefa' pra qualquer
         // filho.
-        function criarNoVazio(nome, nivel, executorInicial, responsavelInicial) {
+        function criarNoVazio(nome, nivel, executorInicial) {
             const no = {
                 nome: nome,
                 status: "Apontada",
                 executor: executorInicial || '',
-                responsavel: responsavelInicial || '',
+                responsavel: '',
                 custo_max: "0",
                 qtd_fisica: "0",
                 unidade_fisica: "-",
@@ -77,25 +77,22 @@
         }
 
         // Cria o objeto de UMA Etapa pronta pra empilhar em arv.etapas —
-        // já nasce como tarefa (folha), sem filho nenhum. Item 16
-        // (prompt_gemini.md §14, leva 4): Executor E Responsável já
-        // nascem preenchidos com o Analista do Cadastro de Projetos
-        // (antes só Executor vinha preenchido, Responsável ficava
-        // vazio). Usada por cadastros.js::salvarProjeto() (Etapas
-        // Default v2, §12.30). Retorna null se o nome não existir mais
-        // no Catálogo.
+        // já nasce como tarefa (folha), sem filho nenhum, com o
+        // Analista do projeto pré-preenchido como Executor. Usada por
+        // cadastros.js::salvarProjeto() (Etapas Default v2, §12.30).
+        // Retorna null se o nome não existir mais no Catálogo.
         function criarEtapaDefaultAPartirDoCatalogo(nomeEtapa, nomeAnalistaProjeto) {
             const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
             const encontrada = etapasLego.find(e => e.nome === nomeEtapa);
             if (!encontrada) return null;
-            return criarNoVazio(encontrada.nome, null, nomeAnalistaProjeto || '', nomeAnalistaProjeto || '');
+            return criarNoVazio(encontrada.nome, null, nomeAnalistaProjeto || '');
         }
 
         function abrirProjetoNaArvore(nomeProj) {
             projetoSelecionadoAtivo = nomeProj;
             document.getElementById('subpanel-lista-projetos-arvore').style.display = 'none';
             document.getElementById('subpanel-arvore-visual').style.display = 'flex';
-            document.getElementById('nome-projeto-titulo-arvore').innerHTML = '<svg class="icon"><use href="#icon-clipboard"></use></svg> ' + nomeProj.substring(0,18) + '...';
+            document.getElementById('nome-projeto-titulo-arvore').innerText = "📋 " + nomeProj.substring(0,18) + "...";
             
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
             if (!todas[projetoSelecionadoAtivo]) {
@@ -130,17 +127,11 @@
             carregarArvoreProjetoAtual();
         }
 
-        // --- REORDENAR ETAPAS (arrastar e soltar) ---
-        // Etapas são todas irmãs direto na raiz do projeto. Reordenar
-        // filhos abaixo da Etapa (Setor/Pavimento/Tarefa misturados
-        // livremente) não tem mais arrastar-e-soltar dedicado nesta
-        // versão — simplificação deliberada, dado que agora podem ser
-        // de níveis diferentes convivendo na mesma lista (ver
-        // prompt_gemini.md §12.31 pra nota completa).
+        // --- REORDENAR NÓS (arrastar e soltar) ---
         // Item 14 (prompt_gemini.md §14 — decisão do usuário: todos os
-        // níveis, só reordenar entre irmãos, sem reparenting):
-        // generalização do que já existia só pra Etapa. `path` é o
-        // mesmo formato usado por resolverNoPorPath() ("0", "0-1",
+        // níveis, só reordenar entre irmãos, sem reparenting): antes
+        // só Etapa tinha isso; agora vale pra qualquer nível. `path` é
+        // o mesmo formato usado por resolverNoPorPath() ("0", "0-1",
         // "0-1-2"...) — o último segmento é o índice do nó dentro da
         // lista de irmãos (arv.etapas na raiz, ou .filhos do pai em
         // qualquer profundidade); os segmentos anteriores identificam
@@ -195,7 +186,7 @@
         // devolve quais níveis ainda cabem como filho de um nó de um
         // certo nível (tudo que vem DEPOIS dele nesta lista).
         const NIVEIS_ORDEM = ['etapa', 'setor', 'pavimento', 'tarefa'];
-        const ICONE_POR_NIVEL = { etapa: '<svg class="icon"><use href="#icon-folder"></use></svg>', setor: '<svg class="icon"><use href="#icon-ruler"></use></svg>', pavimento: '<svg class="icon"><use href="#icon-calculator"></use></svg>', tarefa: '<svg class="icon"><use href="#icon-settings"></use></svg>' };
+        const ICONE_POR_NIVEL = { etapa: '📁', setor: '📐', pavimento: '🧮', tarefa: '⚙️' };
         const COR_BOTAO_POR_NIVEL = { setor: '#10b981', pavimento: '#64748b', tarefa: '#475569' };
         const ROTULO_BOTAO_POR_NIVEL = { setor: 'Set', pavimento: 'Pav', tarefa: 'Tar' };
 
@@ -214,7 +205,7 @@
             if (no.status === "Aguardando Verificação") badgeClass = "status-verificacao";
             if (no.status === "Finalizada") badgeClass = "status-finalizada";
             if (no.status === "Para revisão") badgeClass = "status-validacao";
-            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;"><svg class="icon"><use href="#icon-user"></use></svg> '+(no.executor ? nomeParaExibicao(no.executor) : '<svg class="icon"><use href="#icon-alert"></use></svg> sem executor')+'</span>' +
+            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;">👤 '+(no.executor ? nomeParaExibicao(no.executor) : '⚠️ sem executor')+'</span>' +
                    '<span class="badge-status '+badgeClass+'" style="font-size:8px; margin-left:6px;">'+(no.status || 'Apontada')+'</span>';
         }
 
@@ -236,7 +227,7 @@
             const isRecolhido = nosRecolhidosEstado[nKey];
             const ehFolha = ehNoFolha(no);
             const seta = ehFolha ? '•' : (isRecolhido ? '►' : '▼');
-            const icone = ehFolha ? '<svg class="icon"><use href="#icon-settings"></use></svg>' : ICONE_POR_NIVEL[nivel];
+            const icone = ehFolha ? '⚙️' : ICONE_POR_NIVEL[nivel];
             const isEtapa = nivel === 'etapa';
 
             let html = '<div style="margin-top:'+(isEtapa?'6px':'4px')+';">' +
@@ -279,8 +270,8 @@
 
             let html = '<div style="font-weight:bold; color:#0a192f; margin-bottom:12px; display:flex; align-items:center; background:#f0f2f5; padding:6px; border-radius:4px; cursor:pointer;" onclick="visualizarNo(\'raiz\')">' +
                        '<span onclick="event.stopPropagation(); alternarRecolhimentoNo(\'raiz\')" class="tree-toggle-icon">' + setaRaiz + '</span>' +
-                       '<span><svg class="icon"><use href="#icon-building"></use></svg> ' + projetoSelecionadoAtivo.toUpperCase() + '</span>' +
-                       '<button style="margin-left:auto; background:#E35F13; color:white; border:none; font-size:10px; padding:2px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); abrirFormEncaixe(\'etapa\', null)">+ Etapa</button>' +
+                       '<span>🏢 ' + projetoSelecionadoAtivo.toUpperCase() + '</span>' +
+                       '<button style="margin-left:auto; background:#00b4d8; color:white; border:none; font-size:10px; padding:2px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); abrirFormEncaixe(\'etapa\', null)">+ Etapa</button>' +
                        '</div>';
 
             if (!isRaizRecolhida && arv.etapas) {
@@ -317,16 +308,6 @@
             // Etapa e Setor não pedem NADA além do Nome — nascem como
             // tarefa (folha), com Executor/Custo/Pontos/Verba em
             // branco/zero, editáveis depois clicando no próprio card.
-            // Item 10 (prompt_gemini.md §14, leva 4): Setor passou a
-            // pedir Área Física/Peso do Esforço também, na criação —
-            // precisa disso pra competir por Área Equivalente contra
-            // Setores irmãos quando a Etapa tem Setor(es) como filho
-            // direto (regra "nunca mistura tipo de filho": nesse caso
-            // a Etapa não pode ter Pavimento/Tarefa direto — só Setor).
-            if(nivel === 'setor') {
-                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Área Física (m²):</label><input type="number" id="l-setor-area" value="500"></div>' +
-                        '<div class="form-group col-12" style="margin-top:8px;"><label>Peso de Esforço:</label><input type="number" id="l-setor-peso" value="1.0" step="0.1"></div>';
-            }
             if(nivel === 'pavimento') {
                 // Continua pedindo Tipo de Pavimento/Área/Peso na
                 // criação — é sobre o dado FÍSICO do pavimento (mestre
@@ -341,7 +322,7 @@
             if(nivel === 'tarefa') {
                 html += '<div class="form-group col-12" style="margin-top:12px;"><label>Executor Designado:</label><select id="l-executor" style="background:white;">'+funcsHtml+'</select></div>' +
                         '<div class="form-group col-12" style="margin-top:12px;"><label>Custo Máximo Designado Teto (R$):</label><input type="number" id="l-custo-max" value="1200"></div>' +
-                        '<div style="margin-top:16px; font-weight:bold; font-size:11px; color:#1e3a66; border-top:1px solid #cbd5e1; padding-top:12px;"><svg class="icon"><use href="#icon-bar-chart"></use></svg> CALIBRAÇÃO DE PONTOS</div>' +
+                        '<div style="margin-top:16px; font-weight:bold; font-size:11px; color:#1e3a66; border-top:1px solid #cbd5e1; padding-top:12px;">📊 CALIBRAÇÃO DE PONTOS</div>' +
                         '<div class="form-group col-12" style="margin-top:8px;"><label>Índice de Medição Física:</label><select id="l-indice-desempenho" style="background:white;" onchange="calcularPontosPorQtdFisica()">'+indicesHtml+'</select></div>' +
                         '<div class="form-group col-8" style="margin-top:8px;"><label>Quantidade:</label><input type="number" id="l-qtd-fisica" value="15" oninput="calcularPontosPorQtdFisica()"></div>' +
                         '<div class="form-group col-4" style="margin-top:8px;"><label>Unidade Física:</label><input type="text" id="l-unidade-fisica" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
@@ -387,7 +368,7 @@
             
             let elPontos = document.getElementById('l-pontos');
             if(elPontos) elPontos.value = calculo;
-            if(box) box.innerHTML = '<svg class="icon"><use href="#icon-lightbulb"></use></svg> Indicador base de (' + FatorIndex + 'h) × Sensibilidade (' + f_analista + ') gerou: ' + calculo + ' Pontos.';
+            if(box) box.innerHTML = "💡 Indicador base de ("+FatorIndex+"h) × Sensibilidade ("+f_analista+") gerou: "+calculo+" Pontos.";
         }
 
         function salvarPecaNaArvore() {
@@ -399,26 +380,13 @@
             let arv = todas[projetoSelecionadoAtivo];
 
             if (nivel === 'etapa') {
-                // Item 16 (prompt_gemini.md §14, leva 4): Etapa criada
-                // manualmente aqui (formulário "Plugar Componente na
-                // Árvore") também nasce com Executor e Responsável já
-                // preenchidos com o Analista do Cadastro de Projetos —
-                // antes só as Etapas Default (criadas automaticamente
-                // ao criar o projeto) tinham isso, e só no Executor.
-                const projetosCadastroAgora = JSON.parse(localStorage.getItem('banco_projetos')) || [];
-                const projCadastroAgora = projetosCadastroAgora.find(p => p.nome === projetoSelecionadoAtivo);
-                const analistaDoProjeto = projCadastroAgora ? (projCadastroAgora.analista || '') : '';
-                arv.etapas.push(criarNoVazio(nome, null, analistaDoProjeto, analistaDoProjeto));
+                arv.etapas.push(criarNoVazio(nome, null, ''));
             } else {
                 const noPai = resolverNoPorPath(arv, pai);
                 if (!noPai) return;
                 if (!Array.isArray(noPai.filhos)) noPai.filhos = [];
                 const novoNo = criarNoVazio(nome, nivel, '');
 
-                if (nivel === 'setor') {
-                    novoNo.area_fisica = document.getElementById('l-setor-area').value;
-                    novoNo.peso_esforco = document.getElementById('l-setor-peso').value;
-                }
                 if (nivel === 'pavimento') {
                     let tipoPav = document.getElementById('l-tipo-pav').value;
                     novoNo.tipo_pavimento = tipoPav;
@@ -478,42 +446,27 @@
                 const statusLiberacaoAtual = projCadastro ? (projCadastro.status_liberacao || 'liberado') : 'liberado';
                 const emAnalise = statusLiberacaoAtual === 'em_analise';
                 const corStatus = emAnalise ? '#f59e0b' : '#10b981';
-                const rotuloStatus = emAnalise ? '<svg class="icon"><use href="#icon-microscope"></use></svg> Em Análise' : '<svg class="icon"><use href="#icon-check"></use></svg> Liberado pra Detalhamento';
+                const rotuloStatus = emAnalise ? '🔬 Em Análise' : '✅ Liberado pra Detalhamento';
                 const rotuloBotao = emAnalise ? 'Liberar pra Detalhamento' : 'Voltar pra "Em Análise"';
-
-                // Item 2 (prompt_gemini.md §14, leva 4): "Valor Contratado
-                // Líquido" = valor do contrato MENOS impostos — o % de
-                // Impostos é o que já está SALVO na Distribuição de
-                // Custos deste projeto (não tem como ler o DOM daquela
-                // tela a partir daqui). Decisão do usuário: sempre vai
-                // ter algo salvo (default de 23%, item 1) — sem
-                // fallback especial; se por acaso não tiver nada salvo
-                // ainda, sai R$ 0,00 mesmo (registrado, não é bug).
-                const orcamentosSalvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos')) || {};
-                const orcamentoDoProjeto = orcamentosSalvos[projetoSelecionadoAtivo] || {};
-                const pctImpostosSalvo = parseFloat(orcamentoDoProjeto.pct_impostos) || 0;
-                const valorContratoBruto = projCadastro ? (parseFloat(projCadastro.valor) || 0) : 0;
-                const valorContratadoLiquido = valorContratoBruto - (pctImpostosSalvo / 100 * valorContratoBruto);
 
                 let html = '<div class="form-panel" style="border:none; padding:0;">' +
                            '<div class="form-section">' +
-                           '<div class="form-section-title"><svg class="icon"><use href="#icon-building"></use></svg> Propriedades Contratuais Macro do Projeto</div>' +
-                           '<div class="form-group col-12" style="margin-top:14px; padding:10px 14px; border-radius:6px; display:flex; align-items:center; justify-content:space-between; background:'+(emAnalise ? '#fef9c3' : '#f0fdf4')+'; color:'+(emAnalise ? '#854d0e' : '#166534')+';">' +
-                           '<span title="'+(emAnalise ? 'As tarefas deste projeto não aparecem na Atribuição de Tarefas ainda.' : 'As tarefas deste projeto já aparecem na Atribuição de Tarefas.')+'" style="font-size:14px; font-weight:bold;">'+rotuloStatus+'</span>' +
-                           '<button type="button" onclick="alternarStatusLiberacaoProjeto()" style="white-space:nowrap; background:none; border:1px solid currentColor; border-radius:4px; color:inherit; font-size:11px; cursor:pointer; padding:4px 10px;">'+rotuloBotao+'</button>' +
-                           '</div>' +
+                           '<div class="form-section-title">🏢 Propriedades Contratuais Macro do Projeto</div>' +
                            '<div class="form-grid" style="margin-top:14px;">' +
                            '<div class="form-group col-12" style="margin-top:14px;"><label>Nome Oficial da Obra:</label>' +
-                           '<input type="text" value="' + projetoSelecionadoAtivo + '" readonly style="width:100%; background:#e2e8f0;">' +
-                           '</div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Área Total Comercial (m²):</label><input type="number" value="'+(projCadastro ? (projCadastro.area || 0) : 0)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Valor Contratado Líquido (R$):</label><input type="text" value="'+formatarMoeda(valorContratadoLiquido)+'" readonly style="background:#e2e8f0;" title="Valor do contrato menos impostos (% definido na Distribuição de Custos deste projeto)"></div>' +
+                           '<div style="display:flex; align-items:center; gap:10px;">' +
+                           '<input type="text" value="' + projetoSelecionadoAtivo + '" readonly style="flex:1; background:#e2e8f0;">' +
+                           '<span title="'+(emAnalise ? 'As tarefas deste projeto não aparecem na Atribuição de Tarefas ainda.' : 'As tarefas deste projeto já aparecem na Atribuição de Tarefas.')+'" style="font-size:11px; font-weight:bold; color:'+corStatus+'; white-space:nowrap;">●&nbsp;'+rotuloStatus+'</span>' +
+                           '<button type="button" onclick="alternarStatusLiberacaoProjeto()" style="white-space:nowrap; background:none; border:none; color:#64748b; font-size:11px; text-decoration:underline; cursor:pointer; padding:2px 4px;">'+rotuloBotao+'</button>' +
+                           '</div></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Área Total Comercial (m²):</label><input type="number" id="edit-p-areacom" value="'+(pObj.area_comercial || 5000)+'"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Valor Contratado Líquido (R$):</label><input type="number" id="edit-p-valor" value="'+(pObj.valor_contrato || 250000)+'"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Fator de Esbeltez ($F_{esb}$):</label><input type="number" id="edit-p-esb" step="0.1" value="'+(pObj.f_esb || 1.0)+'"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Sensibilidade Analista ($F_{analista}$):</label><input type="number" id="edit-p-sens" step="0.1" value="'+(pObj.f_analista || 1.0)+'"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor:</label><input type="text" value="'+supervisorAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Analista:</label><input type="text" value="'+analistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Área, Valor, Analista e Supervisor são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
-                           '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#E35F13;"><svg class="icon"><use href="#icon-ruler"></use></svg> Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor Geral:</label><input type="text" value="'+supervisorAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Analista Líder:</label><input type="text" value="'+analistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Analista e Supervisor são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
+                           '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#00b4d8;">📐 Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
                            '</div></div>' +
                            '<button class="btn-primary" style="width:100%; margin-top:20px;" onclick="salvarDadosMacroProjetoRaiz()">Atualizar Diretrizes do Projeto</button></div>';
                 pd.innerHTML = html;
@@ -528,33 +481,9 @@
 
             let html = '<div class="form-panel" style="border:none; padding:0;">' +
                        '<div class="form-section">' +
-                       '<div class="form-section-title"><svg class="icon"><use href="#icon-info"></use></svg> Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
+                       '<div class="form-section-title">ℹ️ Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
                        '<div class="form-grid" style="margin-top:8px;">' +
                        '<div class="form-group col-12"><label>Componente Vinculado:</label><input type="text" value="' + no.nome + '" readonly style="background:#e2e8f0;"></div>';
-
-            if(nivel === 'setor') {
-                // Item 10 (prompt_gemini.md §14, leva 4): mesma lógica
-                // de Área Equivalente/Fração de Verba que Pavimento já
-                // mostra, só que comparando contra os Setores IRMÃOS
-                // (mesmo pai), não contra o projeto inteiro — Setor só
-                // compete dentro da própria Etapa/Setor pai.
-                const caminhoPai = path.slice(0, path.lastIndexOf('-'));
-                const noPaiDoSetor = caminhoPai ? resolverNoPorPath(arv, caminhoPai) : null;
-                const irmaosSetor = noPaiDoSetor ? (noPaiDoSetor.filhos || []) : arv.etapas;
-                let totalAeqIrmaos = 0;
-                irmaosSetor.forEach(irmao => {
-                    if (irmao.nivel === 'setor') totalAeqIrmaos += (parseFloat(irmao.area_fisica) || 0) * (parseFloat(irmao.peso_esforco) || 0);
-                });
-                let a_eq_setor = (parseFloat(no.area_fisica)||0) * (parseFloat(no.peso_esforco)||0);
-                let pct_verba_setor = totalAeqIrmaos > 0 ? ((a_eq_setor / totalAeqIrmaos) * 100).toFixed(1) : '0.0';
-
-                html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física (m²):</label><input type="number" id="edit-setor-area" value="' + (no.area_fisica || 0) + '"></div>' +
-                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso de Esforço:</label><input type="number" id="edit-setor-peso" step="0.1" value="' + (no.peso_esforco || 0) + '"></div>' +
-                        '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span><svg class="icon"><use href="#icon-ruler"></use></svg> <b>Área Eq.:</b> ' + a_eq_setor + ' m²</span>' +
-                        '<span><svg class="icon"><use href="#icon-money"></use></svg> <b>Fração de Verba (entre Setores irmãos):</b> ' + pct_verba_setor + '%</span>' +
-                        '</div>';
-            }
 
             if(nivel === 'pavimento') {
                 let a_eq = (parseFloat(no.area_fisica)||0) * (parseFloat(no.peso_esforco)||1);
@@ -564,8 +493,8 @@
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física Real (m²):</label><input type="number" id="edit-pav-area" value="' + no.area_fisica + '"></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Pavimento:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span><svg class="icon"><use href="#icon-ruler"></use></svg> <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
-                        '<span><svg class="icon"><use href="#icon-money"></use></svg> <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
+                        '<span>💰 <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +
                         '</div>';
             }
 
@@ -575,39 +504,9 @@
                 let fExecs = '<option value="" '+(!no.executor?"selected":"")+'>-- Selecione --</option>' + funcs.map(f => '<option value="'+f.nome+'" '+(f.nome===no.executor?"selected":"")+'>'+nomeParaExibicao(f.nome)+'</option>').join('');
                 let fResps = '<option value="" '+(!no.responsavel?"selected":"")+'>-- Selecione --</option>' + funcs.map(f => '<option value="'+f.nome+'" '+(f.nome===no.responsavel?"selected":"")+'>'+nomeParaExibicao(f.nome)+'</option>').join('');
 
-                // Item 15 (prompt_gemini.md §14, leva 4): "Custo Máx
-                // Teto" deixa de ser digitado à mão — passa a ser o
-                // resultado do cálculo de verba (item 10) apontado pra
-                // ESTA Tarefa especificamente, calculado AO VIVO
-                // (opção "b" escolhida pelo usuário — nunca fica
-                // desatualizado esperando alguém salvar a Distribuição
-                // de Custos de novo). Roda a cascata
-                // (distribuirVerbaRecursiva, de
-                // js/distribuicao-custos.js, carregada na mesma
-                // página) direto em CIMA da árvore `arv` já carregada
-                // aqui (mesmo objeto que `no` faz parte, via
-                // resolverNoPorPath acima) — assim `no._verbaCalc`
-                // fica disponível direto, sem precisar comparar
-                // objetos de duas leituras separadas do localStorage
-                // (que nunca bateriam por referência). "Horas Limite"
-                // continua sendo essa verba dividida pelo valor-hora
-                // do Executor (confirmado pelo usuário) — troquei a
-                // fonte do valor-hora pra `valorHoraVigente()`, a
-                // mesma que a Aba 5 de Distribuição de Custos já usa
-                // (antes lia `funcionario.hora`, um campo solto que
-                // não existe de verdade no Cadastro de Funcionários —
-                // sempre caía no fallback de 50, sem relação com o
-                // valor de hora real do funcionário).
-                if (typeof calcularVerbaPorEtapaSalvo === 'function' && typeof distribuirVerbaRecursiva === 'function' && Array.isArray(arv.etapas)) {
-                    const verbasPorEtapaAgora = calcularVerbaPorEtapaSalvo(projetoSelecionadoAtivo);
-                    const verbaPorNomeEtapaAgora = {};
-                    verbasPorEtapaAgora.forEach(v => { verbaPorNomeEtapaAgora[v.nome] = v.verbaLiquida; });
-                    arv.etapas.forEach(etapaNo => distribuirVerbaRecursiva(etapaNo, verbaPorNomeEtapaAgora[etapaNo.nome] || 0));
-                }
-                const custoMaxCalculado = no._verbaCalc || 0;
-                const hojeISOAgora = new Date().toISOString().slice(0, 10);
-                let vHora = no.executor && typeof valorHoraVigente === 'function' ? valorHoraVigente(no.executor, hojeISOAgora) : 0;
-                let hLimiteMax = vHora > 0 ? (custoMaxCalculado / vHora).toFixed(1) : '0.0';
+                let funcionario = funcs.find(f => f.nome === no.executor);
+                let vHora = funcionario ? parseFloat(funcionario.hora) : 50;
+                let hLimiteMax = vHora > 0 ? (parseFloat(no.custo_max || 0) / vHora).toFixed(1) : '0.0';
 
                 const usuarioAtualParaTrava = (typeof usuarioLogado !== 'undefined' && usuarioLogado) ? usuarioLogado : null;
                 const souOExecutorDesteNo = usuarioAtualParaTrava && usuarioAtualParaTrava.nome === no.executor;
@@ -616,13 +515,13 @@
                 const noTravadoParaRevisao = no.status === 'Aguardando Verificação' && souOExecutorDesteNo && !temAutoridadeDeRevisar;
                 const disabledSeTravada = noTravadoParaRevisao ? ' disabled' : '';
                 const avisoEmRevisao = noTravadoParaRevisao
-                    ? '<div class="form-group col-12" style="margin-top:6px; background:#eff6ff; color:#1e40af; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;"><svg class="icon"><use href="#icon-lock"></use></svg> Este item está em revisão — só leitura até o Responsável liberar (mover pra "Para revisão" ou "Finalizada").</div>'
+                    ? '<div class="form-group col-12" style="margin-top:6px; background:#eff6ff; color:#1e40af; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;">🔒 Este item está em revisão — só leitura até o Responsável liberar (mover pra "Para revisão" ou "Finalizada").</div>'
                     : '';
 
                 html += avisoEmRevisao +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Executor:</label><select id="edit-t-exec" style="background:white;"'+disabledSeTravada+'>'+fExecs+'</select></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Responsável:</label><select id="edit-t-responsavel" style="background:white;"'+disabledSeTravada+'>'+fResps+'</select></div>' +
-                        '<div class="form-group col-3" style="margin-top:6px;"><label>Custo Máx Teto:</label><input type="text" value="' + formatarMoeda(custoMaxCalculado) + '" readonly style="background:#e2e8f0;" title="Calculado a partir da Verba desta Tarefa na Distribuição de Custos — não é mais editável aqui."></div>' +
+                        '<div class="form-group col-3" style="margin-top:6px;"><label>Custo Máx Teto:</label><input type="number" id="edit-t-customax" value="' + (no.custo_max || 0) + '"'+disabledSeTravada+'></div>' +
                         '<div class="form-group col-3" style="margin-top:6px;"><label>Horas Limite:</label><input type="text" value="' + hLimiteMax + 'h" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
                         '<div class="form-group col-4" style="margin-top:6px;"><label>Quantidade Física:</label><input type="number" id="edit-t-qtd" value="' + (no.qtd_fisica || 0) + '"'+disabledSeTravada+'></div>' +
                         '<div class="form-group col-2" style="margin-top:6px;"><label>Unidade:</label><input type="text" value="' + buscarUnidadeFisicaDoCatalogo(no.nome) + '" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
@@ -638,7 +537,7 @@
                         '</select></div>';
 
                 if(no.is_outlier) {
-                    html += '<div class="form-group col-12" style="margin-top:6px; background:#fee2e2; color:#991b1b; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;"><svg class="icon"><use href="#icon-alert"></use></svg> Outlier detectado (>40% desvio). Excluído do histórico.</div>';
+                    html += '<div class="form-group col-12" style="margin-top:6px; background:#fee2e2; color:#991b1b; padding:6px 8px; border-radius:4px; font-size:11px; font-weight:bold;">⚠️ Outlier detectado (>40% desvio). Excluído do histórico.</div>';
                 }
             }
 
@@ -672,6 +571,8 @@
             const arv = todas[projetoSelecionadoAtivo];
             if (!arv) return;
 
+            arv.area_comercial = document.getElementById('edit-p-areacom').value;
+            arv.valor_contrato = document.getElementById('edit-p-valor').value;
             arv.f_esb = document.getElementById('edit-p-esb').value;
             arv.f_analista = document.getElementById('edit-p-sens').value;
 
@@ -688,11 +589,6 @@
             if (!no) return;
             const nivel = path.indexOf('-') === -1 ? 'etapa' : no.nivel;
             const ehFolha = ehNoFolha(no);
-
-            if (nivel === 'setor') {
-                no.area_fisica = document.getElementById('edit-setor-area').value;
-                no.peso_esforco = document.getElementById('edit-setor-peso').value;
-            }
 
             if (nivel === 'pavimento') {
                 no.area_fisica = document.getElementById('edit-pav-area').value;
@@ -713,6 +609,7 @@
                 no.executor = document.getElementById('edit-t-exec').value;
                 const elResponsavel = document.getElementById('edit-t-responsavel');
                 if (elResponsavel) no.responsavel = elResponsavel.value;
+                no.custo_max = document.getElementById('edit-t-customax').value;
                 no.qtd_fisica = document.getElementById('edit-t-qtd').value;
                 no.pontos = document.getElementById('edit-t-pontos').value;
                 const elVerba = document.getElementById('edit-t-verba');
