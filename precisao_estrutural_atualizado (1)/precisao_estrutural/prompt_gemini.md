@@ -3031,7 +3031,10 @@ transplante real foi **aditivo em vez de renomear**:
   sincroniza os dois enquanto não foi customizado); função nova
   `atribuirResponsavelTarefa()` grava só o Responsável, independente,
   mesma trava de nível que já existe pro Executor (Analista não
-  atribui).
+  atribui). **Regra de "seguir" revisada em 2026-08-14 (ver "Retomada
+  em 2026-08-14" mais abaixo)** — antes bastava os dois valores
+  coincidirem pra continuar seguindo indefinidamente; agora só
+  pré-preenche quando o Responsável está genuinamente vazio.
 - `js/apontamento.js`: `iniciarSessaoTrabalho()`/`pausarSessaoTrabalho()`
   reescritas — agora leem `usuarioLogado` (global) pra decidir a
   trilha certa (Execução se for o Executor da tarefa, Revisão se tiver
@@ -6664,5 +6667,59 @@ Localização) e na aba Kanban (título "TAREFAS A SUPERVISIONAR"; cartão
 "D" seguido de "ANÁLISE" uma vez só). Criado `.claude/launch.json` na
 raiz do repositório Git (fora desta pasta do app) pra servir o app
 localmente em sessões futuras — não existia antes.
+
+**Nada ficou pendente desta rodada.**
+
+## Retomada em 2026-08-14
+
+Dois ajustes na tela de Atribuição de Tarefas, pedidos pelo usuário:
+
+1. **Paginação removida** — "a rolagem das páginas devem ser feitas
+   sempre a partir da barra de rolagem, sem clicar no botão 'próxima'".
+   `AT_ITENS_POR_PAGINA`, `atPaginaAtual` e `mudarPaginaAtribuicao()`
+   foram removidos por completo; `renderizarPainelAtribuicaoTarefas()`
+   não recebe mais parâmetro (`manterPagina` não existe mais — nem a
+   noção de "página" pra manter) e sempre renderiza a lista filtrada
+   INTEIRA (`tbody.innerHTML = lista.map(...)`, sem slice). A navegação
+   passa a ser só pela barra de rolagem do `.table-wrapper`
+   (`overflow-y:auto`, já existia em `estilos.css`, não precisou mudar
+   nada de CSS). `renderizarPaginacaoAtribuicao(totalItens)` ficou só
+   como rótulo de contagem (`<span>N tarefa(s)</span>`), sem botão
+   nenhum. Consequência: a limitação antiga de "arrasto só funciona
+   dentro da página atual" deixou de existir — a lista inteira já fica
+   visível de uma vez.
+
+2. **Responsável parou de "seguir" o Executor indefinidamente** — bug
+   relatado pelo usuário como "quando mudo o executor, a tarefa some"
+   (investigado a fundo, incluindo teste direto em dado real de
+   produção via Firebase REST — não era isso; era outro comportamento
+   que o usuário notou ao testar: "quando mudo o executor, parece que
+   muda também o responsável"). Comportamento ANTIGO (Melhoria #18,
+   §12.6, ver também linha ~3030 acima): `aplicarAtribuicaoExecutorNaTarefa()`
+   considerava o Responsável "ainda seguindo" o Executor sempre que os
+   dois valores COINCIDISSEM (`!tarefa.responsavel ||
+   tarefa.responsavel === tarefa.executor`) — então bastava os dois
+   serem iguais (por pré-preenchimento OU coincidência manual) pra toda
+   troca de Executor seguinte arrastar o Responsável junto, de novo.
+   Usuário pediu explicitamente: "mude a lógica, mantenha o
+   pré-preenchimento mas permita alterar manualmente um deles sem
+   alterar o outro". Corrigido: a condição agora é só
+   `!tarefa.responsavel` (Responsável genuinely vazio) — pré-preenche
+   IGUAL a antes na primeira atribuição de Executor de uma tarefa nova,
+   mas a partir do momento em que o Responsável tem QUALQUER valor
+   (pré-preenchido ou escolhido à mão, tanto faz), os dois campos ficam
+   independentes pra sempre: trocar o Executor de novo nunca mais mexe
+   no Responsável. `atribuirResponsavelTarefa()` (grava só o
+   Responsável) não precisou mudar — já era independente nesse sentido;
+   só o "voltar a seguir" ao limpar o campo pra vazio continua igual
+   (cai de novo no Executor atual, que é o pré-preenchimento esperado).
+   Testado com função pura isolada (sem tocar em dado real): 3 casos —
+   pré-preenchimento inicial, troca de Executor depois (Responsável não
+   muda mais), e o caso exato do bug relatado (Responsável coincidia
+   com o Executor antigo por acaso, trocar o Executor não arrasta mais).
+
+Ambos replicados em
+`modulos_isolados/atribuicao-tarefas/js/atribuicao-tarefas.js`.
+`node --check` limpo nos dois arquivos.
 
 **Nada ficou pendente desta rodada.**

@@ -798,14 +798,19 @@ function renderizarPaginacaoAtribuicao(totalItens) {
 // localStorage — quem chama salva depois. Função pura, testável sem DOM
 // (ver /home/claude/testes/teste_item7_10_atribuicao_compartilhada.js).
 function aplicarAtribuicaoExecutorNaTarefa(tarefa, novoExecutor) {
-    // Melhoria #18 (prompt_gemini.md §12.6): Responsável "segue" o
-    // Executor por padrão — só para de seguir quando alguém customiza
-    // o Responsável pra uma pessoa DIFERENTE do Executor (nesse ponto,
-    // `tarefa.responsavel` passa a existir de verdade e divergir; até
-    // lá, trocar o Executor também atualiza o Responsável junto).
-    const responsavelAindaSeguindoExecutor = !tarefa.responsavel || tarefa.responsavel === tarefa.executor;
+    // Melhoria #18 (prompt_gemini.md §12.6, revisado — pedido do
+    // usuário: "mude a lógica, mantenha o pré-preenchimento mas
+    // permita alterar manualmente um deles sem alterar o outro"):
+    // Responsável só é PRÉ-PREENCHIDO com o Executor quando ainda está
+    // vazio (nunca foi definido pra essa tarefa). A partir do momento
+    // em que tem QUALQUER valor — pré-preenchido ou escolhido à mão,
+    // não importa — os dois campos ficam independentes: trocar o
+    // Executor de novo não mexe mais no Responsável (antes, ficava
+    // "seguindo" indefinidamente enquanto os dois valores coincidissem,
+    // o que surpreendia o usuário).
+    const responsavelVazio = !tarefa.responsavel;
     tarefa.executor = novoExecutor;
-    if (responsavelAindaSeguindoExecutor) tarefa.responsavel = novoExecutor;
+    if (responsavelVazio) tarefa.responsavel = novoExecutor;
 
     if (!novoExecutor) {
         tarefa.status = 'Sem Executor';
