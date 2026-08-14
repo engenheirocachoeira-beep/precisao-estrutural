@@ -761,11 +761,17 @@ mais larga (320px) e mostra só o nome do funcionário, sem o cargo (cargo
 saiu de `construirOpcoesExecutor()` — o `value` do `<option>` sempre foi só
 o nome, então isso não quebrou `atribuirExecutorTarefa()`). Coluna Status,
 por ser a última, tem um `padding-left` extra pra ficar visualmente mais
-afastada da coluna Executor. Lista paginada em blocos de
-`AT_ITENS_POR_PAGINA` (20), com botões "‹ Anterior" / "Próxima ›" no
-rodapé quando há mais de uma página (`renderizarPaginacaoAtribuicao()`).
-Mudar um filtro sempre volta pra página 1; atribuir um executor mantém a
-página atual (`manterPagina=true` em `renderizarPainelAtribuicaoTarefas()`).
+afastada da coluna Executor. **Sem paginação** (removida a pedido do
+usuário — "a rolagem das páginas devem ser feitas sempre a partir da
+barra de rolagem, sem clicar no botão 'próxima'"): `renderizarPainelAtribuicaoTarefas()`
+não recebe mais parâmetro nenhum e sempre renderiza a lista `lista`
+INTEIRA (`tbody.innerHTML = lista.map(...)`, sem slice); a navegação é
+só pela barra de rolagem do `.table-wrapper` (`overflow-y:auto`, já
+existia em `estilos.css`). `AT_ITENS_POR_PAGINA`, `atPaginaAtual` e
+`mudarPaginaAtribuicao()` foram removidos por completo (não existem
+mais em lugar nenhum do código). `renderizarPaginacaoAtribuicao(totalItens)`
+ficou só como um rótulo de contagem (`<span>N tarefa(s)</span>`) no
+`#at-paginacao`, sem nenhum botão.
 
 **Priorização por arrastar-e-soltar (regrava `ordem_fila`), exibida em
 ordem CRONOLÓGICA (pedido da diretoria, mudou nessa rodada):** a tabela
@@ -821,11 +827,11 @@ no-op, e caminho arrastado ou alvo que sumiu da árvore entre o render e o
 drop (ex: outra aba mudou a atribuição) também é no-op, sem quebrar nem
 duplicar tarefa.
 
-**Arrasto funciona só dentro da página atual** — se as tarefas de um
-mesmo executor estiverem espalhadas em páginas diferentes (mais de
-`AT_ITENS_POR_PAGINA` tarefas visíveis com filtro ativo), não dá pra
-arrastar de uma página pra outra. Limitação aceita por ora; não apareceu
-como problema real ainda.
+~~**Arrasto funciona só dentro da página atual**~~ — **NÃO SE APLICA
+MAIS**: como a paginação foi removida (ver acima), a lista inteira
+filtrada já fica visível de uma vez (rolando pelo `.table-wrapper`), então
+não existe mais o cenário de tarefas do mesmo executor "presas" em
+páginas diferentes.
 
 ~~**Dead Line ainda não existe**~~ — **IMPLEMENTADO** (item 14 da
 Rodada de Comentários da Gerência, ver §12) — bloqueia de verdade
@@ -842,9 +848,10 @@ de acesso em si ainda não existe, ver item 5 do roadmap na seção 12, então
 por ora qualquer um que acesse a tela edita), senão o valor calculado
 automaticamente por `calcularDatasInicioExecutor()` (novo, em
 `feriados.js`). `editarDataInicioTarefa()` grava/apaga
-`data_inicio_manual` e re-renderiza o painel inteiro (`manterPagina=true`)
-— não dá pra atualizar só a célula, porque tarefas seguintes da mesma fila
-podem ter se reajustado. Quando há âncora manual, aparece um botão ↺ do
+`data_inicio_manual` e re-renderiza o painel inteiro
+(`renderizarPainelAtribuicaoTarefas()`, sem parâmetro — ver nota sobre
+remoção da paginação acima) — não dá pra atualizar só a célula, porque
+tarefas seguintes da mesma fila podem ter se reajustado. Quando há âncora manual, aparece um botão ↺ do
 lado do input (`limparDataInicioManual()`) pra voltar ao cálculo
 automático.
 

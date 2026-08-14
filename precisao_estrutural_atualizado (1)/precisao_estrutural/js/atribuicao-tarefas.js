@@ -37,9 +37,6 @@
 // Árvore de Projeto usa).
 // =========================================================================
 
-const AT_ITENS_POR_PAGINA = 20;
-let atPaginaAtual = 1;
-
 const AT_STATUS_POSSIVEIS = ['Apontada', 'Sem Executor', 'Em Desenvolvimento', 'Aguardando Verificação', 'Para revisão', 'Finalizada'];
 
 // null = "tudo selecionado" (sem restrição). Set = só os valores marcados.
@@ -91,7 +88,6 @@ function carregarPainelAtribuicaoTarefas() {
     // no <th> (ver index.html), sem recálculo nenhum.
     fecharFiltroFlutuante();
 
-    atPaginaAtual = 1;
     renderizarPainelAtribuicaoTarefas();
 }
 
@@ -118,11 +114,6 @@ function ajustarLarguraColunaProjeto() {
 // que causava a coluna Executor ficar com largura diferente da coluna
 // Responsável, mesmo as duas declarando o mesmo width no HTML. Ver
 // comentário em renderizarPainelAtribuicaoTarefas().
-
-function mudarPaginaAtribuicao(delta) {
-    atPaginaAtual += delta;
-    renderizarPainelAtribuicaoTarefas(true); // mantém a página calculada
-}
 
 // Varre TODAS as árvores de TODOS os projetos e monta uma lista plana de
 // tarefas, cada uma carregando o "caminho" completo (projeto + índices)
@@ -440,7 +431,7 @@ function reordenarFilaExecutorNaArvore(nomeExecutor, caminhoArrastado, caminhoAl
     localStorage.setItem('banco_proximo_ordem_fila', String(contadorInicial + resultado.length));
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
 
-    renderizarPainelAtribuicaoTarefas(true); // mantém a página atual
+    renderizarPainelAtribuicaoTarefas();
 }
 
 // CORREÇÃO (julho/2026): o usuário tinha dito antes "sem que o Analista
@@ -479,7 +470,7 @@ function editarDataLimiteTarefa(inputEl) {
     }
 
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    renderizarPainelAtribuicaoTarefas(true);
+    renderizarPainelAtribuicaoTarefas();
 }
 
 function construirOpcoesExecutor(funcionarios, selecionado, rotuloPlaceholder) {
@@ -639,9 +630,7 @@ function atualizarAvisoAguardandoVerificacao(listaCompleta) {
     aviso.style.display = 'block';
 }
 
-function renderizarPainelAtribuicaoTarefas(manterPagina) {
-    if (!manterPagina) atPaginaAtual = 1;
-
+function renderizarPainelAtribuicaoTarefas() {
     let lista = coletarTodasTarefasDeTodosProjetos();
 
     // Já filtrada por projeto do Analista (coletarTodasTarefasDeTodosProjetos
@@ -695,17 +684,10 @@ function renderizarPainelAtribuicaoTarefas(manterPagina) {
         return;
     }
 
-    const totalPaginas = Math.max(1, Math.ceil(lista.length / AT_ITENS_POR_PAGINA));
-    if (atPaginaAtual > totalPaginas) atPaginaAtual = totalPaginas;
-    if (atPaginaAtual < 1) atPaginaAtual = 1;
-
-    const inicio = (atPaginaAtual - 1) * AT_ITENS_POR_PAGINA;
-    const itensDaPagina = lista.slice(inicio, inicio + AT_ITENS_POR_PAGINA);
-
     const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
     const hojeISO = new Date().toISOString().slice(0, 10); // item 13: semáforo de prioridade
 
-    tbody.innerHTML = itensDaPagina.map(t => {
+    tbody.innerHTML = lista.map(t => {
         const caminhoJs = t.caminho.replace(/'/g, "\\'");
         const executorJs = t.executor.replace(/'/g, "\\'");
         const indicadorSessao = t.sessaoAtiva ? '🔴 ' : '';
@@ -785,17 +767,14 @@ function renderizarPainelAtribuicaoTarefas(manterPagina) {
             '</tr>';
     }).join('');
 
-    renderizarPaginacaoAtribuicao(lista.length, totalPaginas);
+    renderizarPaginacaoAtribuicao(lista.length);
 }
 
-function renderizarPaginacaoAtribuicao(totalItens, totalPaginas) {
-    const el = document.getElementById('at-paginacao');
-    if (totalPaginas <= 1) { el.innerHTML = '<span>' + totalItens + ' tarefa(s)</span>'; return; }
-
-    el.innerHTML =
-        '<button onclick="mudarPaginaAtribuicao(-1)"' + (atPaginaAtual <= 1 ? ' disabled' : '') + '>‹ Anterior</button>' +
-        '<span>Página ' + atPaginaAtual + ' de ' + totalPaginas + ' (' + totalItens + ' tarefa(s))</span>' +
-        '<button onclick="mudarPaginaAtribuicao(1)"' + (atPaginaAtual >= totalPaginas ? ' disabled' : '') + '>Próxima ›</button>';
+// Rolagem da lista inteira é feita pela barra de rolagem do
+// .table-wrapper (pedido do usuário) — sem botão de página, só a
+// contagem de tarefas visíveis com os filtros atuais.
+function renderizarPaginacaoAtribuicao(totalItens) {
+    document.getElementById('at-paginacao').innerHTML = '<span>' + totalItens + ' tarefa(s)</span>';
 }
 
 // Grava o executor escolhido de volta na árvore do projeto certo — é o
@@ -869,7 +848,7 @@ function atribuirExecutorTarefa(selectEl) {
     aplicarAtribuicaoExecutorNaTarefa(tarefa, selectEl.value);
 
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    renderizarPainelAtribuicaoTarefas(true); // mantém a página atual
+    renderizarPainelAtribuicaoTarefas();
 }
 
 // Melhoria #18 (prompt_gemini.md §12.6): atribuir/trocar o Responsável
@@ -896,7 +875,7 @@ function atribuirResponsavelTarefa(selectEl) {
     }
 
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    renderizarPainelAtribuicaoTarefas(true); // mantém a página atual
+    renderizarPainelAtribuicaoTarefas();
 }
 
 // Grava os Pontos editados de volta na árvore (mesmo campo que a Árvore de
@@ -964,7 +943,7 @@ function editarDataInicioTarefa(inputEl) {
             );
         }
 
-        renderizarPainelAtribuicaoTarefas(true);
+        renderizarPainelAtribuicaoTarefas();
         return;
     }
 
@@ -975,7 +954,7 @@ function editarDataInicioTarefa(inputEl) {
     }
 
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    renderizarPainelAtribuicaoTarefas(true); // mantém a página atual
+    renderizarPainelAtribuicaoTarefas();
 }
 
 function limparDataInicioManual(caminho) {
@@ -985,7 +964,7 @@ function limparDataInicioManual(caminho) {
 
     delete tarefa.data_inicio_manual;
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
-    renderizarPainelAtribuicaoTarefas(true);
+    renderizarPainelAtribuicaoTarefas();
 }
 
 // --- EDITOR DE SESSÕES DE TRABALHO (correção manual pelo administrador) ---
@@ -1097,14 +1076,14 @@ function editarSessaoComInputs(caminho, idx) {
     const ok = editarSessao(caminho, idx, inicio, fim);
     if (!ok) alert('Horário inválido — o fim precisa ser depois do início.');
     renderizarEditorSessoes(caminho);
-    renderizarPainelAtribuicaoTarefas(true);
+    renderizarPainelAtribuicaoTarefas();
 }
 
 function removerSessaoComConfirmacao(caminho, idx) {
     if (!confirm('Remover essa sessão?')) return;
     removerSessao(caminho, idx);
     renderizarEditorSessoes(caminho);
-    renderizarPainelAtribuicaoTarefas(true);
+    renderizarPainelAtribuicaoTarefas();
 }
 
 function adicionarSessaoManualComInputs(caminho) {
@@ -1116,7 +1095,7 @@ function adicionarSessaoManualComInputs(caminho) {
     if (!ok) return alert('Horário inválido — o fim precisa ser depois do início.');
 
     renderizarEditorSessoes(caminho);
-    renderizarPainelAtribuicaoTarefas(true);
+    renderizarPainelAtribuicaoTarefas();
 }
 
 function forcarPausaComInput(caminho) {
@@ -1127,7 +1106,7 @@ function forcarPausaComInput(caminho) {
     if (!ok) return alert('Horário inválido — o término precisa ser depois do início da sessão.');
 
     renderizarEditorSessoes(caminho);
-    renderizarPainelAtribuicaoTarefas(true);
+    renderizarPainelAtribuicaoTarefas();
 }
 
 // Recalcula Pontos Máximo de todas as tarefas do mesmo pavimento (mesmo
