@@ -6723,3 +6723,40 @@ Ambos replicados em
 `node --check` limpo nos dois arquivos.
 
 **Nada ficou pendente desta rodada.**
+
+## Retomada em 2026-08-15 (parte 2)
+
+Dois ajustes visuais, pedidos pelo usuário — retomando algo já
+combinado numa conversa anterior que tinha se perdido (o merge de
+ícones/visual foi revertido nesta sessão, ver commit `48807b8`, e
+esses dois itens específicos acabaram voltando junto com o revert):
+
+1. **Removida a barra decorativa com "semáforo" (3 bolinhas
+   vermelha/amarela/verde) e o texto "Precisão Estrutural - Sistema"**,
+   que simulava a barra de título de uma janela de navegador/SO por
+   cima do app de verdade. Era só cosmético, sem função real —
+   confirmado pelo usuário como "inutilidade". Removido de
+   `index.html` (a `<div class="browser-header">` inteira, dentro de
+   `.browser-window`) e de `estilos.css` (`.browser-header`, `.circle`,
+   `.red`/`.yellow`/`.green`, `.browser-tab` — todas as classes que só
+   existiam pra essa barra). **`.browser-window` em si foi MANTIDA**
+   (não é só decoração: é quem dá o layout flex/altura cheia — sem
+   ela, `.app-header` + `.app-body` perdem a estrutura de container que
+   os faz preencher a tela certinho). Validado via JS no navegador
+   local: `.browser-window` continua com a altura cheia esperada,
+   `.app-header` virou o primeiro filho direto dela, sem erro no
+   console.
+2. **Botão da sub-aba "🗂️ Kanban"** (dentro do módulo Kanban, ao lado
+   de "🧍 Meu Kanban" — `#kb-aba-outros`) **renomeado pra "🗂️ Tarefas a
+   supervisionar"**, pra bater com o texto que já aparecia dentro da
+   tela (`page-context-title`, ver "Retomada em 2026-08-13" acima) —
+   antes o botão dizia uma coisa ("Kanban") e o conteúdo mostrava
+   outra ("Tarefas a supervisionar"), inconsistente. **O item do menu
+   lateral `#nav-kanban` ("🗂️ Kanban") NÃO mudou** — é o nome do módulo
+   inteiro (que contém as 3 sub-abas: Meu Kanban / Kanban / Ranking),
+   só a sub-aba interna mudou.
+
+Replicado em `modulos_isolados/kanban/index.html` (só o item 2 se
+aplica — o módulo isolado nunca teve a barra do item 1).
+
+**Nada ficou pendente desta rodada.**

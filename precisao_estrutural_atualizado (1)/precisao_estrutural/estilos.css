@@ -2,11 +2,7 @@
         body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 0.7cm; box-sizing: border-box; }
         
         .browser-window { width: 100%; height: calc(100vh - 1.4cm); background: #ffffff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #d1d5db; }
-        .browser-header { background: #e5e7eb; padding: 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d1d5db; }
-        .circle { width: 12px; height: 12px; border-radius: 50%; }
-        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
-        .browser-tab { background: #ffffff; padding: 6px 20px; border-radius: 6px 6px 0 0; font-size: 11px; color: #4b5563; margin-left: 10px; border: 1px solid #d1d5db; border-bottom: none; }
-        
+
         .app-header { background: #0a192f; color: #ffffff; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #00b4d8; }
         .app-title { font-size: 16px; font-weight: 600; }
         
