@@ -6756,7 +6756,32 @@ esses dois itens específicos acabaram voltando junto com o revert):
    inteiro (que contém as 3 sub-abas: Meu Kanban / Kanban / Ranking),
    só a sub-aba interna mudou.
 
-Replicado em `modulos_isolados/kanban/index.html` (só o item 2 se
-aplica — o módulo isolado nunca teve a barra do item 1).
+3. **Árvore de Projeto: níveis dentro de cada Etapa começam recolhidos
+   ao abrir um projeto** — pedido do usuário ("abrir a aba projetos
+   com os sub-menus recolhidos"). Confirmado com ele especificamente
+   QUAL nível: a lista de Etapas (nó raiz) continua aparecendo já
+   expandida de cara; só o que fica DENTRO de cada Etapa (Setor/
+   Pavimento/Tarefa, em qualquer profundidade) que agora começa
+   fechado. `nosRecolhidosEstado` (core.js, objeto global `{}`) guarda
+   só as exceções — chave ausente = valor padrão. Antes, ausente
+   significava "expandido" pra QUALQUER chave (inclusive 'raiz');
+   agora os dois têm padrões DIFERENTES: 'raiz' continua "ausente =
+   expandida" (sem mudança), mas qualquer outra chave ('n-'+path)
+   passou a ser "ausente = recolhida". Dois pontos tocados em
+   `js/arvore.js`: `renderizarNoRecursivo()` (linha calcula
+   `isRecolhido` checando `nKey in nosRecolhidosEstado` antes de usar
+   o valor, em vez de ler direto — só assim dá pra diferenciar "nunca
+   foi tocado" de "foi explicitamente reaberto") e
+   `alternarRecolhimentoNo(pathKey)` (mesma lógica de tri-estado no
+   toggle, senão o primeiro clique num nó nunca tocado não invertia
+   certo). Testado clicando pra expandir/recolher um nó real (projeto
+   "R", Etapa "DETALHAMENTO") — primeiro clique expande e revela os
+   filhos (que também já nascem recolhidos, mesma regra, em qualquer
+   profundidade), segundo clique recolhe de novo.
+
+Itens 2 e 3 replicados em `modulos_isolados/kanban/index.html` e
+`modulos_isolados/arvore/js/arvore.js` respectivamente (item 1 não se
+aplica a nenhum módulo isolado — nunca tiveram a barra decorativa).
+`node --check` limpo em `js/arvore.js` e no módulo isolado.
 
 **Nada ficou pendente desta rodada.**

@@ -122,8 +122,16 @@
             document.getElementById('painel-propriedades-lego').innerHTML = '';
         }
 
+        // Pedido do usuário: abrir um projeto já mostra a lista de Etapas
+        // (raiz sempre começa expandida), mas os níveis DENTRO de cada
+        // Etapa (Setor/Pavimento/Tarefa) começam recolhidos — só abrem
+        // quando a pessoa clica. 'raiz' mantém o padrão antigo (ausente
+        // no objeto = expandida); qualquer outra chave ('n-...') agora
+        // tem o padrão invertido (ausente = recolhida).
         function alternarRecolhimentoNo(pathKey) {
-            nosRecolhidosEstado[pathKey] = !nosRecolhidosEstado[pathKey];
+            const recolhidoPorPadrao = pathKey !== 'raiz';
+            const atual = (pathKey in nosRecolhidosEstado) ? nosRecolhidosEstado[pathKey] : recolhidoPorPadrao;
+            nosRecolhidosEstado[pathKey] = !atual;
             carregarArvoreProjetoAtual();
         }
 
@@ -224,7 +232,10 @@
         // seguinte, misturados livremente).
         function renderizarNoRecursivo(no, path, nivel) {
             const nKey = 'n-' + path;
-            const isRecolhido = nosRecolhidosEstado[nKey];
+            // Padrão pedido pelo usuário: níveis dentro de cada Etapa
+            // começam recolhidos (ausente no objeto = true), só ficam
+            // expandidos depois que alguém clica pra abrir.
+            const isRecolhido = (nKey in nosRecolhidosEstado) ? nosRecolhidosEstado[nKey] : true;
             const ehFolha = ehNoFolha(no);
             const seta = ehFolha ? '•' : (isRecolhido ? '►' : '▼');
             const icone = ehFolha ? '⚙️' : ICONE_POR_NIVEL[nivel];
