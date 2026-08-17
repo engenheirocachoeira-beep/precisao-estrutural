@@ -7087,3 +7087,29 @@ R$ 29.791,89 / Parcela para o Fundo R$ 4.468,78 / Verba Líquida
 R$ 25.323,10 (bate: 29.791,89 − 4.468,78 = 25.323,11, arredondamento);
 linha "Fundo Garantidor" mostra "—" / R$ 10.852,76 (soma de todas as
 Etapas) / "—". `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 5) — Linha de totalização + linhas mais compactas
+
+Pedido do usuário logo em seguida: uma linha de totalização abaixo
+das colunas da Aba 2 (Parcela Global para Produção), e diminuir o
+espaçamento entre linhas das Etapas pra caber tudo numa tela.
+
+- **`index.html`**: `<table>` da Aba 2 ganhou a classe `.tabela-compacta`
+  (já existia, usada em Aba 4/5 — padding 2px 8px, `line-height:1.1`,
+  em vez do padding padrão bem maior) — reduz a altura de cada linha
+  de Etapa sem precisar de CSS novo. Novo `<tfoot>` com uma linha
+  "Total": soma de %, Verba, Parcela para o Fundo e Verba Líquida
+  (célula de Responsável fica vazia — não faz sentido somar nomes).
+- **`js/distribuicao-custos.js`**: `recalcularTabelaDistribuicaoAnalista()`
+  acumula os 4 totais durante o mesmo loop que já calculava cada
+  linha (sem duplicar trabalho) — soma só as ETAPAS (Fundo Garantidor
+  não é uma Etapa, não entra na soma de %; o total de "Parcela para o
+  Fundo" acaba batendo com o valor já mostrado na própria linha do
+  Fundo Garantidor, mostrado de novo aqui só por completude da
+  coluna).
+
+Testado no navegador (AP Praia, 5 Etapas): Total % = 85,00% (soma
+10+15+24,5+0,5+35), Total Verba = R$ 72.351,73 (85% × Parcela
+Global), Total Parcela para o Fundo = R$ 10.852,76 (bate com a linha
+do Fundo Garantidor), Total Verba Líquida = R$ 61.498,97 (diferença
+das duas). `node --check` limpo.

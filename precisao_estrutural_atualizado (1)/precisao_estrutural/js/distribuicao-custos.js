@@ -355,6 +355,9 @@ function recalcularTabelaDistribuicaoAnalista() {
     const pctFundoGarantidor = inputFundoGarantidor ? (parseFloat(inputFundoGarantidor.value) || 0) : 0;
 
     let somaFundoGarantidor = 0;
+    let totalPct = 0;
+    let totalVerbaBruta = 0;
+    let totalVerbaLiquida = 0;
     document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inputPct => {
         if (inputPct.dataset.fundoGarantidor) return; // linha do próprio Fundo Garantidor, preenchida no final
         const pctEtapa = parseFloat(inputPct.value) || 0;
@@ -369,6 +372,9 @@ function recalcularTabelaDistribuicaoAnalista() {
         const valorFundo = pctFundoGarantidor / 100 * verbaBruta;
         const verbaLiquida = verbaBruta - valorFundo;
         somaFundoGarantidor += valorFundo;
+        totalPct += pctEtapa;
+        totalVerbaBruta += verbaBruta;
+        totalVerbaLiquida += verbaLiquida;
 
         const linha = inputPct.closest('tr');
         if (linha) {
@@ -390,6 +396,20 @@ function recalcularTabelaDistribuicaoAnalista() {
         const celulaFundoTotal = linhaFundo ? linhaFundo.querySelector('.dca-verba-fundo') : null;
         if (celulaFundoTotal) celulaFundoTotal.innerText = formatarMoeda(somaFundoGarantidor);
     }
+
+    // Linha de totalização (pedido do usuário) — soma só as Etapas
+    // (Fundo Garantidor não é uma Etapa, não entra nessa soma; a
+    // "Parcela para o Fundo" total já é a mesma soma que aparece na
+    // própria linha do Fundo Garantidor, mostrada de novo aqui por
+    // completude da coluna).
+    const elTotalPct = document.getElementById('dca-total-pct');
+    const elTotalBruta = document.getElementById('dca-total-verba-bruta');
+    const elTotalFundo = document.getElementById('dca-total-verba-fundo');
+    const elTotalLiquida = document.getElementById('dca-total-verba-liquida');
+    if (elTotalPct) elTotalPct.innerText = totalPct.toFixed(2) + '%';
+    if (elTotalBruta) elTotalBruta.innerText = formatarMoeda(totalVerbaBruta);
+    if (elTotalFundo) elTotalFundo.innerText = formatarMoeda(somaFundoGarantidor);
+    if (elTotalLiquida) elTotalLiquida.innerText = formatarMoeda(totalVerbaLiquida);
 
     recalcularSomaPercentuaisAnalista();
 }
