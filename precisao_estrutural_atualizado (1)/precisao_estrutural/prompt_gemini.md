@@ -7271,3 +7271,30 @@ grande do `<input>` global e uma nota de texto que quebrava linha só
 na linha do Fundo Garantidor. Resolver só uma das duas não bastava;
 por isso a solução final usa altura fixa de linha (mais robusta a
 qualquer causa futura de descompasso) em vez de só ajustar paddings.
+
+## Retomada em 2026-08-17 (parte 9) — Borda só nos campos de %, igual ao input das Etapas
+
+Pedido do usuário: a borda dos campos não-editáveis (Fundo Garantidor
+e Totais) deve usar o MESMO tipo/tamanho de borda que o `<input>` de %
+das Etapas — e os campos de VALOR (Verba) desta aba não devem ter
+borda nenhuma (só os de %).
+
+**Mudanças:**
+- **`estilos.css`**: `.campo-somente-leitura-borda` ajustada de
+  `border-radius:4px` pra `3px`, igual ao raio que o `<input>` das
+  Etapas já usa (regra logo acima, adicionada na parte anterior).
+- **`index.html`**: removida a classe `campo-somente-leitura-borda`
+  de `#dca-total-verba` e `#dca-total-geral-verba` (ficam sem borda
+  agora — só os `#dca-total-pct`/`#dca-total-geral-pct` mantêm).
+- **`js/distribuicao-custos.js`**: `construirLinhaDistribuicaoAnalista()`
+  — removida a borda da Verba do Fundo Garantidor (`.dca-verba` volta
+  a ser só essa classe, sem a variante com borda); a % do Fundo
+  Garantidor (`#dca-pct-fundo-garantidor`) continua com borda.
+
+Testado no navegador (AP Praia, via `getComputedStyle()`): borda do
+`<input>` de % de uma Etapa = `1px solid rgb(203,213,225)` / raio 3px;
+mesma borda exata nos 3 campos de % (Fundo Garantidor, Total Etapas,
+Total Geral); os 3 campos de Verba correspondentes (Fundo Garantidor,
+Total Etapas, Total Geral) sem nenhuma borda. Alturas de linha
+continuam uniformes (28px em todas as 6 linhas do corpo da tabela).
+`node --check` limpo.

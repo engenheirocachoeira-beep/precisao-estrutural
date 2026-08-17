@@ -298,16 +298,11 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
         celulaPct = '<td><div class="campo-percentual" style="width:80px;"><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + nomeLinha + '" value="' + pctFormatado + '" oninput="recalcularTabelaDistribuicaoAnalista()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></td>';
     }
 
-    // Pedido do usuário: borda também na Verba do Fundo Garantidor (as
-    // demais Etapas continuam sem — só a coluna % delas é editável, a
-    // Verba nunca teve borda pedida).
-    const classeVerba = ehFundoGarantidor ? 'dca-verba campo-somente-leitura-borda' : 'dca-verba';
-
     const marcadorLinha = ehFundoGarantidor ? ' data-fundo-garantidor-linha="1"' : '';
     return '<tr' + estiloLinha + marcadorLinha + '>' +
         '<td>' + rotulo + '</td>' +
         celulaPct +
-        '<td class="' + classeVerba + '" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
+        '<td class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
         '<td style="color:#334155;">' + nomeParaExibicao(nomeAnalista) + '</td>' +
         '</tr>';
 }

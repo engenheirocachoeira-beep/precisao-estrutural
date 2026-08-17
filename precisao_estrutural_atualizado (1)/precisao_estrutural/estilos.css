@@ -324,13 +324,14 @@
         .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; }
         .campo-percentual .sufixo-pct { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #64748b; pointer-events: none; }
 
-        /* Pedido do usuário: borda visível também nos campos
-           não-editáveis do Fundo Garantidor e das linhas de Total,
-           pro valor parecer um "campo" como os demais, mesmo sem
-           poder ser digitado. */
+        /* Pedido do usuário: borda visível só nos campos de % (não nos
+           de Verba/valor) do Fundo Garantidor e das linhas de Total —
+           mesmo tipo/tamanho de borda que o <input> das Etapas usa
+           (1px solid #cbd5e1, 3px de raio — ver regra do input logo
+           acima), pra ficar visualmente igual. */
         #panel-distribuicao-custos .campo-somente-leitura-borda {
             border: 1px solid #cbd5e1;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         .paginacao { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px; font-size:12px; color:#475569; }
         .paginacao button { padding:6px 14px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer; font-size:12px; }
