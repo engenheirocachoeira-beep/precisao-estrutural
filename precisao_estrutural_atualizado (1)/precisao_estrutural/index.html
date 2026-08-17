@@ -446,26 +446,22 @@
                         <div id="dca-conteudo" style="display:none;">
                             <div class="tab-projeto-header">Projeto: <b id="dca-projeto-ref">—</b></div>
                             <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                                Parcela Global para Produção (calculada na aba Orçamento Global), a ser dividida entre as etapas — cada linha mostra a Verba bruta da etapa, a parcela que vai para o Fundo Garantidor, e a Verba Líquida resultante: <b id="dca-valor-analista-ref">R$ 0,00</b>
+                                Parcela Global para Produção (calculada na aba Orçamento Global), a ser dividida entre as etapas — o Fundo Garantidor (última linha) fica automaticamente com o que sobra dos 100%: <b id="dca-valor-analista-ref">R$ 0,00</b>
                             </div>
                             <div class="table-wrapper" style="max-height:400px;">
                                 <table class="tabela-compacta">
                                     <thead><tr>
                                         <th>Etapas</th>
-                                        <th style="width:80px;">%</th>
-                                        <th style="width:130px;">Verba</th>
-                                        <th style="width:130px;">Parcela para o Fundo</th>
-                                        <th style="width:130px;">Verba Líquida</th>
-                                        <th style="width:180px;">Responsável</th>
+                                        <th style="width:90px;">%</th>
+                                        <th style="width:150px;">Verba</th>
+                                        <th style="width:220px;">Responsável</th>
                                     </tr></thead>
                                     <tbody id="dca-tabela-body"></tbody>
                                     <tfoot>
                                         <tr style="background:#f0fdf4; font-weight:bold;">
-                                            <td>Total</td>
+                                            <td>Total (Etapas)</td>
                                             <td id="dca-total-pct" class="col-centralizada"></td>
-                                            <td id="dca-total-verba-bruta"></td>
-                                            <td id="dca-total-verba-fundo"></td>
-                                            <td id="dca-total-verba-liquida" style="color:#166534;"></td>
+                                            <td id="dca-total-verba" style="color:#166534;"></td>
                                             <td></td>
                                         </tr>
                                     </tfoot>

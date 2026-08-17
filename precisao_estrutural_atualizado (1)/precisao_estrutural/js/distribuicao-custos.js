@@ -197,16 +197,16 @@ function alternarAbaDistribuicao(aba) {
 // cadastro do projeto (campo "analista" de banco_projetos), já que é a
 // mesma pessoa em todas as etapas do mesmo projeto.
 //
-// Pedido do usuário (reforma de 2026-08-15): a Verba de cada Etapa
-// mostrada aqui já sai LÍQUIDA do Fundo Garantidor — antes essa linha só
-// mostrava pct×ParcelaGlobal bruto, e o desconto só aparecia na aba
-// "Verba para Detalhamento" (removida nesta mudança, ver
-// calcularVerbaPorEtapa()/calcularVerbaPorEtapaSalvo() logo abaixo, que
-// concentram essa fórmula — usada tanto aqui quanto em qualquer outro
-// módulo que precise da verba líquida de uma Etapa). Fundo Garantidor
-// deixou de ser uma linha concorrendo pelos mesmos 100% que as Etapas —
-// agora é um % GLOBAL descontado de CADA Etapa (as Etapas devem somar
-// 100% ENTRE SI; ver recalcularSomaPercentuaisAnalista()).
+// Fundo Garantidor (linha própria desta tabela) é uma fatia do MESMO
+// bolo de 100% que as Etapas — % dele é AUTOMÁTICO, calculado como
+// `100% − soma das % das Etapas` (não tem `<input>` próprio; ver
+// construirLinhaDistribuicaoAnalista()/recalcularTabelaDistribuicaoAnalista()
+// abaixo). Cada Etapa mostra sua Verba simples (%etapa × Parcela
+// Global) — não tem mais desconto nenhum aplicado em cima (histórico:
+// já existiram DUAS versões anteriores dessa regra nesta mesma sessão
+// — um desconto multiplicativo por Etapa, e antes disso a aba "Verba
+// para Detalhamento" separada — ambas substituídas por esta, mais
+// simples, a pedido do próprio usuário).
 let dcaValorAnalistaAtual = 0;
 
 function carregarAbaDistribuicaoAnalista() {
@@ -242,10 +242,8 @@ function carregarAbaDistribuicaoAnalista() {
     const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
     const salvoProjeto = salvos[nomeProjeto] || {};
     // Compatibilidade: dados salvos antes desta mudança guardavam as etapas
-    // direto na raiz do objeto do projeto, e o Fundo Garantidor se chamava
-    // "sobras".
+    // direto na raiz do objeto do projeto.
     const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
-    const salvoFundoGarantidor = salvoProjeto.fundo_garantidor || salvoProjeto.sobras || {};
 
     // Melhoria #14 (prompt_gemini.md §12): % sugerido por Etapa, vindo
     // do Cadastro de Etapas (catálogo) — usado como fallback SÓ quando a
@@ -261,82 +259,53 @@ function carregarAbaDistribuicaoAnalista() {
 
     if (etapas.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma etapa cadastrada neste projeto ainda. Monte a árvore primeiro.</td></tr>' +
-            // Pedido do usuário (prompt_gemini.md §14, item 3): Fundo
-            // Garantidor vem com valor default de 10%, editável — antes
-            // vinha em branco até alguém digitar algo.
-            construirLinhaDistribuicaoAnalista('Fundo Garantidor', salvoFundoGarantidor, true, nomeAnalista, '10');
+            construirLinhaDistribuicaoAnalista('Fundo Garantidor', {}, true, nomeAnalista);
         recalcularTabelaDistribuicaoAnalista();
         return;
     }
 
     tbody.innerHTML = etapas.map(etapa => construirLinhaDistribuicaoAnalista(etapa.nome, salvoEtapas[etapa.nome] || {}, false, nomeAnalista, buscarPctSugerido(etapa.nome))).join('') +
-        construirLinhaDistribuicaoAnalista('Fundo Garantidor', salvoFundoGarantidor, true, nomeAnalista, '10');
+        construirLinhaDistribuicaoAnalista('Fundo Garantidor', {}, true, nomeAnalista);
     recalcularTabelaDistribuicaoAnalista();
 }
 
+// Reforma de 2026-08-17 (parte 6 — o usuário reconsiderou a parte 1):
+// Fundo Garantidor voltou a ser uma fatia do MESMO bolo de 100% que as
+// Etapas (não mais um desconto multiplicativo aplicado em cima de cada
+// Etapa) — só que agora, em vez de ser digitado à mão, o % dele é
+// CALCULADO automaticamente: `100% − soma das % das Etapas`. Por isso
+// a linha do Fundo Garantidor não tem mais `<input>` de %, só um texto
+// (atualizado por recalcularTabelaDistribuicaoAnalista()) — e a coluna
+// "Verba" voltou a ser uma só (não tem mais desconto pra discretizar
+// em 3 colunas).
 function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGarantidor, nomeAnalista, pctSugerido) {
-    const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
-    const marcador = ehFundoGarantidor ? 'data-fundo-garantidor="1"' : 'data-etapa="' + nomeLinha + '"';
     const estiloLinha = ehFundoGarantidor ? ' style="background:#fffbeb;"' : '';
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(% descontado de CADA etapa abaixo — não conta na soma de 100%)</small>' : nomeLinha;
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(automático: 100% − soma das Etapas)</small>' : nomeLinha;
 
-    // Pedido do usuário (2026-08-17): discretizar em 3 colunas — Verba
-    // (bruta, antes do desconto), Parcela para o Fundo (o que foi
-    // descontado) e Verba Líquida (depois do desconto). Preenchidas por
-    // recalcularTabelaDistribuicaoAnalista() logo depois de inserir o
-    // HTML — precisa ver TODAS as linhas juntas (o % do Fundo Garantidor
-    // afeta a verba de toda Etapa), não dá pra calcular uma linha
-    // isolada aqui. Na própria linha do Fundo Garantidor, só a coluna
-    // "Parcela para o Fundo" faz sentido (mostra a SOMA descontada de
-    // todas as Etapas) — Verba/Verba Líquida ficam "—", conceito não
-    // se aplica a essa linha.
-    const celulasValoresFundoGarantidor = ehFundoGarantidor
-        ? '<td class="col-centralizada" style="color:#94a3b8;">—</td>' +
-          '<td class="dca-verba-fundo" style="font-weight:bold; color:#b45309;">' + formatarMoeda(0) + '</td>' +
-          '<td class="col-centralizada" style="color:#94a3b8;">—</td>'
-        : '<td class="dca-verba-bruta" style="color:#334155;">' + formatarMoeda(0) + '</td>' +
-          '<td class="dca-verba-fundo" style="color:#b45309;">' + formatarMoeda(0) + '</td>' +
-          '<td class="dca-verba-liquida" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>';
+    let celulaPct;
+    if (ehFundoGarantidor) {
+        celulaPct = '<td id="dca-pct-fundo-garantidor" class="col-centralizada" style="font-weight:bold;">0%</td>';
+    } else {
+        const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
+        celulaPct = '<td><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + nomeLinha + '" value="' + pct + '" style="width:80px;" oninput="recalcularTabelaDistribuicaoAnalista()"></td>';
+    }
 
-    return '<tr' + estiloLinha + '>' +
+    const marcadorLinha = ehFundoGarantidor ? ' data-fundo-garantidor-linha="1"' : '';
+    return '<tr' + estiloLinha + marcadorLinha + '>' +
         '<td>' + rotulo + '</td>' +
-        '<td><input type="number" step="0.01" class="dca-input-pct" ' + marcador + ' value="' + pct + '" style="width:80px;" oninput="recalcularTabelaDistribuicaoAnalista()"></td>' +
-        celulasValoresFundoGarantidor +
+        celulaPct +
+        '<td class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
         '<td style="color:#334155;">' + nomeParaExibicao(nomeAnalista) + '</td>' +
         '</tr>';
 }
 
-// Soma só as % das ETAPAS (Fundo Garantidor não entra mais nessa conta —
-// ele agora é um desconto global aplicado em CIMA de cada Etapa, não uma
-// fatia própria do mesmo bolo de 100%).
-function recalcularSomaPercentuaisAnalista() {
-    const alerta = document.getElementById('dca-alerta-soma');
-    if (!alerta) return;
-
-    let soma = 0;
-    document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inp => {
-        if (inp.dataset.fundoGarantidor) return;
-        soma += parseFloat(inp.value) || 0;
-    });
-
-    if (soma === 0) {
-        alerta.innerHTML = '';
-    } else if (Math.abs(soma - 100) < 0.01) {
-        alerta.style.background = '#f0fdf4'; alerta.style.color = '#166534';
-        alerta.innerHTML = '✅ Percentuais das Etapas somam 100%.';
-    } else {
-        alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
-        alerta.innerHTML = '⚠️ Percentuais das Etapas somam ' + soma.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
-    }
-}
-
-// Recalcula a Verba de TODAS as Etapas de uma vez — necessário porque
-// mudar o % do Fundo Garantidor (linha própria da tabela) afeta a verba
-// de TODA Etapa, não só da linha editada; e mudar o % de uma Etapa não
-// afeta as demais, mas é mais simples/robusto sempre recalcular tudo do
-// que rastrear qual caso é qual. Mesma fórmula de calcularVerbaPorEtapa()
-// (abaixo), só que lendo os %'s AO VIVO desta própria tabela (ainda não
-// salvos) em vez dos já salvos em banco_distribuicao_custos_analista.
+// Recalcula a Verba de TODAS as Etapas de uma vez, e o % automático do
+// Fundo Garantidor (= 100% − soma das % das Etapas) — necessário
+// porque mudar o % de UMA Etapa muda o % do Fundo Garantidor (afeta a
+// Verba dele) e o total da coluna, não só a própria linha editada.
+// Mesma fórmula de calcularVerbaPorEtapa() (abaixo), só que lendo os
+// %'s AO VIVO desta própria tabela (ainda não salvos) em vez dos já
+// salvos em banco_distribuicao_custos_analista.
 function recalcularTabelaDistribuicaoAnalista() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
@@ -348,70 +317,52 @@ function recalcularTabelaDistribuicaoAnalista() {
     const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
     const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
 
-    let inputFundoGarantidor = null;
-    document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inp => {
-        if (inp.dataset.fundoGarantidor) inputFundoGarantidor = inp;
-    });
-    const pctFundoGarantidor = inputFundoGarantidor ? (parseFloat(inputFundoGarantidor.value) || 0) : 0;
-
-    let somaFundoGarantidor = 0;
+    // Pedido do usuário (soma na base da coluna) — só das Etapas, o
+    // Fundo Garantidor não entra (ele É o que sobra dessa soma).
     let totalPct = 0;
-    let totalVerbaBruta = 0;
-    let totalVerbaLiquida = 0;
+    let totalVerba = 0;
     document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inputPct => {
-        if (inputPct.dataset.fundoGarantidor) return; // linha do próprio Fundo Garantidor, preenchida no final
         const pctEtapa = parseFloat(inputPct.value) || 0;
-
-        // Correção do usuário (2026-08-17): a Verba da linha "Detalhamento"
-        // aqui na Aba 2 é SEMPRE %etapa × Parcela Global, igual a
-        // qualquer outra Etapa — SEM somar coparticipação neste ponto.
-        // Coparticipação é um valor à parte (preview no item 4, aba 1),
-        // não entra na Verba da Etapa mostrada aqui.
-        const verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
-
-        const valorFundo = pctFundoGarantidor / 100 * verbaBruta;
-        const verbaLiquida = verbaBruta - valorFundo;
-        somaFundoGarantidor += valorFundo;
+        const verba = pctEtapa / 100 * valorAnalistaTotal;
         totalPct += pctEtapa;
-        totalVerbaBruta += verbaBruta;
-        totalVerbaLiquida += verbaLiquida;
+        totalVerba += verba;
 
         const linha = inputPct.closest('tr');
-        if (linha) {
-            const celulaBruta = linha.querySelector('.dca-verba-bruta');
-            const celulaFundo = linha.querySelector('.dca-verba-fundo');
-            const celulaLiquida = linha.querySelector('.dca-verba-liquida');
-            if (celulaBruta) celulaBruta.innerText = formatarMoeda(verbaBruta);
-            if (celulaFundo) celulaFundo.innerText = formatarMoeda(valorFundo);
-            if (celulaLiquida) celulaLiquida.innerText = formatarMoeda(verbaLiquida);
-        }
+        const celulaVerba = linha ? linha.querySelector('.dca-verba') : null;
+        if (celulaVerba) celulaVerba.innerText = formatarMoeda(verba);
     });
 
-    // Linha do Fundo Garantidor: só a coluna "Parcela para o Fundo" faz
-    // sentido (mostra a SOMA descontada de todas as Etapas) —
-    // Verba/Verba Líquida ficam "—" nessa linha (não é mais fatia
-    // própria do bolo).
-    if (inputFundoGarantidor) {
-        const linhaFundo = inputFundoGarantidor.closest('tr');
-        const celulaFundoTotal = linhaFundo ? linhaFundo.querySelector('.dca-verba-fundo') : null;
-        if (celulaFundoTotal) celulaFundoTotal.innerText = formatarMoeda(somaFundoGarantidor);
+    // Fundo Garantidor: % automático (100% − soma das Etapas) — pode
+    // ficar NEGATIVO se as Etapas sozinhas já passarem de 100%, o que
+    // é um alerta pro usuário corrigir, não um erro silencioso.
+    const pctFundoGarantidor = 100 - totalPct;
+    const verbaFundoGarantidor = pctFundoGarantidor / 100 * valorAnalistaTotal;
+    const linhaFundo = document.querySelector('#dca-tabela-body tr[data-fundo-garantidor-linha]');
+    if (linhaFundo) {
+        const celulaPctFundo = document.getElementById('dca-pct-fundo-garantidor');
+        const celulaVerbaFundo = linhaFundo.querySelector('.dca-verba');
+        if (celulaPctFundo) celulaPctFundo.innerText = pctFundoGarantidor.toFixed(2) + '%';
+        if (celulaVerbaFundo) celulaVerbaFundo.innerText = formatarMoeda(verbaFundoGarantidor);
     }
 
-    // Linha de totalização (pedido do usuário) — soma só as Etapas
-    // (Fundo Garantidor não é uma Etapa, não entra nessa soma; a
-    // "Parcela para o Fundo" total já é a mesma soma que aparece na
-    // própria linha do Fundo Garantidor, mostrada de novo aqui por
-    // completude da coluna).
+    // Linha de totalização (pedido do usuário) — só a soma das Etapas.
     const elTotalPct = document.getElementById('dca-total-pct');
-    const elTotalBruta = document.getElementById('dca-total-verba-bruta');
-    const elTotalFundo = document.getElementById('dca-total-verba-fundo');
-    const elTotalLiquida = document.getElementById('dca-total-verba-liquida');
+    const elTotalVerba = document.getElementById('dca-total-verba');
     if (elTotalPct) elTotalPct.innerText = totalPct.toFixed(2) + '%';
-    if (elTotalBruta) elTotalBruta.innerText = formatarMoeda(totalVerbaBruta);
-    if (elTotalFundo) elTotalFundo.innerText = formatarMoeda(somaFundoGarantidor);
-    if (elTotalLiquida) elTotalLiquida.innerText = formatarMoeda(totalVerbaLiquida);
+    if (elTotalVerba) elTotalVerba.innerText = formatarMoeda(totalVerba);
 
-    recalcularSomaPercentuaisAnalista();
+    const alerta = document.getElementById('dca-alerta-soma');
+    if (alerta) {
+        if (totalPct > 100.01) {
+            alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
+            alerta.innerHTML = '⚠️ As Etapas somam ' + totalPct.toFixed(2) + '% — mais que 100%. O Fundo Garantidor ficaria negativo (' + pctFundoGarantidor.toFixed(2) + '%); ajuste os percentuais das Etapas.';
+        } else if (totalPct === 0) {
+            alerta.innerHTML = '';
+        } else {
+            alerta.style.background = '#f0fdf4'; alerta.style.color = '#166534';
+            alerta.innerHTML = '✅ Etapas somam ' + totalPct.toFixed(2) + '% — Fundo Garantidor fica com ' + pctFundoGarantidor.toFixed(2) + '%.';
+        }
+    }
 }
 
 function salvarDistribuicaoAnalista() {
@@ -423,24 +374,17 @@ function salvarDistribuicaoAnalista() {
 
     const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
     const dadosEtapas = {};
-    let dadosFundoGarantidor = {};
 
-    document.querySelectorAll('#dca-tabela-body tr').forEach(linha => {
-        const inputPct = linha.querySelector('.dca-input-pct');
-        if (!inputPct) return; // linha de "nenhuma etapa cadastrada", sem inputs
-
-        const registro = { pct: inputPct.value };
-
-        if (inputPct.dataset.fundoGarantidor) {
-            dadosFundoGarantidor = registro;
-        } else {
-            dadosEtapas[inputPct.dataset.etapa] = registro;
-        }
+    // Só as Etapas têm `<input>` de % agora — a linha do Fundo
+    // Garantidor não tem mais (o % dela é automático, `100% − soma das
+    // Etapas`, recalculado sempre que precisa, nunca salvo à parte).
+    document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inputPct => {
+        dadosEtapas[inputPct.dataset.etapa] = { pct: inputPct.value };
     });
 
-    salvos[nomeProjeto] = { etapas: dadosEtapas, fundo_garantidor: dadosFundoGarantidor };
+    salvos[nomeProjeto] = { etapas: dadosEtapas };
     localStorage.setItem('banco_distribuicao_custos_analista', JSON.stringify(salvos));
-    alert('Distribuição por etapa (e Fundo Garantidor) salva para "' + nomeProjeto + '".');
+    alert('Distribuição por etapa salva para "' + nomeProjeto + '".');
 }
 
 // --- CÁLCULO COMPARTILHADO: FÓRMULA ESPECIAL DA ETAPA "DETALHAMENTO" ---
@@ -517,17 +461,12 @@ function distribuirVerbaRecursiva(no, verba) {
 // DOM da Aba 1/Aba 2 — usada quando essas abas estão abertas na tela;
 // calcularVerbaPorEtapaSalvo(), abaixo, é a mesma conta mas 100% a
 // partir do que já está salvo, pra outras telas). Verba de TODA Etapa
-// (Detalhamento incluída) é sempre %etapa × Parcela Global — correção
-// do usuário (2026-08-17): a Coparticipação de Escritório/Supervisor
-// (item 4, aba Orçamento Global) NÃO entra aqui, é um valor à parte
-// (só aparece como preview na própria Aba 1 — ver
-// recalcularDistribuicaoCustos()); `calcularVerbaDetalhamentoPuro()`
-// existe pra esse preview, não é mais chamada daqui. Reforma de
-// 2026-08-15: o desconto uniforme aplicado sobre a verba BRUTA de CADA
-// etapa deixou de ser "% Distribuição de Lucros" (aba "Verba para
-// Detalhamento", removida) e passou a ser o % do **Fundo Garantidor**,
-// já salvo como linha própria na Aba 2
-// (banco_distribuicao_custos_analista[projeto].fundo_garantidor.pct).
+// (Detalhamento incluída) é sempre %etapa × Parcela Global — SEM
+// desconto nenhum (Fundo Garantidor não desconta mais de cada Etapa,
+// voltou a ser uma fatia própria do mesmo bolo de 100% — ver
+// recalcularTabelaDistribuicaoAnalista(), acima) e SEM Coparticipação
+// de Escritório/Supervisor somada (isso é um valor à parte, só
+// preview na Aba 1 — ver recalcularDistribuicaoCustos()).
 function calcularVerbaPorEtapa(nomeProjeto) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
@@ -546,23 +485,15 @@ function calcularVerbaPorEtapa(nomeProjeto) {
     const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
     const salvoProjeto = salvos[nomeProjeto] || {};
     const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
-    const pctFundoGarantidor = parseFloat((salvoProjeto.fundo_garantidor || {}).pct) || 0;
 
     return etapas.map(etapa => {
         const dadosEtapa = salvoEtapas[etapa.nome];
         const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
         const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
 
-        // Correção do usuário (2026-08-17): Verba da Etapa aqui é SEMPRE
-        // %etapa × Parcela Global, igual pra Detalhamento e qualquer
-        // outra Etapa — SEM somar coparticipação neste ponto (isso é
-        // um valor à parte, ver item 4 na aba Orçamento Global).
-        const verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
+        const verba = pctEtapa / 100 * valorAnalistaTotal;
 
-        const valorFundoGarantidor = pctFundoGarantidor / 100 * verbaBruta;
-        const verbaLiquida = verbaBruta - valorFundoGarantidor;
-
-        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta, pctFundoGarantidor, valorFundoGarantidor, verbaLiquida };
+        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta: verba, verbaLiquida: verba };
     });
 }
 
@@ -605,23 +536,19 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
     const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
     const salvoProjeto = salvos[nomeProjeto] || {};
     const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
-    const pctFundoGarantidor = parseFloat((salvoProjeto.fundo_garantidor || {}).pct) || 0;
 
     return etapas.map(etapa => {
         const dadosEtapa = salvoEtapas[etapa.nome];
         const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
         const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
 
-        // Correção do usuário (2026-08-17): Verba da Etapa aqui é SEMPRE
-        // %etapa × Parcela Global, igual pra Detalhamento e qualquer
-        // outra Etapa — SEM somar coparticipação neste ponto (isso é
-        // um valor à parte, ver item 4 na aba Orçamento Global).
-        const verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
+        // Verba da Etapa é SEMPRE %etapa × Parcela Global — sem desconto
+        // de Fundo Garantidor (voltou a ser fatia própria do mesmo
+        // bolo, não desconta mais de cada Etapa) nem Coparticipação
+        // (valor à parte, só preview na Aba 1).
+        const verba = pctEtapa / 100 * valorAnalistaTotal;
 
-        const valorFundoGarantidor = pctFundoGarantidor / 100 * verbaBruta;
-        const verbaLiquida = verbaBruta - valorFundoGarantidor;
-
-        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta, pctFundoGarantidor, valorFundoGarantidor, verbaLiquida };
+        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta: verba, verbaLiquida: verba };
     });
 }
 

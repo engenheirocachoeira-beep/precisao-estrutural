@@ -7113,3 +7113,56 @@ Testado no navegador (AP Praia, 5 Etapas): Total % = 85,00% (soma
 Global), Total Parcela para o Fundo = R$ 10.852,76 (bate com a linha
 do Fundo Garantidor), Total Verba Líquida = R$ 61.498,97 (diferença
 das duas). `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 6) — Fundo Garantidor volta a ser fatia do bolo (reversão)
+
+O usuário reconsiderou a decisão #1 da reforma original (parte 2,
+acima — "Fundo Garantidor: desconto global sobre cada etapa"),
+chamando explicitamente de "falha minha": **Fundo Garantidor volta a
+ser uma fatia do MESMO bolo de 100% que as Etapas** (como era ANTES
+de toda essa rodada de mudanças), só que agora o % dele não é mais
+digitado à mão — é **automático**: `100% − soma das % das Etapas`.
+Consequência direta: a discretização em 3 colunas da parte 4/5
+(Verba/Parcela para o Fundo/Verba Líquida) deixou de fazer sentido —
+não existe mais desconto nenhum aplicado em cima da Verba de cada
+Etapa, então voltou a ser 1 coluna só. Pedido complementar: a linha
+de totalização (parte 5) soma só as Etapas, não o Fundo Garantidor.
+
+**Mudanças:**
+- **`index.html`**: tabela da Aba 2 voltou a 4 colunas (Etapas / % /
+  Verba / Responsável — igual à ORIGINAL, antes de toda a parte 4).
+  `<tfoot>` simplificado: só "Total (Etapas)" com % e Verba.
+- **`js/distribuicao-custos.js`**:
+  - `construirLinhaDistribuicaoAnalista()`: a linha do Fundo
+    Garantidor não tem mais `<input>` de % — vira um `<span
+    id="dca-pct-fundo-garantidor">` só-leitura, preenchido pelo
+    recalc. Etapas continuam com `<input>` normal.
+  - `recalcularTabelaDistribuicaoAnalista()`: reescrita — soma as %
+    das Etapas ao vivo, `pctFundoGarantidor = 100 − totalPct` (pode
+    ficar NEGATIVO se as Etapas passarem de 100% sozinhas — tratado
+    como alerta visível, não erro silencioso), Verba de cada Etapa
+    volta a ser simples (`%etapa × Parcela Global`, sem desconto).
+    Alerta muda de "não fecha 100%" pra sempre informativo (mostra o
+    % que sobrou pro Fundo) exceto quando Etapas > 100%.
+  - `calcularVerbaPorEtapa()`/`calcularVerbaPorEtapaSalvo()`: removido
+    o desconto de Fundo Garantidor por completo — `verbaBruta` e
+    `verbaLiquida` agora são sempre o MESMO valor (campo duplicado
+    mantido só por compatibilidade com quem lê `.verbaLiquida`,
+    principalmente a cascata da Aba 4/Detalhamento).
+  - `salvarDistribuicaoAnalista()`: só salva as Etapas agora — não
+    tem mais `<input>` de Fundo Garantidor pra ler, e o % dele nunca
+    precisa ser persistido (sempre recalculado a partir das Etapas
+    salvas, em qualquer lugar que precise).
+
+Testado no navegador (AP Praia): Etapas somam 85% → Fundo Garantidor
+automático mostra 15,00% / R$ 12.767,95 de Verba; alerta verde "✅
+Etapas somam 85,00% — Fundo Garantidor fica com 15,00%."; Total
+(Etapas) = 85,00% / R$ 72.351,73. Testado também o caso de alerta:
+forçando Etapas pra somar 140,5% → Fundo Garantidor mostra -40,50% e
+alerta amarelo pedindo pra ajustar. `node --check` limpo.
+
+**Nota**: o storage `banco_distribuicao_custos_analista[projeto].fundo_garantidor`
+(usado nas reformas anteriores desta sessão) fica órfão pra projetos
+que já tinham algo salvo ali — inofensivo, simplesmente não é mais
+lido em lugar nenhum (o % agora é sempre recalculado a partir das
+Etapas).
