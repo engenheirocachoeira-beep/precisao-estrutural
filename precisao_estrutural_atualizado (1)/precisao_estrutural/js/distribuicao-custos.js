@@ -950,8 +950,9 @@ function podeAtribuirExecutorDistribuicaoCustos() {
 
 // Pedido do usuário: Pavimentos lado a lado (2 ou 3, conforme a
 // largura da tela — ver .vt-grid no CSS) em vez de uma tabela única
-// empilhada, cada um em seu próprio "cartão", com submenu de Tarefas
-// RECOLHIDO por padrão (ver vtGruposRecolhidos abaixo).
+// empilhada, cada um em seu próprio "cartão" (borda + sombra, como um
+// cartão do Kanban), com as Tarefas EXPANDIDAS por padrão (ver
+// vtGruposRecolhidos abaixo).
 function carregarAbaVerbaPorTarefa() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     document.getElementById('vt-projeto-ref').innerText = nomeProjeto;
@@ -971,10 +972,11 @@ function carregarAbaVerbaPorTarefa() {
         // Melhoria #6 (prompt_gemini.md §12): cabeçalho de grupo próprio
         // — permite recolher/expandir, mesmo padrão visual (▼/►) já
         // usado na Árvore, com estado próprio desta aba
-        // (vtGruposRecolhidos). Reforma de 2026-08-17: RECOLHIDO é
-        // agora o padrão (valor `undefined`, nunca tocado, conta como
-        // recolhido) — só um clique explícito guarda `false` (expandido).
-        const recolhido = vtGruposRecolhidos[pav.caminho] !== false;
+        // (vtGruposRecolhidos). Reforma de 2026-08-17 (parte 12 — o
+        // usuário reconsiderou a parte 11): EXPANDIDO volta a ser o
+        // padrão (valor `undefined`, nunca tocado, conta como
+        // expandido) — só um clique explícito guarda `true` (recolhido).
+        const recolhido = vtGruposRecolhidos[pav.caminho] === true;
         const seta = recolhido ? '►' : '▼';
         const estiloOcultoSeRecolhido = recolhido ? ' style="display:none;"' : '';
 
@@ -1025,14 +1027,15 @@ function carregarAbaVerbaPorTarefa() {
 }
 
 // Estado de recolhimento por grupo (Pavimento) desta aba — em memória,
-// reseta ao trocar de projeto/aba (não precisa persistir). Convenção:
-// `undefined` (nunca clicado) = RECOLHIDO (padrão, pedido do
-// usuário); só um `false` explícito (usuário clicou pra abrir) conta
-// como expandido — ver `recolhido` em carregarAbaVerbaPorTarefa().
+// reseta ao trocar de projeto/aba (não precisa persistir). Convenção
+// (parte 12 — usuário reconsiderou a parte 11): `undefined` (nunca
+// clicado) = EXPANDIDO (padrão); só um `true` explícito (usuário
+// clicou pra fechar) conta como recolhido — ver `recolhido` em
+// carregarAbaVerbaPorTarefa().
 let vtGruposRecolhidos = {};
 
 function alternarGrupoVerbaPorTarefa(caminhoGrupo) {
-    const estaRecolhido = vtGruposRecolhidos[caminhoGrupo] !== false;
+    const estaRecolhido = vtGruposRecolhidos[caminhoGrupo] === true;
     vtGruposRecolhidos[caminhoGrupo] = estaRecolhido ? false : true;
     carregarAbaVerbaPorTarefa();
 }

@@ -7403,3 +7403,33 @@ a leitura por um tempo; um recarregamento limpo da página confirmou
 que o comportamento padrão real (o que o usuário realmente vê ao abrir
 a aba) sempre foi o correto — não houve bug no código, só ruído do
 processo de teste manual.
+
+## Retomada em 2026-08-17 (parte 12) — Reconsideração: Tarefas expandidas por padrão + cartões com cara de Kanban
+
+Pedido do usuário, depois de ver a parte 11 funcionando: gostou da
+grade de 3 colunas, mas não quer mais as Tarefas recolhidas por
+padrão — prefere já aparecerem abertas. Pediu também bordas nos
+cartões de Pavimento "como se fossem cartões do Kanban", pra melhorar
+a leitura visual.
+
+**Mudanças (`js/distribuicao-custos.js`):**
+- `carregarAbaVerbaPorTarefa()`: convenção de `vtGruposRecolhidos`
+  invertida de novo — agora `undefined` (nunca clicado) = EXPANDIDO
+  (padrão); só um `true` explícito (clique pra fechar) conta como
+  recolhido.
+- `alternarGrupoVerbaPorTarefa()`: ajustada pra alternar corretamente
+  nessa convenção (espelho exato da parte 11, só invertida).
+
+**Mudanças (`estilos.css`):**
+- `.vt-card`: raio de borda ajustado de 8px pra 6px e adicionado
+  `box-shadow: 0 1px 3px rgba(0,0,0,0.08)` — mesmos valores exatos de
+  `.kb-cartao` (cartão de tarefa do Kanban), pra ficar visualmente
+  igual, como pedido.
+
+Testado no navegador (AP Praia, recarregando do zero): os 21
+Pavimentos carregam todos expandidos (▼) por padrão, mostrando a
+mini-tabela de Tarefas de cada um direto; cartões com borda + sombra
+suave idêntica à do Kanban (`border: 1px solid #e2e8f0`, `box-shadow:
+0 1px 3px rgba(0,0,0,0.08)`, `border-radius: 6px`, confirmado via
+`getComputedStyle()`). Grade de 3 colunas mantida. `node --check`
+limpo.
