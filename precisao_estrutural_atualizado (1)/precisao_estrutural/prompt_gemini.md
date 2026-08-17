@@ -7497,3 +7497,77 @@ Fundo de Lucros mostrando "R$ 1.489,59" ao lado de "5,00 %", com a
 mesma borda do campo de %; Peso de Esforço confirmado `text-align:
 center` no input; Área Equivalente e Valor da Verba confirmados
 `text-align: right` nas células. `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 14) — Passada geral de formatação: 2 casas em área, alinhamentos por tipo de dado
+
+Pedido do usuário, cobrindo as 5 abas da Distribuição de Custos:
+áreas sempre com 2 casas decimais; porcentagens centralizadas (valor
+E cabeçalho da coluna); valores monetários alinhados pelo final
+(valor E cabeçalho); "Pontos" centralizado (valor E cabeçalho); e, na
+Aba "Verba Global para Produção", a caixa com borda dos campos de %
+do mesmo tamanho da caixa do campo % editável.
+
+**Descoberta ao implementar o último item**: só aplicar `width` na
+célula (`<td>`) não bastava — sob `table-layout:fixed` (ativado na
+parte 13) a largura de uma célula do corpo é travada pela largura da
+COLUNA inteira (declarada no `<th>`), então um `width` menor num `<td>`
+específico é ignorado. Precisou mover a borda pra um `<span>` INTERNO
+ao `<td>` (mesma ideia do `.campo-percentual` que já envolve o
+`<input>`) — só um elemento dentro da célula, não a própria célula,
+consegue ter uma largura menor que a coluna.
+
+**Mudanças (`estilos.css`):**
+- `.campo-percentual input`: `text-align: center` — centraliza TODOS
+  os campos de % editáveis do sistema de uma vez (Aba 1, Aba 2, Aba 4).
+- `#conteudo-distribuicao-analista .campo-somente-leitura-borda`:
+  agora é `display:inline-block` com `width:80px` — mesma largura da
+  caixa do `<input>` editável (`.campo-percentual`, também 80px).
+- `.dca-verba, #dca-total-verba, #dca-total-geral-verba`:
+  `text-align: right`.
+- `.vt-valor, .vt-subtotal`: `text-align: right`.
+- `.vt-input-pontos`: `text-align: center` (reforço direto no input,
+  não só na célula — mais confiável entre navegadores).
+- `#conteudo-orcamento-global input[readonly]`: `text-align: right` —
+  cobre de uma vez os 7 campos de R$ só-leitura da Aba 1 (Valor do
+  Contrato, Valor Líquido, as 3 Parcelas, os 2 Valores de
+  Coparticipação).
+
+**Mudanças (`index.html`):**
+- Cabeçalhos: "%" (Aba 2) → centro; "Verba" (Aba 2), "Verba" (Setores,
+  Aba 4), "Valor da Verba" (Pavimento, Aba 4) → direita; "% da Verba"
+  (Pavimento, Aba 4) → centro.
+- `#vp-total-verba` (rodapé "Total" da Aba 4) → `text-align:right`.
+- `#dca-total-pct`/`#dca-total-geral-pct`: id movido do `<td>` pro
+  `<span class="campo-somente-leitura-borda">` interno (ver descoberta
+  acima).
+
+**Mudanças (`js/distribuicao-custos.js`):**
+- Nova `formatarCampoDecimal2(el)` — mesmo padrão de
+  `formatarCampoPercentual()`, sem o "%", usada no `onblur` dos campos
+  de Área (Setores e Pavimento).
+- Campos de Área (`area_fisica`, Setores e Pavimento): valor inicial
+  formatado com `.toFixed(2)` + `onblur="formatarCampoDecimal2(this)"`.
+- `areaEquivalente` (Setores, Pavimento) e `#vp-area-total-equivalente`:
+  `toLocaleString` ganhou `minimumFractionDigits:2` (antes só
+  `maximumFractionDigits:2`, que não força as 2 casas quando o número
+  é inteiro).
+- `pctVerba` (célula da Pavimento, Aba 4): `text-align:center`.
+- `s.valorVerba` (célula da Setores, Aba 4): `text-align:right`.
+- `dca-pct-fundo-garantidor` e as 2 células de % de coparticipação:
+  id/classe de borda movidos pro `<span>` interno (mesma correção da
+  descoberta acima).
+- Cabeçalho "Valor" (Aba 5, cartões de Pavimento): `text-align:right`.
+
+Testado no navegador (AP Praia) em todas as 5 abas via
+`getComputedStyle()`: Aba 1 — 5 campos R$ confirmados `right`, 2
+campos % confirmados `center`. Aba 2 — cabeçalho "%" `center`,
+"Verba" `right`; input de % `center`; célula de Verba `right`; caixa
+do Fundo Garantidor/Total/Total Geral/Coparticipação todas com
+exatos 80,0px de largura (batendo com o input editável); alturas de
+linha seguem uniformes em 28px. Aba 4 — Área Total Equivalente
+"14.011,00" (2 casas mesmo sendo número redondo); input de Área
+"987.00"; Peso de Esforço `center`; Área Equivalente "1.974,00`
+`right`; % da Verba `center`; Valor da Verba `right`; cabeçalhos "%
+da Verba" `center` e "Valor da Verba"/"Verba" (Setores) `right`. Aba
+5 — cabeçalho "Pontos" `center` e input `center`; cabeçalho "Valor"
+`right`; célula de Valor e Subtotal `right`. `node --check` limpo.

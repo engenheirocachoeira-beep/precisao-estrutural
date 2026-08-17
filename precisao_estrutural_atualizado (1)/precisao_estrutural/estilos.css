@@ -371,17 +371,57 @@
            em si continua um número puro (formatado com 2 casas via
            formatarCampoPercentual()), o "%" é só decoração ao lado. */
         .campo-percentual { position: relative; display: inline-block; width: 100%; }
-        .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; }
+        .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; text-align: center; }
         .campo-percentual .sufixo-pct { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #64748b; pointer-events: none; }
 
         /* Pedido do usuário: borda visível só nos campos de % (não nos
            de Verba/valor) do Fundo Garantidor e das linhas de Total —
            mesmo tipo/tamanho de borda que o <input> das Etapas usa
            (1px solid #cbd5e1, 3px de raio — ver regra do input logo
-           acima), pra ficar visualmente igual. */
+           acima), pra ficar visualmente igual. É um <span> (não mais
+           borda direto no <td>) porque sob table-layout:fixed a
+           largura do <td> é travada pela largura da COLUNA — só um
+           elemento INTERNO ao <td> consegue ter uma largura própria
+           menor que a coluna. */
         #panel-distribuicao-custos .campo-somente-leitura-borda {
+            display: inline-block;
             border: 1px solid #cbd5e1;
             border-radius: 3px;
+        }
+        /* Pedido do usuário: caixa dos campos % só-leitura (Fundo
+           Garantidor/Totais/Coparticipação) do mesmo tamanho da caixa
+           do campo % editável das Etapas (.campo-percentual, 80px) —
+           mesma largura "de campo de %" em toda a aba. */
+        #conteudo-distribuicao-analista .campo-somente-leitura-borda {
+            width: 80px;
+            box-sizing: border-box;
+            padding: 2px 6px;
+        }
+
+        /* Pedido do usuário: valores monetários alinhados pelo final
+           (à direita) — Verba (Aba "Verba Global para Produção") e
+           Valor/Subtotal (Aba "Verba por Tarefa", cartões de
+           Pavimento). */
+        .dca-verba, #dca-total-verba, #dca-total-geral-verba {
+            text-align: right;
+        }
+        .vt-valor, .vt-subtotal {
+            text-align: right;
+        }
+        /* Pedido do usuário: coluna "Pontos" centralizada — o <input>
+           precisa do text-align direto nele, não basta o
+           .col-centralizada da célula (que só centraliza o próprio
+           elemento, não garante o texto DENTRO do campo em todo
+           navegador). */
+        .vt-input-pontos {
+            text-align: center;
+        }
+        /* Pedido do usuário: valores monetários alinhados pelo final —
+           todos os campos só-leitura da Aba "Orçamento Global" mostram
+           R$ (Valor do Contrato, Valor Líquido, Parcelas, Valores de
+           Coparticipação), nenhum outro tipo de dado. */
+        #conteudo-orcamento-global input[readonly] {
+            text-align: right;
         }
         .paginacao { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px; font-size:12px; color:#475569; }
         .paginacao button { padding:6px 14px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer; font-size:12px; }

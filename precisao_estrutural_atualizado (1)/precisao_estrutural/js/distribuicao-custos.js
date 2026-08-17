@@ -286,7 +286,7 @@ function construirLinhasCoparticipacaoDetalhamento() {
     const linha = (idBase, rotulo) =>
         '<tr style="background:#f8fafc;">' +
         '<td style="padding-left:22px; color:#64748b;">↳ ' + rotulo + '</td>' +
-        '<td id="' + idBase + '-pct" class="col-centralizada campo-somente-leitura-borda">0.00%</td>' +
+        '<td class="col-centralizada"><span id="' + idBase + '-pct" class="campo-somente-leitura-borda">0.00%</span></td>' +
         '<td id="' + idBase + '-verba" class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
         '<td></td>' +
         '</tr>';
@@ -322,7 +322,13 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
 
     let celulaPct;
     if (ehFundoGarantidor) {
-        celulaPct = '<td id="dca-pct-fundo-garantidor" class="col-centralizada campo-somente-leitura-borda" style="font-weight:bold;">0.00%</td>';
+        // Pedido do usuário: caixa com borda do MESMO tamanho da caixa
+        // do campo % editável (.campo-percentual, 80px) — precisa ser
+        // um <span> interno, não a borda direto no <td>: sob
+        // table-layout:fixed a largura do <td> é travada pela largura
+        // da COLUNA (declarada no <th>), um `width` direto no <td> não
+        // tem efeito nenhum.
+        celulaPct = '<td class="col-centralizada"><span id="dca-pct-fundo-garantidor" class="campo-somente-leitura-borda" style="font-weight:bold;">0.00%</span></td>';
     } else {
         const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
         const pctFormatado = pct === '' ? '' : (parseFloat(pct) || 0).toFixed(2);
@@ -822,7 +828,7 @@ function renderizarTabelasVerbaPavimento() {
     const pctFundoLucrosAoVivo = inputFundoLucros ? (parseFloat(inputFundoLucros.value) || 0) : undefined;
     const { pavimentos, areaTotalEquivalente, verbaLiquida, verbasPorEtapa, valorFundoLucrosTotal } = calcularListaPavimentosComVerba(nomeProjeto, pctFundoLucrosAoVivo);
 
-    document.getElementById('vp-area-total-equivalente').innerText = areaTotalEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+    document.getElementById('vp-area-total-equivalente').innerText = areaTotalEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     document.getElementById('vp-verba-liquida-ref').innerText = formatarMoeda(verbaLiquida);
     // Pedido do usuário: valor em R$ do Fundo de Lucros ao lado do %.
     const elValorFundoLucros = document.getElementById('vp-valor-fundo-lucros');
@@ -844,11 +850,11 @@ function renderizarTabelasVerbaPavimento() {
             return '<tr>' +
                 '<td>' + s.nome + '</td>' +
                 '<td style="color:#64748b; font-size:11px;">' + s.nomePai + '</td>' +
-                '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.area + '" data-caminho="' + s.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaSetor(this)" style="width:80px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
+                '<td class="col-centralizada"><input type="number" step="0.01" value="' + (parseFloat(s.area) || 0).toFixed(2) + '" data-caminho="' + s.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaSetor(this)" onblur="formatarCampoDecimal2(this)" style="width:80px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
                 '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.peso + '" data-caminho="' + s.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaSetor(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-                '<td class="col-centralizada">' + s.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
+                '<td class="col-centralizada">' + s.areaEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
                 '<td class="col-centralizada">' + s.pctVerba.toFixed(2) + '%</td>' +
-                '<td style="font-weight:bold; color:#166534;">' + formatarMoeda(s.valorVerba) + '</td>' +
+                '<td style="font-weight:bold; color:#166534; text-align:right;">' + formatarMoeda(s.valorVerba) + '</td>' +
                 '</tr>';
         }).join('');
     }
@@ -866,10 +872,10 @@ function renderizarTabelasVerbaPavimento() {
     tbody.innerHTML = pavimentos.map(p => {
         return '<tr>' +
             '<td>' + p.nome + '</td>' +
-            '<td><input type="number" step="0.01" value="' + p.area + '" data-caminho="' + p.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaPavimento(this)" style="width:90px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
+            '<td><input type="number" step="0.01" value="' + (parseFloat(p.area) || 0).toFixed(2) + '" data-caminho="' + p.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaPavimento(this)" onblur="formatarCampoDecimal2(this)" style="width:90px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
             '<td><input type="number" step="0.01" value="' + p.peso + '" data-caminho="' + p.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaPavimento(this)" style="width:70px; text-align:center;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-            '<td style="text-align:right;">' + p.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
-            '<td>' + p.pctVerba.toFixed(2) + '%</td>' +
+            '<td style="text-align:right;">' + p.areaEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+            '<td style="text-align:center;">' + p.pctVerba.toFixed(2) + '%</td>' +
             '<td style="font-weight:bold; color:#166534; text-align:right;">' + formatarMoeda(p.valorVerba) + '</td>' +
             '</tr>';
     }).join('');
@@ -1014,7 +1020,7 @@ function carregarAbaVerbaPorTarefa() {
         return '<div class="vt-card">' +
             '<div class="vt-card-header" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</div>' +
             '<div class="table-wrapper"><table class="tabela-compacta"><thead><tr>' +
-                '<th>Tarefa</th><th style="width:120px;">Executor</th><th class="col-centralizada" style="width:55px;">H.Máx</th><th class="col-centralizada" style="width:55px;">Pontos</th><th style="width:100px;">Valor</th>' +
+                '<th>Tarefa</th><th style="width:120px;">Executor</th><th class="col-centralizada" style="width:55px;">H.Máx</th><th class="col-centralizada" style="width:55px;">Pontos</th><th style="width:100px; text-align:right;">Valor</th>' +
             '</tr></thead><tbody>' +
                 linhasTarefas +
                 '<tr style="background:#f8fafc;" data-subtotal-grupo="' + pav.caminho + '">' +
@@ -1179,6 +1185,13 @@ function formatarMoeda(valor) {
 // class="sufixo-pct"> ao lado — ver .campo-percentual no CSS; o valor
 // do <input> continua puro, parseFloat funciona igual).
 function formatarCampoPercentual(el) {
+    el.value = (parseFloat(el.value) || 0).toFixed(2);
+}
+
+// Pedido do usuário: dados de área (Área, Área Equivalente) sempre com
+// 2 casas decimais — mesmo padrão de formatarCampoPercentual() acima,
+// só sem o "%".
+function formatarCampoDecimal2(el) {
     el.value = (parseFloat(el.value) || 0).toFixed(2);
 }
 
