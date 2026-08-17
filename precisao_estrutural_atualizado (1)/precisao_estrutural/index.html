@@ -382,7 +382,7 @@
                     <div id="dc-conteudo-principal" style="display:none; flex: 1; overflow-y: auto;">
                     <div class="tab-bar">
                         <div id="aba-orcamento-global" class="tab-selector active" onclick="alternarAbaDistribuicao('orcamento-global')">Orçamento Global</div>
-                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Parcela Global para Produção</div>
+                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Verba Global para Produção</div>
                         <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
                         <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
                         <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
@@ -414,7 +414,7 @@
                                     <div class="form-group col-4"><label>% Supervisor:</label><div class="campo-percentual"><input type="number" id="dc-pct-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
                                     <div class="form-group col-4"><label>% Escritório:</label><div class="campo-percentual"><input type="number" id="dc-pct-escritorio" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
 
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Parcela Global para Produção:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Verba Global para Produção:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                                     <div class="form-group col-4" style="margin-top:10px;"><label>Parcela para Supervisão:</label><input type="text" id="dc-valor-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                                     <div class="form-group col-4" style="margin-top:10px;"><label>Parcela para Escritório:</label><input type="text" id="dc-valor-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                                 </div>
@@ -446,12 +446,12 @@
                         <div id="dca-conteudo" style="display:none;">
                             <div class="tab-projeto-header">Projeto: <b id="dca-projeto-ref">—</b></div>
                             <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                                Parcela Global para Produção (calculada na aba Orçamento Global), a ser dividida entre as etapas — o Fundo Garantidor (última linha) fica automaticamente com o que sobra dos 100%: <b id="dca-valor-analista-ref">R$ 0,00</b>
+                                Verba Global para Produção (calculada na aba Orçamento Global), a ser dividida entre as etapas — o Fundo Garantidor (última linha) fica automaticamente com o que sobra dos 100%: <b id="dca-valor-analista-ref">R$ 0,00</b>
                             </div>
                             <div class="table-wrapper" style="max-height:400px;">
                                 <table class="tabela-compacta">
                                     <thead><tr>
-                                        <th>Etapas</th>
+                                        <th style="width:220px;">Etapas</th>
                                         <th style="width:90px;">%</th>
                                         <th style="width:150px;">Verba</th>
                                         <th style="width:220px;">Responsável</th>
@@ -488,6 +488,7 @@
                         <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; font-size:13px;">
                             <label>% Fundo Distribuição de Lucros <small style="color:#94a3b8;">(descontado da verba da Etapa "Detalhamento" antes de cascatear pelos Pavimentos)</small>:</label>
                             <div class="campo-percentual" style="width:100px;"><input type="number" step="0.01" id="vp-pct-fundo-lucros" oninput="renderizarTabelasVerbaPavimento()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div>
+                            <input type="text" id="vp-valor-fundo-lucros" readonly style="width:140px; background:#f0fdf4; font-weight:bold; color:#166534; text-align:right;">
                             <button class="btn-success" style="margin-left:auto;" onclick="salvarFundoLucrosPavimento()">Salvar % Fundo Distribuição de Lucros</button>
                         </div>
                         <div id="vp-setores-wrapper" style="display:none; margin-bottom:18px;">
@@ -510,7 +511,7 @@
                         <div class="table-wrapper" style="max-height:400px;">
                             <table>
                                 <thead><tr>
-                                    <th>Pavimento</th>
+                                    <th style="width:130px;">Pavimento</th>
                                     <th style="width:110px;">Área</th>
                                     <th style="width:120px;">Peso de Esforço</th>
                                     <th style="width:140px;">Área Equivalente</th>

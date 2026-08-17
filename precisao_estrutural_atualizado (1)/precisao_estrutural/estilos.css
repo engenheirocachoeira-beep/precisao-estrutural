@@ -317,6 +317,25 @@
             vertical-align: middle;
         }
 
+        /* Pedido do usuário: coluna "Etapas" mais estreita, mantendo a
+           largura das demais em pixels absolutos. Duas correções
+           precisam andar juntas: (1) table-layout:auto (padrão)
+           ignora a largura declarada no <th> e distribui o espaço
+           sobrando pra essa coluna — table-layout:fixed faz a largura
+           declarada valer; (2) mas a regra geral `table { width:100%
+           }` faz o fixed-layout tratar as larguras declaradas como
+           PROPORÇÃO (não pixel absoluto), esticando tudo
+           proporcionalmente pra preencher o container — inclusive as
+           colunas que deveriam ficar do mesmo tamanho. `width:auto`
+           aqui faz a tabela ficar exatamente do tamanho da soma das
+           colunas declaradas, sem esticar. Mesma lógica pra
+           "Pavimento" na Aba "Verba por Pavimento" logo abaixo. */
+        #conteudo-distribuicao-analista table.tabela-compacta,
+        #conteudo-verba-pavimento > .table-wrapper > table {
+            table-layout: fixed;
+            width: auto;
+        }
+
         /* Pedido do usuário: Aba "Verba por Tarefa" — Pavimentos lado a
            lado (2 ou 3, conforme a largura disponível) em vez de uma
            tabela única empilhada. auto-fit com minmax redistribui o

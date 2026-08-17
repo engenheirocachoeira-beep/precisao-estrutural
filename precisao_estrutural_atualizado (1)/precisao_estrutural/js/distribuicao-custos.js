@@ -780,7 +780,12 @@ function calcularListaPavimentosComVerba(nomeProjeto, pctFundoLucrosOverride) {
     const pavimentos = listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride);
     const verbaLiquida = pavimentos.reduce((soma, p) => soma + p.valorVerba, 0);
     const areaTotalEquivalente = pavimentos.reduce((soma, p) => soma + p.areaEquivalente, 0);
-    return { pavimentos: pavimentos, areaTotalEquivalente: areaTotalEquivalente, verbaLiquida: verbaLiquida, verbasPorEtapa: verbasPorEtapa };
+    // Pedido do usuário: mostrar o valor em R$ do Fundo de Lucros ao
+    // lado do % — soma das fatias por Pavimento (`p.valorFundoLucros`,
+    // já calculadas em listarPavimentosDoProjeto) dá o total sem
+    // precisar recalcular nada.
+    const valorFundoLucrosTotal = pavimentos.reduce((soma, p) => soma + p.valorFundoLucros, 0);
+    return { pavimentos: pavimentos, areaTotalEquivalente: areaTotalEquivalente, verbaLiquida: verbaLiquida, verbasPorEtapa: verbasPorEtapa, valorFundoLucrosTotal: valorFundoLucrosTotal };
 }
 
 
@@ -815,10 +820,13 @@ function renderizarTabelasVerbaPavimento() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     const inputFundoLucros = document.getElementById('vp-pct-fundo-lucros');
     const pctFundoLucrosAoVivo = inputFundoLucros ? (parseFloat(inputFundoLucros.value) || 0) : undefined;
-    const { pavimentos, areaTotalEquivalente, verbaLiquida, verbasPorEtapa } = calcularListaPavimentosComVerba(nomeProjeto, pctFundoLucrosAoVivo);
+    const { pavimentos, areaTotalEquivalente, verbaLiquida, verbasPorEtapa, valorFundoLucrosTotal } = calcularListaPavimentosComVerba(nomeProjeto, pctFundoLucrosAoVivo);
 
     document.getElementById('vp-area-total-equivalente').innerText = areaTotalEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
     document.getElementById('vp-verba-liquida-ref').innerText = formatarMoeda(verbaLiquida);
+    // Pedido do usuário: valor em R$ do Fundo de Lucros ao lado do %.
+    const elValorFundoLucros = document.getElementById('vp-valor-fundo-lucros');
+    if (elValorFundoLucros) elValorFundoLucros.value = formatarMoeda(valorFundoLucrosTotal);
 
     // Item 10 (prompt_gemini.md §14, leva 4): tabela de Setores, só
     // aparece se o projeto realmente tiver algum Setor cadastrado —
@@ -859,10 +867,10 @@ function renderizarTabelasVerbaPavimento() {
         return '<tr>' +
             '<td>' + p.nome + '</td>' +
             '<td><input type="number" step="0.01" value="' + p.area + '" data-caminho="' + p.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaPavimento(this)" style="width:90px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-            '<td><input type="number" step="0.01" value="' + p.peso + '" data-caminho="' + p.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaPavimento(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-            '<td>' + p.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
+            '<td><input type="number" step="0.01" value="' + p.peso + '" data-caminho="' + p.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaPavimento(this)" style="width:70px; text-align:center;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
+            '<td style="text-align:right;">' + p.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
             '<td>' + p.pctVerba.toFixed(2) + '%</td>' +
-            '<td style="font-weight:bold; color:#166534;">' + formatarMoeda(p.valorVerba) + '</td>' +
+            '<td style="font-weight:bold; color:#166534; text-align:right;">' + formatarMoeda(p.valorVerba) + '</td>' +
             '</tr>';
     }).join('');
 

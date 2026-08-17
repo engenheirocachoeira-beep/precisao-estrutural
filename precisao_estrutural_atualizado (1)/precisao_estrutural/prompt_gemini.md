@@ -7433,3 +7433,67 @@ suave idêntica à do Kanban (`border: 1px solid #e2e8f0`, `box-shadow:
 0 1px 3px rgba(0,0,0,0.08)`, `border-radius: 6px`, confirmado via
 `getComputedStyle()`). Grade de 3 colunas mantida. `node --check`
 limpo.
+
+## Retomada em 2026-08-17 (parte 13) — Renomear aba, larguras de coluna, valor do Fundo de Lucros, alinhamentos
+
+Lote de ajustes visuais pedido pelo usuário: renomear a aba "Parcela
+Global para Produção", estreitar a coluna "Etapas" (mantendo as
+demais do mesmo tamanho), estreitar a coluna "Pavimento" na Aba
+"Verba por Pavimento" (idem), mostrar o valor em R$ do Fundo de
+Lucros ao lado do %, com borda igual à do campo de %, centralizar
+"Peso de Esforço" e alinhar "Área Equivalente"/"Valor da Verba" pelo
+final do número.
+
+**Mudanças (`index.html`):**
+- 3 ocorrências visíveis de "Parcela Global para Produção" → "Verba
+  Global para Produção" (nome da aba, rótulo do campo na Aba 1, texto
+  do aviso azul na Aba 2). IDs internos (`aba-distribuicao-analista`,
+  `dca-valor-analista-ref` etc.) e comentários no JS continuam com o
+  nome antigo de propósito — são só referência interna, não afetam a
+  tela.
+- `<th>Etapas</th>` e `<th>Pavimento</th>` ganharam `width` explícito
+  (220px e 130px).
+- Novo `<input id="vp-valor-fundo-lucros" readonly>` ao lado do %
+  Fundo Distribuição de Lucros — por ser um `<input>` de verdade
+  (mesmo elemento, não uma `<span>` fingindo), a borda sai
+  automaticamente igual à do campo de % ao lado (mesmo CSS global de
+  `input`), sem precisar de nenhuma classe nova.
+
+**Mudanças (`estilos.css`):**
+- Descoberta ao testar: só declarar `width` no `<th>` NÃO bastava —
+  com `table-layout:auto` (padrão) o navegador ignora a largura
+  declarada e empurra o espaço sobrando pra coluna sem conteúdo fixo
+  (por isso "Etapas" aparecia bem mais larga que os 220px pedidos).
+  `table-layout:fixed` resolve a PARTE 1 do problema, mas revelou uma
+  SEGUNDA: a regra geral `table { width:100% }` faz o fixed-layout
+  tratar as larguras declaradas como proporção, esticando todas as
+  colunas (inclusive as que deveriam ficar do mesmo tamanho) pra
+  preencher o container. Precisou de `width:auto` também, escopado
+  às duas tabelas (`#conteudo-distribuicao-analista table.tabela-compacta`
+  e `#conteudo-verba-pavimento > .table-wrapper > table`), pra elas
+  pararem de esticar e as larguras declaradas virarem valor absoluto
+  de verdade.
+
+**Mudanças (`js/distribuicao-custos.js`):**
+- `calcularListaPavimentosComVerba()`: retorno ganhou
+  `valorFundoLucrosTotal` (soma de `p.valorFundoLucros` de todos os
+  Pavimentos — já calculado por pavimento em
+  `listarPavimentosDoProjeto`, só faltava somar).
+- `renderizarTabelasVerbaPavimento()`: popula
+  `#vp-valor-fundo-lucros` com esse total formatado em R$.
+- Linha da tabela de Pavimentos: `peso_esforco` ganhou
+  `text-align:center`; `areaEquivalente` e `valorVerba` ganharam
+  `text-align:right`. Coluna `area_fisica` (Área) não foi tocada — só
+  o que foi pedido.
+
+Testado no navegador (AP Praia): tab e textos mostrando "Verba Global
+para Produção"; coluna Etapas com 220px exatos (medido via
+`getBoundingClientRect()`), Verba/Responsável mantendo 150px/220px
+como antes, sem quebra de linha nem alteração da altura uniforme de
+28px nas 8 linhas (inclusive "Verba Detalhamento - Analista" e as 2
+linhas de coparticipação, os rótulos mais longos da tabela); Pavimento
+com 130px, demais colunas da Aba 4 preservadas; campo de valor do
+Fundo de Lucros mostrando "R$ 1.489,59" ao lado de "5,00 %", com a
+mesma borda do campo de %; Peso de Esforço confirmado `text-align:
+center` no input; Área Equivalente e Valor da Verba confirmados
+`text-align: right` nas células. `node --check` limpo.
