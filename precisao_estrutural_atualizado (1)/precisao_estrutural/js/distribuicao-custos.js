@@ -331,11 +331,6 @@ function recalcularTabelaDistribuicaoAnalista() {
 
     const pctImpostos = parseFloat(document.getElementById('dc-pct-impostos').value) || 0;
     const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
-    // Reforma 2026-08-17: a fórmula do Detalhamento não usa mais %Supervisor/
-    // %Escritório do item 3 — usa os 2 campos de Coparticipação do item 4
-    // (independentes, não herdam do item 3).
-    const pctCoparticipacaoSupervisor = parseFloat(document.getElementById('dc-pct-coparticipacao-supervisor').value) || 0;
-    const pctCoparticipacaoEscritorio = parseFloat(document.getElementById('dc-pct-coparticipacao-escritorio').value) || 0;
     const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
     const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
 
@@ -349,16 +344,13 @@ function recalcularTabelaDistribuicaoAnalista() {
     document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inputPct => {
         if (inputPct.dataset.fundoGarantidor) return; // linha do próprio Fundo Garantidor, preenchida no final
         const pctEtapa = parseFloat(inputPct.value) || 0;
-        const nomeEtapa = inputPct.dataset.etapa || '';
-        const ehDetalhamento = nomeEtapa.toLowerCase().includes('detalhamento');
 
-        let verbaBruta;
-        if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapa);
-            verbaBruta = r.verbaTotal;
-        } else {
-            verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
-        }
+        // Correção do usuário (2026-08-17): a Verba da linha "Detalhamento"
+        // aqui na Aba 2 é SEMPRE %etapa × Parcela Global, igual a
+        // qualquer outra Etapa — SEM somar coparticipação neste ponto.
+        // Coparticipação é um valor à parte (preview no item 4, aba 1),
+        // não entra na Verba da Etapa mostrada aqui.
+        const verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
 
         const valorFundo = pctFundoGarantidor / 100 * verbaBruta;
         const verbaLiquida = verbaBruta - valorFundo;
@@ -482,18 +474,18 @@ function distribuirVerbaRecursiva(no, verba) {
 // Verba de CADA Etapa do projeto (versão "AO VIVO", lê os %'s direto do
 // DOM da Aba 1/Aba 2 — usada quando essas abas estão abertas na tela;
 // calcularVerbaPorEtapaSalvo(), abaixo, é a mesma conta mas 100% a
-// partir do que já está salvo, pra outras telas). Regra fechada pelo
-// usuário: Etapa "Detalhamento" tem fórmula especial (Analista + parcela
-// de Escritório + parcela de Supervisor, mesma fórmula que já existia em
-// calcularVerbaDetalhamentoPuro); as demais Etapas usam só a fatia do
-// Analista já calculada por linha na Aba 2 (% daquela Etapa × Parcela
-// Global). Reforma de 2026-08-15: o desconto uniforme aplicado sobre a
-// verba BRUTA de CADA etapa deixou de ser "% Distribuição de Lucros"
-// (aba "Verba para Detalhamento", removida) e passou a ser o % do
-// **Fundo Garantidor**, já salvo como linha própria na Aba 2
-// (banco_distribuicao_custos_analista[projeto].fundo_garantidor.pct) —
-// mesmo raciocínio de antes (desconto uniforme em toda Etapa), só
-// trocou a fonte do percentual.
+// partir do que já está salvo, pra outras telas). Verba de TODA Etapa
+// (Detalhamento incluída) é sempre %etapa × Parcela Global — correção
+// do usuário (2026-08-17): a Coparticipação de Escritório/Supervisor
+// (item 4, aba Orçamento Global) NÃO entra aqui, é um valor à parte
+// (só aparece como preview na própria Aba 1 — ver
+// recalcularDistribuicaoCustos()); `calcularVerbaDetalhamentoPuro()`
+// existe pra esse preview, não é mais chamada daqui. Reforma de
+// 2026-08-15: o desconto uniforme aplicado sobre a verba BRUTA de CADA
+// etapa deixou de ser "% Distribuição de Lucros" (aba "Verba para
+// Detalhamento", removida) e passou a ser o % do **Fundo Garantidor**,
+// já salvo como linha própria na Aba 2
+// (banco_distribuicao_custos_analista[projeto].fundo_garantidor.pct).
 function calcularVerbaPorEtapa(nomeProjeto) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
@@ -505,11 +497,6 @@ function calcularVerbaPorEtapa(nomeProjeto) {
 
     const pctImpostos = parseFloat(document.getElementById('dc-pct-impostos').value) || 0;
     const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
-    // Reforma 2026-08-17: a fórmula do Detalhamento usa os 2 campos de
-    // Coparticipação do item 4 (independentes do %Supervisor/%Escritório
-    // do item 3 — não herdam).
-    const pctCoparticipacaoSupervisor = parseFloat(document.getElementById('dc-pct-coparticipacao-supervisor').value) || 0;
-    const pctCoparticipacaoEscritorio = parseFloat(document.getElementById('dc-pct-coparticipacao-escritorio').value) || 0;
 
     const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
     const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
@@ -524,13 +511,11 @@ function calcularVerbaPorEtapa(nomeProjeto) {
         const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
         const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
 
-        let verbaBruta;
-        if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapa);
-            verbaBruta = r.verbaTotal;
-        } else {
-            verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
-        }
+        // Correção do usuário (2026-08-17): Verba da Etapa aqui é SEMPRE
+        // %etapa × Parcela Global, igual pra Detalhamento e qualquer
+        // outra Etapa — SEM somar coparticipação neste ponto (isso é
+        // um valor à parte, ver item 4 na aba Orçamento Global).
+        const verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
 
         const valorFundoGarantidor = pctFundoGarantidor / 100 * verbaBruta;
         const verbaLiquida = verbaBruta - valorFundoGarantidor;
@@ -568,11 +553,6 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
     const orcamento = orcamentosSalvos[nomeProjeto] || {};
     const pctImpostos = parseFloat(orcamento.pct_impostos) || 0;
     const pctAnalista = parseFloat(orcamento.pct_analista) || 0;
-    // Reforma 2026-08-17: fórmula do Detalhamento usa os 2 campos de
-    // Coparticipação (item 4, salvos junto no mesmo orçamento) — não
-    // mais %Supervisor/%Escritório (item 3).
-    const pctCoparticipacaoSupervisor = parseFloat(orcamento.pct_coparticipacao_supervisor) || 0;
-    const pctCoparticipacaoEscritorio = parseFloat(orcamento.pct_coparticipacao_escritorio) || 0;
 
     const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     const projeto = projetos.find(p => p.nome === nomeProjeto);
@@ -590,13 +570,11 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
         const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
         const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
 
-        let verbaBruta;
-        if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapa);
-            verbaBruta = r.verbaTotal;
-        } else {
-            verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
-        }
+        // Correção do usuário (2026-08-17): Verba da Etapa aqui é SEMPRE
+        // %etapa × Parcela Global, igual pra Detalhamento e qualquer
+        // outra Etapa — SEM somar coparticipação neste ponto (isso é
+        // um valor à parte, ver item 4 na aba Orçamento Global).
+        const verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
 
         const valorFundoGarantidor = pctFundoGarantidor / 100 * verbaBruta;
         const verbaLiquida = verbaBruta - valorFundoGarantidor;

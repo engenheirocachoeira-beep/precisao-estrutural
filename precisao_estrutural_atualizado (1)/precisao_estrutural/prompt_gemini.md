@@ -7014,3 +7014,46 @@ coparticipação configurada pela fórmula ANTIGA (via `%Supervisor`/
 `%Escritório` do item 3) precisa ter os 2 novos campos preenchidos de
 propósito — não migra sozinho, os valores do item 3 nunca alimentaram
 os novos campos automaticamente.
+
+## Correção em 2026-08-17 (parte 3) — Coparticipação NÃO soma na Verba da Etapa
+
+O usuário corrigiu o próprio pedido da parte 2 (acima) logo depois de
+ver o resultado: a linha "Detalhamento" na Aba 2 ("Parcela Global para
+Produção") estava somando a Coparticipação de Escritório/Supervisor
+na Verba da Etapa (via `calcularVerbaDetalhamentoPuro`, que ainda
+tinha o `ehDetalhamento` como caso especial) — ele disse que isso está
+ERRADO: a Verba da Etapa "Detalhamento" deve ser **sempre** `%etapa ×
+Parcela Global`, igual a qualquer outra Etapa, **sem** somar
+coparticipação "neste ponto".
+
+**Corrigido**: removido o `if (ehDetalhamento) {...}` de
+`calcularVerbaPorEtapa()`, `calcularVerbaPorEtapaSalvo()` e
+`recalcularTabelaDistribuicaoAnalista()` — as 3 agora tratam
+Detalhamento igual a qualquer Etapa (`verbaBruta = pctEtapa/100 ×
+valorAnalistaTotal`, sem exceção). `calcularVerbaDetalhamentoPuro()`
+ficou sem uso NESSAS 3 funções (continua existindo — é só a fórmula
+pura, não faz mal ficar parada) — o cálculo de "Valor Coparticipação"
+que aparece no Item 4 (preview) é feito por conta própria, direto em
+`recalcularDistribuicaoCustos()`, sem passar por essa função
+compartilhada.
+
+Consequência importante: **Aba 4 (Verba por Pavimento) e Aba 5 (Verba
+por Tarefa) voltam a receber a verba SIMPLES do Detalhamento** (sem
+coparticipação somada) — diferente do que a parte 2 registrou acima
+("Aba 4/5 que já dependiam da mesma verba [com coparticipação]").
+
+**EM ABERTO — perguntei e o usuário disse "vamos decidir isso
+depois"**: a Coparticipação (Item 4) hoje é só um valor
+INFORMATIVO/preview na Aba 1 — não entra em NENHUM outro cálculo
+(não cascateia pra Pavimento, não afeta Atribuição de Tarefas, nada).
+Se um dia ela precisar efetivamente compor a verba de algum lugar
+(ex.: somada na Verba por Pavimento, Aba 4, parecido com o novo %
+Fundo Distribuição de Lucros), isso ainda não foi implementado —
+`calcularVerbaDetalhamentoPuro()` já existe pronta pra ser reutilizada
+nesse momento, se fizer sentido.
+
+Testado no navegador (AP Praia, 60% coparticipação Escritório): Aba 2
+"Detalhamento" volta a mostrar R$ 25.323,10 (35% × Parcela Global,
+líquido do Fundo Garantidor — sem coparticipação), e o Item 4 continua
+mostrando R$ 44.687,83 de Coparticipação Escritório em paralelo, sem
+afetar a Aba 2. `node --check` limpo.
