@@ -7057,3 +7057,33 @@ Testado no navegador (AP Praia, 60% coparticipação Escritório): Aba 2
 líquido do Fundo Garantidor — sem coparticipação), e o Item 4 continua
 mostrando R$ 44.687,83 de Coparticipação Escritório em paralelo, sem
 afetar a Aba 2. `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 4) — Aba 2 discretizada em 3 colunas
+
+Pedido do usuário logo em seguida: a coluna única "Verba" da Aba 2
+(que já mostrava direto a Verba LÍQUIDA, pós-desconto) virou 3
+colunas: **Verba** (bruta, antes do desconto), **Parcela para o
+Fundo** (o que foi descontado) e **Verba Líquida** (depois do
+desconto) — pra deixar o cálculo transparente, não só o resultado
+final.
+
+- **`index.html`**: cabeçalho da tabela (`#conteudo-distribuicao-analista`)
+  ganhou as 2 colunas novas; texto introdutório reescrito (não fala
+  mais em "Verba já sai descontada", agora descreve as 3 colunas).
+- **`js/distribuicao-custos.js`**:
+  - `construirLinhaDistribuicaoAnalista()`: cada `<tr>` de Etapa agora
+    tem 3 `<td>` com classes `.dca-verba-bruta`/`.dca-verba-fundo`/
+    `.dca-verba-liquida` (era só `.dca-verba`, removida). Na linha do
+    **Fundo Garantidor** especificamente, só `.dca-verba-fundo` é
+    preenchida (mostra a SOMA descontada de todas as Etapas, igual já
+    fazia) — as outras duas mostram "—", já que "Verba bruta"/"líquida"
+    não fazem sentido conceitual pra essa linha (ela não é uma Etapa).
+  - `recalcularTabelaDistribuicaoAnalista()`: preenche as 3 células de
+    cada Etapa (`verbaBruta`, `valorFundo`, `verbaLiquida` — já
+    calculados antes, só que agora escritos em 3 lugares em vez de 1).
+
+Testado no navegador (AP Praia): linha "Detalhamento" mostra Verba
+R$ 29.791,89 / Parcela para o Fundo R$ 4.468,78 / Verba Líquida
+R$ 25.323,10 (bate: 29.791,89 − 4.468,78 = 25.323,11, arredondamento);
+linha "Fundo Garantidor" mostra "—" / R$ 10.852,76 (soma de todas as
+Etapas) / "—". `node --check` limpo.

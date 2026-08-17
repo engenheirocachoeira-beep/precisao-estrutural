@@ -280,14 +280,28 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     const estiloLinha = ehFundoGarantidor ? ' style="background:#fffbeb;"' : '';
     const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(% descontado de CADA etapa abaixo — não conta na soma de 100%)</small>' : nomeLinha;
 
-    // Verba desta linha é preenchida por recalcularTabelaDistribuicaoAnalista()
-    // logo depois de inserir o HTML — precisa ver TODAS as linhas juntas
-    // (o % do Fundo Garantidor afeta a verba de toda Etapa), não dá pra
-    // calcular uma linha isolada aqui.
+    // Pedido do usuário (2026-08-17): discretizar em 3 colunas — Verba
+    // (bruta, antes do desconto), Parcela para o Fundo (o que foi
+    // descontado) e Verba Líquida (depois do desconto). Preenchidas por
+    // recalcularTabelaDistribuicaoAnalista() logo depois de inserir o
+    // HTML — precisa ver TODAS as linhas juntas (o % do Fundo Garantidor
+    // afeta a verba de toda Etapa), não dá pra calcular uma linha
+    // isolada aqui. Na própria linha do Fundo Garantidor, só a coluna
+    // "Parcela para o Fundo" faz sentido (mostra a SOMA descontada de
+    // todas as Etapas) — Verba/Verba Líquida ficam "—", conceito não
+    // se aplica a essa linha.
+    const celulasValoresFundoGarantidor = ehFundoGarantidor
+        ? '<td class="col-centralizada" style="color:#94a3b8;">—</td>' +
+          '<td class="dca-verba-fundo" style="font-weight:bold; color:#b45309;">' + formatarMoeda(0) + '</td>' +
+          '<td class="col-centralizada" style="color:#94a3b8;">—</td>'
+        : '<td class="dca-verba-bruta" style="color:#334155;">' + formatarMoeda(0) + '</td>' +
+          '<td class="dca-verba-fundo" style="color:#b45309;">' + formatarMoeda(0) + '</td>' +
+          '<td class="dca-verba-liquida" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>';
+
     return '<tr' + estiloLinha + '>' +
         '<td>' + rotulo + '</td>' +
         '<td><input type="number" step="0.01" class="dca-input-pct" ' + marcador + ' value="' + pct + '" style="width:80px;" oninput="recalcularTabelaDistribuicaoAnalista()"></td>' +
-        '<td class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
+        celulasValoresFundoGarantidor +
         '<td style="color:#334155;">' + nomeParaExibicao(nomeAnalista) + '</td>' +
         '</tr>';
 }
@@ -357,16 +371,24 @@ function recalcularTabelaDistribuicaoAnalista() {
         somaFundoGarantidor += valorFundo;
 
         const linha = inputPct.closest('tr');
-        const celulaVerba = linha ? linha.querySelector('.dca-verba') : null;
-        if (celulaVerba) celulaVerba.innerText = formatarMoeda(verbaLiquida);
+        if (linha) {
+            const celulaBruta = linha.querySelector('.dca-verba-bruta');
+            const celulaFundo = linha.querySelector('.dca-verba-fundo');
+            const celulaLiquida = linha.querySelector('.dca-verba-liquida');
+            if (celulaBruta) celulaBruta.innerText = formatarMoeda(verbaBruta);
+            if (celulaFundo) celulaFundo.innerText = formatarMoeda(valorFundo);
+            if (celulaLiquida) celulaLiquida.innerText = formatarMoeda(verbaLiquida);
+        }
     });
 
-    // Linha do Fundo Garantidor mostra a SOMA do que foi descontado de
-    // todas as Etapas — informativo, não é mais fatia própria do bolo.
+    // Linha do Fundo Garantidor: só a coluna "Parcela para o Fundo" faz
+    // sentido (mostra a SOMA descontada de todas as Etapas) —
+    // Verba/Verba Líquida ficam "—" nessa linha (não é mais fatia
+    // própria do bolo).
     if (inputFundoGarantidor) {
         const linhaFundo = inputFundoGarantidor.closest('tr');
-        const celulaVerbaFundo = linhaFundo ? linhaFundo.querySelector('.dca-verba') : null;
-        if (celulaVerbaFundo) celulaVerbaFundo.innerText = formatarMoeda(somaFundoGarantidor);
+        const celulaFundoTotal = linhaFundo ? linhaFundo.querySelector('.dca-verba-fundo') : null;
+        if (celulaFundoTotal) celulaFundoTotal.innerText = formatarMoeda(somaFundoGarantidor);
     }
 
     recalcularSomaPercentuaisAnalista();
