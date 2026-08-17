@@ -7298,3 +7298,48 @@ Total Geral); os 3 campos de Verba correspondentes (Fundo Garantidor,
 Total Etapas, Total Geral) sem nenhuma borda. Alturas de linha
 continuam uniformes (28px em todas as 6 linhas do corpo da tabela).
 `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 10) — Coparticipação do Detalhamento visível na Aba 2
+
+Pedido do usuário: na Aba "Parcela Global para Produção", a Etapa
+Detalhamento precisa mostrar também a coparticipação de Escritório/
+Supervisão (Item 4, Aba 1) — não só ficar escondida lá. Renomear a
+linha da Etapa pra "Verba Detalhamento - Analista" e acrescentar 2
+linhas logo abaixo: "Coparticipação Supervisor" e "Coparticipação
+Escritório", com os mesmos critérios (fórmula) já estabelecidos e
+testados no Item 4.
+
+**Mudanças (`js/distribuicao-custos.js`):**
+- `construirLinhaDistribuicaoAnalista()`: rótulo da linha da Etapa
+  Detalhamento passa a ser "Verba Detalhamento - Analista" (só o texto
+  exibido — `data-etapa` continua com o nome real da Etapa, usado pra
+  salvar).
+- Nova `construirLinhasCoparticipacaoDetalhamento()`: gera as 2 linhas
+  só-leitura ("↳ Coparticipação Supervisor"/"↳ Coparticipação
+  Escritório"), mesmo padrão visual de borda só no % (igual à parte
+  anterior) — fundo levemente acinzentado (`#f8fafc`) pra sinalizar
+  que são um detalhe da linha de cima.
+- `carregarAbaDistribuicaoAnalista()`: ao montar as linhas das Etapas,
+  insere as 2 novas logo depois da Etapa Detalhamento (não no fim da
+  tabela) — funciona não importa a posição dela na lista.
+- `recalcularTabelaDistribuicaoAnalista()`: recalcula as 2 linhas
+  sempre que roda, usando `calcularVerbaDetalhamentoPuro()` (a mesma
+  fórmula do Item 4) com o % de Detalhamento AO VIVO desta própria
+  tabela (não o salvo) — editar o % da Etapa Detalhamento atualiza a
+  coparticipação em tempo real. As 2 linhas NUNCA entram em
+  `totalPct`/`totalVerba` (Total Etapas/Total Geral) — o dinheiro
+  delas vem de um bolo diferente (Escritório/Supervisor), não do
+  Analista.
+
+Testado no navegador (AP Praia, com 10% coparticipação Supervisão e
+60% Escritório, mesmo exemplo já validado antes na Aba 1): linha
+renomeada corretamente; as 2 novas linhas aparecem logo após ela, na
+ordem certa; valores batem exatamente com o preview da Aba 1 (R$
+7.447,97 Supervisão, R$ 44.687,83 Escritório); editando o % da Etapa
+Detalhamento de 35% pra 50% ao vivo, os valores das 2 linhas escalam
+proporcionalmente (R$ 10.639,96/R$ 63.839,76) — Total (Etapas) sobe
+de 85% pra 100% normalmente (o % da própria Etapa Detalhamento conta
+no total, só as 2 linhas de coparticipação é que ficam de fora dessa
+soma); voltando o % pra 35% tudo volta ao normal. Alturas de linha
+continuam uniformes (28px, agora em 8 linhas); bordas seguem o mesmo
+padrão (só no %). `node --check` limpo.

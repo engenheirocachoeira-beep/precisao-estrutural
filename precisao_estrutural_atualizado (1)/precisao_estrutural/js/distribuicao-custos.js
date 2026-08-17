@@ -264,9 +264,33 @@ function carregarAbaDistribuicaoAnalista() {
         return;
     }
 
-    tbody.innerHTML = etapas.map(etapa => construirLinhaDistribuicaoAnalista(etapa.nome, salvoEtapas[etapa.nome] || {}, false, nomeAnalista, buscarPctSugerido(etapa.nome))).join('') +
+    tbody.innerHTML = etapas.map(etapa => {
+        const linhaEtapa = construirLinhaDistribuicaoAnalista(etapa.nome, salvoEtapas[etapa.nome] || {}, false, nomeAnalista, buscarPctSugerido(etapa.nome));
+        // Pedido do usuário: logo abaixo da Etapa "Detalhamento", 2
+        // linhas informativas com a coparticipação de Escritório/
+        // Supervisão (Item 4 da Aba 1) — mesma fórmula já usada lá,
+        // ver calcularVerbaDetalhamentoPuro().
+        return etapa.nome.toLowerCase().includes('detalhamento') ? linhaEtapa + construirLinhasCoparticipacaoDetalhamento() : linhaEtapa;
+    }).join('') +
         construirLinhaDistribuicaoAnalista('Fundo Garantidor', {}, true, nomeAnalista);
     recalcularTabelaDistribuicaoAnalista();
+}
+
+// Pedido do usuário: 2 linhas só-leitura logo abaixo da Etapa
+// "Detalhamento", mostrando quanto Supervisão/Escritório coparticipam
+// dela (Item 4 da Aba 1 "Orçamento Global") — nunca somadas ao Total
+// (Etapas)/Total Geral, porque vêm de um bolo diferente (Escritório/
+// Supervisor, não o do Analista). Valores recalculados ao vivo em
+// recalcularTabelaDistribuicaoAnalista().
+function construirLinhasCoparticipacaoDetalhamento() {
+    const linha = (idBase, rotulo) =>
+        '<tr style="background:#f8fafc;">' +
+        '<td style="padding-left:22px; color:#64748b;">↳ ' + rotulo + '</td>' +
+        '<td id="' + idBase + '-pct" class="col-centralizada campo-somente-leitura-borda">0.00%</td>' +
+        '<td id="' + idBase + '-verba" class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
+        '<td></td>' +
+        '</tr>';
+    return linha('dca-copart-supervisor', 'Coparticipação Supervisor') + linha('dca-copart-escritorio', 'Coparticipação Escritório');
 }
 
 // Reforma de 2026-08-17 (parte 6 — o usuário reconsiderou a parte 1):
@@ -287,7 +311,14 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     // explicada no aviso azul acima da tabela, e o texto extra quebrava
     // em 2 linhas nesta coluna estreita, deixando esta linha mais alta
     // que as demais (pedido do usuário: mesma altura sempre).
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : nomeLinha;
+    // Pedido do usuário: a Etapa "Detalhamento" mostra o rótulo "Verba
+    // Detalhamento - Analista" aqui (deixa claro que é só a fatia do
+    // Analista — as 2 linhas de coparticipação logo abaixo, ver
+    // construirLinhasCoparticipacaoDetalhamento(), completam o
+    // quadro). `data-etapa` continua com o nome real da Etapa (usado
+    // pra salvar) — só o texto exibido muda.
+    const ehDetalhamento = !ehFundoGarantidor && nomeLinha.toLowerCase().includes('detalhamento');
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (ehDetalhamento ? 'Verba Detalhamento - Analista' : nomeLinha);
 
     let celulaPct;
     if (ehFundoGarantidor) {
@@ -352,6 +383,28 @@ function recalcularTabelaDistribuicaoAnalista() {
         if (celulaPctFundo) celulaPctFundo.innerText = pctFundoGarantidor.toFixed(2) + '%';
         if (celulaVerbaFundo) celulaVerbaFundo.innerText = formatarMoeda(verbaFundoGarantidor);
     }
+
+    // Coparticipação de Escritório/Supervisão no Detalhamento (Item 4
+    // da Aba 1) — mesma fórmula de calcularVerbaDetalhamentoPuro(),
+    // usando o % de Detalhamento AO VIVO desta tabela (não o salvo),
+    // pra atualizar em tempo real enquanto o usuário digita. Nunca
+    // entra em totalPct/totalVerba — vem de um bolo diferente
+    // (Escritório/Supervisor, não o do Analista).
+    const pctCoparticipacaoSupervisor = parseFloat(document.getElementById('dc-pct-coparticipacao-supervisor').value) || 0;
+    const pctCoparticipacaoEscritorio = parseFloat(document.getElementById('dc-pct-coparticipacao-escritorio').value) || 0;
+    const inputDetalhamento = Array.from(document.querySelectorAll('#dca-tabela-body .dca-input-pct')).find(el => el.dataset.etapa.toLowerCase().includes('detalhamento'));
+    const pctDetalhamentoAoVivo = inputDetalhamento ? (parseFloat(inputDetalhamento.value) || 0) : 0;
+    const { verbaEscritorio, verbaSupervisor } = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctDetalhamentoAoVivo);
+
+    const elCopSupPct = document.getElementById('dca-copart-supervisor-pct');
+    const elCopSupVerba = document.getElementById('dca-copart-supervisor-verba');
+    if (elCopSupPct) elCopSupPct.innerText = pctCoparticipacaoSupervisor.toFixed(2) + '%';
+    if (elCopSupVerba) elCopSupVerba.innerText = formatarMoeda(verbaSupervisor);
+
+    const elCopEscPct = document.getElementById('dca-copart-escritorio-pct');
+    const elCopEscVerba = document.getElementById('dca-copart-escritorio-verba');
+    if (elCopEscPct) elCopEscPct.innerText = pctCoparticipacaoEscritorio.toFixed(2) + '%';
+    if (elCopEscVerba) elCopEscVerba.innerText = formatarMoeda(verbaEscritorio);
 
     // Linha de totalização (pedido do usuário) — só a soma das Etapas.
     const elTotalPct = document.getElementById('dca-total-pct');
