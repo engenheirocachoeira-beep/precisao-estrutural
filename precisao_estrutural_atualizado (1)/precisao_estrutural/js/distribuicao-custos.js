@@ -948,6 +948,10 @@ function podeAtribuirExecutorDistribuicaoCustos() {
     return nivel === 'administrador' || nivel === 'supervisor';
 }
 
+// Pedido do usuário: Pavimentos lado a lado (2 ou 3, conforme a
+// largura da tela — ver .vt-grid no CSS) em vez de uma tabela única
+// empilhada, cada um em seu próprio "cartão", com submenu de Tarefas
+// RECOLHIDO por padrão (ver vtGruposRecolhidos abaixo).
 function carregarAbaVerbaPorTarefa() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     document.getElementById('vt-projeto-ref').innerText = nomeProjeto;
@@ -955,30 +959,26 @@ function carregarAbaVerbaPorTarefa() {
     const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
     const podeAtribuir = podeAtribuirExecutorDistribuicaoCustos();
 
-    const tbody = document.getElementById('vt-tabela-body');
+    const grid = document.getElementById('vt-grid-pavimentos');
     const pavimentosComTarefas = pavimentos.filter(p => p.tarefas.length > 0);
 
     if (pavimentosComTarefas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma tarefa plugada em nenhum pavimento deste projeto ainda.</td></tr>';
+        grid.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Nenhuma tarefa plugada em nenhum pavimento deste projeto ainda.</div>';
         return;
     }
 
-    let html = '';
-    pavimentosComTarefas.forEach(pav => {
+    grid.innerHTML = pavimentosComTarefas.map(pav => {
         // Melhoria #6 (prompt_gemini.md §12): cabeçalho de grupo próprio
-        // (antes o nome do Pavimento ficava embutido na primeira célula
-        // da primeira linha de Tarefa) — permite recolher/expandir,
-        // mesmo padrão visual (▼/►) já usado na Árvore
-        // (alternarRecolhimentoNo/nosRecolhidosEstado), só que com
-        // estado próprio desta aba (vtGruposRecolhidos).
-        const recolhido = !!vtGruposRecolhidos[pav.caminho];
+        // — permite recolher/expandir, mesmo padrão visual (▼/►) já
+        // usado na Árvore, com estado próprio desta aba
+        // (vtGruposRecolhidos). Reforma de 2026-08-17: RECOLHIDO é
+        // agora o padrão (valor `undefined`, nunca tocado, conta como
+        // recolhido) — só um clique explícito guarda `false` (expandido).
+        const recolhido = vtGruposRecolhidos[pav.caminho] !== false;
         const seta = recolhido ? '►' : '▼';
         const estiloOcultoSeRecolhido = recolhido ? ' style="display:none;"' : '';
 
-        html += '<tr style="background:#e2e8f0; cursor:pointer;" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')">' +
-                '<td colspan="5" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</td>' +
-                '</tr>';
-
+        let linhasTarefas = '';
         pav.tarefas.forEach((tarefa, idxTarefa) => {
             const pontos = parseFloat(tarefa.pontos) || 0;
             const caminhoJs = (pav.caminho + '-' + idxTarefa);
@@ -988,11 +988,11 @@ function carregarAbaVerbaPorTarefa() {
             // Supervisor, mesmo com o resto da tela travada pra ele.
             const opcoesExecutor = typeof construirOpcoesExecutor === 'function' ? construirOpcoesExecutor(funcionarios, tarefa.executor) : '';
 
-            html += '<tr class="vt-linha-tarefa" data-grupo="' + pav.caminho + '" data-valor-verba="' + pav.valorVerba + '"' + estiloOcultoSeRecolhido + '>' +
+            linhasTarefas += '<tr class="vt-linha-tarefa" data-grupo="' + pav.caminho + '" data-valor-verba="' + pav.valorVerba + '"' + estiloOcultoSeRecolhido + '>' +
                 '<td>' + tarefa.nome + '</td>' +
-                '<td><select class="vt-select-executor" data-caminho="' + caminhoJs + '" style="min-width:160px;" onchange="atribuirExecutorVerbaPorTarefa(this)"' + (podeAtribuir ? '' : ' disabled title="Só Administrador ou Supervisor podem atribuir executor por aqui"') + '>' + opcoesExecutor + '</select></td>' +
+                '<td><select class="vt-select-executor" data-caminho="' + caminhoJs + '" onchange="atribuirExecutorVerbaPorTarefa(this)"' + (podeAtribuir ? '' : ' disabled title="Só Administrador ou Supervisor podem atribuir executor por aqui"') + '>' + opcoesExecutor + '</select></td>' +
                 '<td class="vt-horas-maximas col-centralizada">—</td>' +
-                '<td class="col-centralizada"><input type="number" step="0.1" class="vt-input-pontos" data-caminho="' + caminhoJs + '" value="' + pontos + '" style="width:60px; border:1px solid #cbd5e1; border-radius:4px; padding:2px;" oninput="recalcularGrupoVerbaPorTarefa(this)" onchange="editarPontosVerbaPorTarefa(this)"></td>' +
+                '<td class="col-centralizada"><input type="number" step="0.1" class="vt-input-pontos" data-caminho="' + caminhoJs + '" value="' + pontos + '" style="width:50px; border:1px solid #cbd5e1; border-radius:4px; padding:2px;" oninput="recalcularGrupoVerbaPorTarefa(this)" onchange="editarPontosVerbaPorTarefa(this)"></td>' +
                 '<td class="vt-valor" style="font-weight:bold; color:#166534;"></td>' +
                 '</tr>';
         });
@@ -1001,28 +1001,39 @@ function carregarAbaVerbaPorTarefa() {
         // é o resumo útil que justifica nem precisar expandir. Só a
         // linha de conferência (texto auxiliar) some junto com as
         // Tarefas, por ser detalhe, não resumo.
-        html += '<tr style="background:#f8fafc;" data-subtotal-grupo="' + pav.caminho + '">' +
-                '<td colspan="3"></td>' +
-                '<td style="text-align:right; font-weight:bold; white-space:nowrap;">Subtotal:</td>' +
-                '<td class="vt-subtotal" style="font-weight:bold; color:#0a192f;"></td>' +
+        return '<div class="vt-card">' +
+            '<div class="vt-card-header" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</div>' +
+            '<div class="table-wrapper"><table class="tabela-compacta"><thead><tr>' +
+                '<th>Tarefa</th><th style="width:120px;">Executor</th><th class="col-centralizada" style="width:55px;">H.Máx</th><th class="col-centralizada" style="width:55px;">Pontos</th><th style="width:100px;">Valor</th>' +
+            '</tr></thead><tbody>' +
+                linhasTarefas +
+                '<tr style="background:#f8fafc;" data-subtotal-grupo="' + pav.caminho + '">' +
+                    '<td colspan="3"></td>' +
+                    '<td style="text-align:right; font-weight:bold; white-space:nowrap;">Subtotal:</td>' +
+                    '<td class="vt-subtotal" style="font-weight:bold; color:#0a192f;"></td>' +
                 '</tr>' +
-                '<tr class="vt-linha-tarefa" data-conferencia-grupo="' + pav.caminho + '"' + estiloOcultoSeRecolhido + '><td colspan="5" class="vt-conferencia" style="font-size:11px; padding:4px 8px;"></td></tr>';
-    });
+                '<tr class="vt-linha-tarefa" data-conferencia-grupo="' + pav.caminho + '"' + estiloOcultoSeRecolhido + '><td colspan="5" class="vt-conferencia" style="font-size:11px; padding:4px 8px;"></td></tr>' +
+            '</tbody></table></div>' +
+            '</div>';
+    }).join('');
 
-    tbody.innerHTML = html;
     // Preenche a coluna Valor, Horas Máximas, o subtotal e a conferência de
     // todos os grupos — roda em TODAS as linhas de Tarefa, mesmo as
     // ocultas por recolhimento (display:none não impede o cálculo, só a
     // exibição; reabrir o grupo já mostra os valores certos na hora).
-    document.querySelectorAll('#vt-tabela-body .vt-input-pontos').forEach(recalcularGrupoVerbaPorTarefa);
+    document.querySelectorAll('#vt-grid-pavimentos .vt-input-pontos').forEach(recalcularGrupoVerbaPorTarefa);
 }
 
 // Estado de recolhimento por grupo (Pavimento) desta aba — em memória,
-// reseta ao trocar de projeto/aba (não precisa persistir).
+// reseta ao trocar de projeto/aba (não precisa persistir). Convenção:
+// `undefined` (nunca clicado) = RECOLHIDO (padrão, pedido do
+// usuário); só um `false` explícito (usuário clicou pra abrir) conta
+// como expandido — ver `recolhido` em carregarAbaVerbaPorTarefa().
 let vtGruposRecolhidos = {};
 
 function alternarGrupoVerbaPorTarefa(caminhoGrupo) {
-    vtGruposRecolhidos[caminhoGrupo] = !vtGruposRecolhidos[caminhoGrupo];
+    const estaRecolhido = vtGruposRecolhidos[caminhoGrupo] !== false;
+    vtGruposRecolhidos[caminhoGrupo] = estaRecolhido ? false : true;
     carregarAbaVerbaPorTarefa();
 }
 
@@ -1088,7 +1099,7 @@ function recalcularGrupoVerbaPorTarefa(inputOrigem) {
     // JÁ GRAVADO no <tr> mais próximo, em vez de tentar re-derivar por
     // slicing — funciona em qualquer profundidade.
     const grupo = inputOrigem.closest('tr').dataset.grupo;
-    const linhasDoGrupo = Array.from(document.querySelectorAll('#vt-tabela-body tr[data-grupo="' + grupo + '"]'));
+    const linhasDoGrupo = Array.from(document.querySelectorAll('#vt-grid-pavimentos tr[data-grupo="' + grupo + '"]'));
     if (linhasDoGrupo.length === 0) return;
 
     const valorVerba = parseFloat(linhasDoGrupo[0].dataset.valorVerba) || 0;
@@ -1111,10 +1122,10 @@ function recalcularGrupoVerbaPorTarefa(inputOrigem) {
         }
     });
 
-    const linhaSubtotal = document.querySelector('#vt-tabela-body tr[data-subtotal-grupo="' + grupo + '"] .vt-subtotal');
+    const linhaSubtotal = document.querySelector('#vt-grid-pavimentos tr[data-subtotal-grupo="' + grupo + '"] .vt-subtotal');
     if (linhaSubtotal) linhaSubtotal.innerText = formatarMoeda(subtotal);
 
-    const linhaConferencia = document.querySelector('#vt-tabela-body tr[data-conferencia-grupo="' + grupo + '"] .vt-conferencia');
+    const linhaConferencia = document.querySelector('#vt-grid-pavimentos tr[data-conferencia-grupo="' + grupo + '"] .vt-conferencia');
     if (linhaConferencia) exibirSeloConferencia(linhaConferencia, subtotal, valorVerba, 'Subtotal do pavimento', 'Valor da Verba (aba anterior)');
 }
 

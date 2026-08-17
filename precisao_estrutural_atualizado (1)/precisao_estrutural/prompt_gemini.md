@@ -7343,3 +7343,63 @@ no total, só as 2 linhas de coparticipação é que ficam de fora dessa
 soma); voltando o % pra 35% tudo volta ao normal. Alturas de linha
 continuam uniformes (28px, agora em 8 linhas); bordas seguem o mesmo
 padrão (só no %). `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 11) — Verba por Tarefa em cartões lado a lado, submenus recolhidos
+
+Pedido do usuário: na Aba "Verba por Tarefa", (1) apresentar os
+Pavimentos com as Tarefas recolhidas por padrão, e (2) redividir a
+tela em 2 ou 3 Pavimentos lado a lado, redistribuindo o espaço
+igualmente entre eles — em vez de uma única tabela empilhada com um
+Pavimento embaixo do outro. Pedido à parte, na Aba "Verba por
+Pavimento": conferir que o "% Fundo Distribuição de Lucros" mostra 2
+casas decimais — já estava correto desde a parte 9
+(`formatarCampoPercentual`, chamado tanto no `onblur` quanto ao
+carregar o projeto); só confirmado de novo agora, nenhuma mudança
+necessária.
+
+**Mudanças:**
+- **`index.html`**: `#conteudo-verba-por-tarefa` trocou a única
+  `<table>` por um `<div id="vt-grid-pavimentos" class="vt-grid">`
+  (grade responsiva) dentro de um wrapper com scroll vertical
+  (`max-height:600px`).
+- **`estilos.css`**: novas classes `.vt-grid` (CSS Grid,
+  `grid-template-columns: repeat(auto-fit, minmax(360px, 1fr))` — 2
+  ou 3 colunas conforme a largura disponível, espaço sempre
+  redistribuído igualmente via `1fr`) e `.vt-card` (cada Pavimento
+  vira um cartão com borda própria e cabeçalho clicável
+  `.vt-card-header`).
+- **`js/distribuicao-custos.js`**:
+  - `carregarAbaVerbaPorTarefa()`: reescrita — cada Pavimento agora
+    gera seu próprio `<div class="vt-card">` com uma mini-tabela
+    própria (thead + tbody com as Tarefas, subtotal e conferência),
+    em vez de linhas dentro de uma tabela única. Cabeçalho do
+    Pavimento saiu de dentro da tabela (era uma `<tr>` colspan) pra
+    virar o cabeçalho do cartão (`.vt-card-header`, fora da tabela).
+  - `vtGruposRecolhidos`: convenção invertida — `undefined` (Pavimento
+    nunca clicado) agora conta como RECOLHIDO (padrão pedido pelo
+    usuário); só um clique explícito grava `false` (expandido).
+    `alternarGrupoVerbaPorTarefa()` ajustada pra alternar
+    corretamente nessa nova convenção.
+  - `recalcularGrupoVerbaPorTarefa()`: seletores trocados de
+    `#vt-tabela-body` pra `#vt-grid-pavimentos` (novo container) —
+    resto da lógica (cálculo de Valor/Horas Máximas/Subtotal/
+    conferência) inalterado.
+  - Subtotal continua SEMPRE visível mesmo com o cartão recolhido
+    (mesmo comportamento de antes) — só as linhas de Tarefa e a linha
+    de conferência somem.
+
+Testado no navegador (AP Praia, recarregando a página do zero pra
+garantir estado limpo, sem nenhum resquício de teste manual anterior):
+os 21 Pavimentos com Tarefa carregam TODOS recolhidos (►) por padrão;
+clicar no cabeçalho expande (▼) mostrando a mini-tabela de Tarefas,
+Subtotal e conferência; em 1500px de largura a grade mostra 3 colunas
+lado a lado (`grid-template-columns` com 3 valores), redistribuindo o
+espaço igualmente. `node --check` limpo.
+
+**Nota**: durante o teste apareceu uma falsa pendência — reaproveitar
+o mesmo estado de `vtGruposRecolhidos` entre vários comandos manuais
+de teste (clicar, resetar, reclicar) no console do navegador confundiu
+a leitura por um tempo; um recarregamento limpo da página confirmou
+que o comportamento padrão real (o que o usuário realmente vê ao abrir
+a aba) sempre foi o correto — não houve bug no código, só ruído do
+processo de teste manual.

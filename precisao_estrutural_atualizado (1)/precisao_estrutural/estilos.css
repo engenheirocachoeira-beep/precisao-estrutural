@@ -317,6 +317,33 @@
             vertical-align: middle;
         }
 
+        /* Pedido do usuário: Aba "Verba por Tarefa" — Pavimentos lado a
+           lado (2 ou 3, conforme a largura disponível) em vez de uma
+           tabela única empilhada. auto-fit com minmax redistribui o
+           espaço igualmente entre as colunas que couberem. */
+        .vt-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 16px;
+            align-items: start;
+        }
+        .vt-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .vt-card-header {
+            background: #e2e8f0;
+            color: #0f223f;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+        .vt-card table { width: 100%; }
+        .vt-card .table-wrapper { max-height: none; border: none; border-radius: 0; }
+
         /* Sufixo "%" visual nos campos percentuais editáveis — o valor
            em si continua um número puro (formatado com 2 casas via
            formatarCampoPercentual()), o "%" é só decoração ao lado. */
