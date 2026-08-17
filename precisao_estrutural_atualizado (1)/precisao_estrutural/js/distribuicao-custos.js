@@ -279,7 +279,10 @@ function carregarAbaDistribuicaoAnalista() {
 // "Verba" voltou a ser uma só (não tem mais desconto pra discretizar
 // em 3 colunas).
 function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGarantidor, nomeAnalista, pctSugerido) {
-    const estiloLinha = ehFundoGarantidor ? ' style="background:#fffbeb;"' : '';
+    // Pedido do usuário: linha do Fundo Garantidor usa o MESMO formato
+    // de célula das Etapas (só muda o preenchimento — fundo verde,
+    // ver estiloLinha abaixo).
+    const estiloLinha = ehFundoGarantidor ? ' style="background:#f0fdf4;"' : '';
     const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(automático: 100% − soma das Etapas)</small>' : nomeLinha;
 
     let celulaPct;
@@ -351,11 +354,26 @@ function recalcularTabelaDistribuicaoAnalista() {
     if (elTotalPct) elTotalPct.innerText = totalPct.toFixed(2) + '%';
     if (elTotalVerba) elTotalVerba.innerText = formatarMoeda(totalVerba);
 
+    // Total Geral = Etapas + Fundo Garantidor — por construção sempre
+    // fecha em 100% / Parcela Global inteira (é só uma conferência
+    // visual pro usuário, os dois lados do "bolo").
+    const elTotalGeralPct = document.getElementById('dca-total-geral-pct');
+    const elTotalGeralVerba = document.getElementById('dca-total-geral-verba');
+    if (elTotalGeralPct) elTotalGeralPct.innerText = (totalPct + pctFundoGarantidor).toFixed(2) + '%';
+    if (elTotalGeralVerba) elTotalGeralVerba.innerText = formatarMoeda(totalVerba + verbaFundoGarantidor);
+
+    // Pedido do usuário: não permitir que a soma das Etapas ultrapasse
+    // 100% — trava o botão aqui (feedback imediato); a trava real
+    // (que impede salvar mesmo burlando o botão) está em
+    // salvarDistribuicaoAnalista().
+    const btnSalvar = document.getElementById('dca-btn-salvar');
+    if (btnSalvar) btnSalvar.disabled = totalPct > 100.01;
+
     const alerta = document.getElementById('dca-alerta-soma');
     if (alerta) {
         if (totalPct > 100.01) {
-            alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
-            alerta.innerHTML = '⚠️ As Etapas somam ' + totalPct.toFixed(2) + '% — mais que 100%. O Fundo Garantidor ficaria negativo (' + pctFundoGarantidor.toFixed(2) + '%); ajuste os percentuais das Etapas.';
+            alerta.style.background = '#fef2f2'; alerta.style.color = '#991b1b';
+            alerta.innerHTML = '🚫 As Etapas somam ' + totalPct.toFixed(2) + '% — não é permitido ultrapassar 100%. Ajuste os percentuais das Etapas para salvar.';
         } else if (totalPct === 0) {
             alerta.innerHTML = '';
         } else {
@@ -374,6 +392,14 @@ function salvarDistribuicaoAnalista() {
 
     const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
     const dadosEtapas = {};
+
+    // Trava real (não só o botão desabilitado) — pedido do usuário:
+    // "não permita que a soma das etapas supere 100%".
+    let totalPct = 0;
+    document.querySelectorAll('#dca-tabela-body .dca-input-pct').forEach(inputPct => {
+        totalPct += parseFloat(inputPct.value) || 0;
+    });
+    if (totalPct > 100.01) return alert('As Etapas somam ' + totalPct.toFixed(2) + '% — não é permitido ultrapassar 100%. Ajuste os percentuais antes de salvar.');
 
     // Só as Etapas têm `<input>` de % agora — a linha do Fundo
     // Garantidor não tem mais (o % dela é automático, `100% − soma das

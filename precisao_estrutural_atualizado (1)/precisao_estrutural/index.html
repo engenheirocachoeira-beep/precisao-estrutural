@@ -458,16 +458,22 @@
                                     </tr></thead>
                                     <tbody id="dca-tabela-body"></tbody>
                                     <tfoot>
-                                        <tr style="background:#f0fdf4; font-weight:bold;">
+                                        <tr style="background:#eff6ff; font-weight:bold;">
                                             <td>Total (Etapas)</td>
                                             <td id="dca-total-pct" class="col-centralizada"></td>
-                                            <td id="dca-total-verba" style="color:#166534;"></td>
+                                            <td id="dca-total-verba" style="color:#1e40af;"></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr style="background:#e2e8f0; font-weight:bold;">
+                                            <td>Total Geral</td>
+                                            <td id="dca-total-geral-pct" class="col-centralizada"></td>
+                                            <td id="dca-total-geral-verba" style="color:#0a192f;"></td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
                                 </table>
                             </div>
-                            <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoAnalista()">Salvar Distribuição por Etapa</button></div>
+                            <div class="footer-actions"><button id="dca-btn-salvar" class="btn-success" onclick="salvarDistribuicaoAnalista()">Salvar Distribuição por Etapa</button></div>
                             <div id="dca-alerta-soma" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
                         </div>
                     </div>

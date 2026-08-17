@@ -7166,3 +7166,46 @@ alerta amarelo pedindo pra ajustar. `node --check` limpo.
 que já tinham algo salvo ali — inofensivo, simplesmente não é mais
 lido em lugar nenhum (o % agora é sempre recalculado a partir das
 Etapas).
+
+## Retomada em 2026-08-17 (parte 7) — Cores da tabela, linha "Total Geral" e trava dos 100%
+
+Pedido do usuário: usar o mesmo formato de célula das Etapas pras
+linhas do Fundo Garantidor (fundo verde) e Total (Etapas) (fundo
+azul), acrescentar uma linha "Total Geral" (soma de Total Etapas +
+Fundo Garantidor) e não permitir que a soma das Etapas ultrapasse
+100% (bloqueio de verdade, não só aviso).
+
+**Mudanças:**
+- **`index.html`** (Aba 2, `#conteudo-distribuicao-analista`):
+  - `<tfoot>` "Total (Etapas)" trocou de fundo (era verde,
+    `#f0fdf4`) pra azul (`#eff6ff`, texto `#1e40af`) — reserva o
+    verde só pro Fundo Garantidor.
+  - Nova segunda linha no `<tfoot>`, "Total Geral"
+    (`#dca-total-geral-pct`/`#dca-total-geral-verba`), fundo cinza
+    (`#e2e8f0`).
+  - Botão "Salvar Distribuição por Etapa" ganhou `id="dca-btn-salvar"`
+    pra poder ser desabilitado via JS.
+- **`js/distribuicao-custos.js`**:
+  - `construirLinhaDistribuicaoAnalista()`: linha do Fundo Garantidor
+    trocou de amarelo (`#fffbeb`) pra verde (`#f0fdf4`) — mesma
+    estrutura de célula das Etapas, só muda o preenchimento.
+  - `recalcularTabelaDistribuicaoAnalista()`: agora também calcula
+    Total Geral (`totalPct + pctFundoGarantidor` / `totalVerba +
+    verbaFundoGarantidor` — por construção sempre fecha em 100% /
+    Parcela Global inteira, é uma conferência visual) e
+    habilita/desabilita `#dca-btn-salvar` conforme `totalPct > 100%`.
+    Alerta de "Etapas > 100%" mudou de aviso amarelo pra bloqueio
+    vermelho ("🚫 ... não é permitido ultrapassar 100%").
+  - `salvarDistribuicaoAnalista()`: trava real adicionada — recalcula
+    a soma das % das Etapas e recusa salvar (alert + return) se
+    passar de 100%, mesmo se alguém chamar a função ignorando o botão
+    desabilitado.
+
+Testado no navegador (AP Praia): caso normal (Etapas somando 85%) —
+Fundo Garantidor verde mostrando 15,00%/R$ 12.767,95, Total (Etapas)
+azul 85,00%/R$ 72.351,73, Total Geral cinza 100,00%/R$ 85.119,68,
+botão Salvar habilitado. Forçando uma Etapa pra somar 110% no total —
+botão Salvar desabilitado, alerta vermelho de bloqueio, e chamando
+`salvarDistribuicaoAnalista()` diretamente (bypassando o botão) o
+`alert()` de bloqueio dispara e nada é salvo. Voltando a 85% o estado
+normal retorna. `node --check` limpo.
