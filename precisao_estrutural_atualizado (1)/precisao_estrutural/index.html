@@ -382,8 +382,7 @@
                     <div id="dc-conteudo-principal" style="display:none; flex: 1; overflow-y: auto;">
                     <div class="tab-bar">
                         <div id="aba-orcamento-global" class="tab-selector active" onclick="alternarAbaDistribuicao('orcamento-global')">Orçamento Global</div>
-                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Distribuição de Custos Analista</div>
-                        <div id="aba-verba-detalhamento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-detalhamento')">Verba para Detalhamento</div>
+                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Parcela Global para Produção</div>
                         <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
                         <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
                         <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
@@ -415,9 +414,9 @@
                                     <div class="form-group col-4"><label>% Supervisor:</label><input type="number" id="dc-pct-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
                                     <div class="form-group col-4"><label>% Escritório:</label><input type="number" id="dc-pct-escritorio" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
 
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Analista:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Supervisor:</label><input type="text" id="dc-valor-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Escritório:</label><input type="text" id="dc-valor-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Parcela Global para Produção:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Parcela para Supervisão:</label><input type="text" id="dc-valor-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Parcela para Escritório:</label><input type="text" id="dc-valor-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                                 </div>
                                 <div id="dc-alerta-soma" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
                             </div>
@@ -433,7 +432,7 @@
                         <div id="dca-conteudo" style="display:none;">
                             <div class="tab-projeto-header">Projeto: <b id="dca-projeto-ref">—</b></div>
                             <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                                Valor destinado ao Analista (aba Orçamento Global), a ser dividido entre as etapas: <b id="dca-valor-analista-ref">R$ 0,00</b>
+                                Parcela Global para Produção (calculada na aba Orçamento Global), a ser dividida entre as etapas — a Verba de cada etapa já sai descontada do % de Fundo Garantidor: <b id="dca-valor-analista-ref">R$ 0,00</b>
                             </div>
                             <div class="table-wrapper" style="max-height:400px;">
                                 <table>
@@ -451,40 +450,17 @@
                         </div>
                     </div>
 
-                    <div id="conteudo-verba-detalhamento" class="tab-content" style="display:none;">
-                        <div class="tab-projeto-header">Projeto: <b id="vd-projeto-ref">—</b></div>
-                        <div id="vd-aviso" style="display:none; background:#fef9c3; color:#854d0e; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"></div>
-                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px;">
-                            <label>% Distribuição Lucros <small style="color:#94a3b8;">(descontado da verba bruta de CADA etapa, igualmente)</small>:</label>
-                            <input type="number" step="0.01" id="vd-pct-lucros" style="width:100px;" oninput="recalcularDistribuicaoLucros()">
-                            <button class="btn-success" style="margin-left:auto;" onclick="salvarDistribuicaoLucros()">Salvar % Distribuição Lucros</button>
-                        </div>
-                        <div class="table-wrapper">
-                            <table class="tabela-compacta">
-                                <thead><tr>
-                                    <th>Etapa</th>
-                                    <th style="width:90px;">% (Aba 2)</th>
-                                    <th style="width:150px;">Verba Bruta</th>
-                                    <th style="width:150px;">Valor Lucros</th>
-                                    <th style="width:150px;">Verba Líquida</th>
-                                </tr></thead>
-                                <tbody id="vd-tabela-body"></tbody>
-                                <tfoot>
-                                    <tr style="background:#f0fdf4; font-weight:bold;">
-                                        <td colspan="4" style="text-align:right;">Total (soma de todas as Etapas)</td>
-                                        <td id="vd-verba-liquida" style="color:#166534;"></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-
                     <div id="conteudo-verba-pavimento" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vp-projeto-ref">—</b></div>
                         <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
                             Área Total Equivalente: <b id="vp-area-total-equivalente">0</b>
                             &nbsp;|&nbsp;
-                            Soma da Verba Líquida de todas as Etapas (aba anterior), cascateada por Etapa até os Pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                            Verba da Etapa "Detalhamento" (aba anterior), já líquida do Fundo Distribuição de Lucros abaixo, cascateada até os Pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; font-size:13px;">
+                            <label>% Fundo Distribuição de Lucros <small style="color:#94a3b8;">(descontado da verba da Etapa "Detalhamento" antes de cascatear pelos Pavimentos)</small>:</label>
+                            <input type="number" step="0.01" id="vp-pct-fundo-lucros" style="width:100px;" oninput="renderizarTabelasVerbaPavimento()">
+                            <button class="btn-success" style="margin-left:auto;" onclick="salvarFundoLucrosPavimento()">Salvar % Fundo Distribuição de Lucros</button>
                         </div>
                         <div id="vp-setores-wrapper" style="display:none; margin-bottom:18px;">
                             <div style="font-weight:bold; color:#0f223f; font-size:12px; margin-bottom:6px;">🗂️ Verba por Setor <small style="color:#94a3b8; font-weight:normal;">(Área/Peso editáveis aqui — Setores competem entre si dentro da mesma Etapa/Setor pai)</small></div>

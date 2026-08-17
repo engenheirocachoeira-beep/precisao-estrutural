@@ -485,6 +485,7 @@
                 const projCadastro = projetosCadastro.find(x => x.nome === projetoSelecionadoAtivo);
                 const analistaAtual = projCadastro ? (nomeParaExibicao(projCadastro.analista) || '—') : '—';
                 const supervisorAtual = projCadastro ? (nomeParaExibicao(projCadastro.supervisor) || '—') : '—';
+                const detalhistaAtual = projCadastro ? (nomeParaExibicao(projCadastro.detalhista) || '—') : '—';
 
                 const statusLiberacaoAtual = projCadastro ? (projCadastro.status_liberacao || 'liberado') : 'liberado';
                 const emAnalise = statusLiberacaoAtual === 'em_analise';
@@ -523,7 +524,9 @@
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Sensibilidade Analista ($F_{analista}$):</label><input type="number" id="edit-p-sens" step="0.1" value="'+(pObj.f_analista || 1.0)+'"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor:</label><input type="text" value="'+supervisorAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Analista:</label><input type="text" value="'+analistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Área, Valor, Analista e Supervisor são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Detalhista:</label><input type="text" value="'+detalhistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Número de Pavimentos:</label><input type="text" value="'+(projCadastro ? (projCadastro.pavimentos || '—') : '—')+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Área, Valor, Analista, Supervisor, Detalhista e Número de Pavimentos são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
                            '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#00b4d8;">📐 Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
                            '</div></div>' +
                            '<button class="btn-primary" style="width:100%; margin-top:20px;" onclick="salvarDadosMacroProjetoRaiz()">Atualizar Diretrizes do Projeto</button></div>';

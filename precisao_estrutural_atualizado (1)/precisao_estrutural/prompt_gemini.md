@@ -6785,3 +6785,148 @@ aplica a nenhum módulo isolado — nunca tiveram a barra decorativa).
 `node --check` limpo em `js/arvore.js` e no módulo isolado.
 
 **Nada ficou pendente desta rodada.**
+
+## Retomada em 2026-08-17 — Reforma da Distribuição de Custos
+
+Pedido grande do usuário, planejado com plan mode + 4 perguntas de
+esclarecimento antes de codar (decisões registradas abaixo). Objetivo:
+simplificar a Distribuição de Custos eliminando a aba "Verba para
+Detalhamento" (redundante) e mudando de onde vem a verba por Pavimento.
+
+**Decisões confirmadas pelo usuário:**
+1. **Fundo Garantidor** deixou de ser uma linha concorrendo pelos
+   mesmos 100% que as Etapas (Aba 2) — agora é um % GLOBAL descontado
+   de CADA Etapa: `verba_etapa = %etapa × Parcela Global × (1 −
+   %FundoGarantidor)`. As Etapas devem somar 100% ENTRE SI (Fundo
+   Garantidor não entra nessa soma).
+2. A fórmula especial da Etapa "Detalhamento" (combina Analista +
+   fatia de Escritório + fatia de Supervisor,
+   `calcularVerbaDetalhamentoPuro`) foi MANTIDA — o desconto do Fundo
+   Garantidor é aplicado por cima do resultado dela, igual às demais
+   Etapas.
+3. "Verba por Pavimento" (Aba 4) passou a ser alimentada SÓ pela linha
+   "Detalhamento" da Aba 2 — não mais uma cascata genérica por todas
+   as Etapas (na prática só Detalhamento tem Pavimento de verdade).
+4. Novo campo "% Fundo Distribuição de Lucros" (pré-setado 5%) na Aba
+   4 funciona como o antigo "% Distribuição Lucros" da aba removida:
+   salvo por projeto, editável, botão Salvar próprio.
+
+**Mudanças por arquivo:**
+
+- **`js/arvore.js`** (`visualizarNo('raiz')`, Propriedades Contratuais
+  do Projeto/Árvore): 2 campos novos somente-leitura — **Detalhista**
+  e **Número de Pavimentos** (ambos lidos do Cadastro de Projetos,
+  mesmo padrão de Analista/Supervisor já existentes).
+
+- **`index.html`**:
+  - Aba 1 (Orçamento Global): rótulos `Valor Supervisor`→**Parcela
+    para Supervisão**, `Valor Escritório`→**Parcela para Escritório**,
+    `Valor Analista`→**Parcela Global para Produção** (mesmo número,
+    só nome — IDs (`dc-valor-*`) intactos).
+  - Aba 2: renomeada de "Distribuição de Custos Analista" pra
+    **"Parcela Global para Produção"** (título da aba + texto
+    introdutório). ID (`aba-distribuicao-analista`) intacto.
+  - Aba 3 "Verba para Detalhamento" **REMOVIDA por completo** (tab
+    selector + conteúdo).
+  - Aba 4 (Verba por Pavimento): novo campo "% Fundo Distribuição de
+    Lucros" (input + botão Salvar), texto introdutório atualizado
+    (não fala mais em "todas as Etapas").
+
+- **`js/distribuicao-custos.js`** (motor de cálculo — maior parte da
+  mudança):
+  - `calcularVerbaPorEtapa()`/`calcularVerbaPorEtapaSalvo()`: fonte do
+    desconto uniforme trocou de `banco_distribuicao_lucros` (Aba 3,
+    removida) pro % do Fundo Garantidor já salvo em
+    `banco_distribuicao_custos_analista[projeto].fundo_garantidor.pct`.
+    Campo de retorno `valorLucros`→`valorFundoGarantidor`. Resto da
+    fórmula (branch especial Detalhamento, branch simples pras
+    demais) igual.
+  - Aba 2 (`construirLinhaDistribuicaoAnalista`,
+    `carregarAbaDistribuicaoAnalista`): a coluna "Verba" de cada Etapa
+    agora mostra o valor JÁ LÍQUIDO do Fundo Garantidor (antes só
+    pct×Parcela bruto). Nova função
+    `recalcularTabelaDistribuicaoAnalista()` substitui
+    `recalcularLinhaDistribuicaoAnalista()` — recalcula a TABELA
+    INTEIRA a cada input (mudar o Fundo Garantidor afeta toda Etapa,
+    não só uma linha). A linha do Fundo Garantidor mostra,
+    informativamente, a SOMA do que foi descontado de todas as
+    Etapas — não é mais fatia própria do bolo.
+    `recalcularSomaPercentuaisAnalista()` agora exclui o input do
+    Fundo Garantidor da soma-que-deve-fechar-100%.
+  - **Aba 3 removida por completo do JS**: `carregarAbaVerbaDetalhamento`,
+    `recalcularDistribuicaoLucros`, `salvarDistribuicaoLucros`,
+    `vdVerbasPorEtapaAtual` apagados. `alternarAbaDistribuicao()` sem
+    `'verba-detalhamento'`.
+  - `listarPavimentosDoProjeto()`/`listarSetoresDoProjeto()`: agora
+    acham só a Etapa "Detalhamento" (em vez de cascatear TODAS as
+    Etapas), descontam o novo "% Fundo Distribuição de Lucros"
+    (`obterPctFundoLucrosPavimento()`, nova função, novo storage
+    `banco_fundo_lucros_pavimento`) e cascateiam só esse valor.
+    Assinatura ganhou um 3º parâmetro opcional
+    (`pctFundoLucrosOverride`) pra permitir preview ao vivo sem
+    precisar salvar primeiro. Cada Pavimento retornado ganhou o campo
+    `valorFundoLucros` (fatia do fundo que coube a ele).
+  - `calcularListaPavimentosComVerba(Salva)`: `verbaLiquida` agora é a
+    soma da Verba de todos os Pavimentos (antes era soma de TODAS as
+    Etapas) — mesma assinatura/retorno de resto, não quebra quem
+    consome (`atribuicao-tarefas.js`, `painel-progresso.js`).
+  - `carregarAbaVerbaPavimento()` + nova `renderizarTabelasVerbaPavimento()`:
+    o carregamento inicial lê o % salvo pro input; a função nova
+    recalcula só as TABELAS (nunca o próprio input, senão perderia o
+    que a pessoa está digitando) — chamada tanto no `oninput` do novo
+    campo quanto depois de editar Área/Peso de Setor/Pavimento (essas
+    duas últimas trocaram de `carregarAbaVerbaPavimento()` pra
+    `renderizarTabelasVerbaPavimento()` por esse motivo). Nova
+    `salvarFundoLucrosPavimento()`.
+  - **Aba 5 (Verba por Tarefa)**: fórmula já estava certa (não mudou),
+    mas achei um **bug pré-existente** validando: `recalcularGrupoVerbaPorTarefa()`
+    achava o grupo (Pavimento) fatiando `dataset.caminho` em 3
+    segmentos fixos (`.split('-').slice(0,3)`), supondo Pavimento
+    sempre a 3 níveis de profundidade (Etapa>Setor>Pavimento) — quebra
+    quando Pavimento está direto sob a Etapa (2 níveis, como o
+    projeto piloto "AP PRAIA", sem Setor), porque o "grupo" calculado
+    não batia com o `data-grupo` real gravado no `<tr>`, deixando
+    Valor/Horas Máximas/Subtotal em branco silenciosamente. Corrigido
+    lendo `inputOrigem.closest('tr').dataset.grupo` direto (já
+    existia gravado ali) em vez de re-derivar por slicing — funciona
+    em qualquer profundidade agora.
+
+- **`js/distribuicao-lucro.js`** (Distribuição de Lucro/Estagiários —
+  dependência descoberta durante a investigação, não fazia parte do
+  pedido original): `calcularValorLucroPorTarefaDoProjeto()` usava o
+  antigo `valorLucros` por Etapa (Aba 3, removida) como "bolo" pra
+  ratear entre Estagiários — redirecionado pra usar
+  `p.valorFundoLucros` (novo campo por Pavimento, Aba 4) direto,
+  eliminando a necessidade de recascatear uma lista fake de
+  "verbasLucrosPorEtapa".
+
+**IMPORTANTE — dado já configurado precisa ser revisado**: o projeto
+piloto "AP PRAIA (SAVOIA) - SETOR B" (e qualquer outro projeto já
+configurado antes desta reforma) tinha as % das Etapas somando 100%
+JUNTO com o Fundo Garantidor (regra antiga). Com a regra nova, as
+Etapas sozinhas devem somar 100% — no piloto, hoje somam 85% (15% que
+"sobravam" pro Fundo Garantidor). Isso não quebra nada tecnicamente
+(o sistema só mostra o aviso de "não fecha 100%"), mas os NÚMEROS
+mudaram de verdade pra qualquer projeto já configurado — vale revisar
+com o usuário se os percentuais salvos continuam representando a
+intenção original, ou se precisam ser reajustados pra somar 100%
+sob a regra nova.
+
+**Módulos isolados**: `modulos_isolados/distribuicao-custos/js/distribuicao-custos.js`
+e `modulos_isolados/atribuicao-tarefas/js/distribuicao-custos.js` NÃO
+foram tocados — já tinham drift pré-existente (910/905 linhas vs 1149
+do arquivo principal antes desta rodada, não eram cópias exatas),
+alto risco de aplicar esse diff grande numa base já diferente. Ficam
+pendentes, mesmo precedente já registrado nesta sessão pra drift
+pré-existente de módulos isolados.
+
+Testado no navegador local com o projeto piloto "AP PRAIA (SAVOIA) -
+SETOR B": Aba 2 mostra Verba por Etapa já líquida (conferido o cálculo
+manual da Etapa Detalhamento — bateu exato), Aba 3 sumiu do menu
+(4 abas agora, não mais 5), Aba 4 mostra os 21 Pavimentos da Etapa
+Detalhamento com o novo campo 5%, conferência ✅ bate exato, Aba 5
+com o bug corrigido mostra Valor/Horas Máximas/Subtotal corretos e
+conferência ✅ bate com a aba anterior, Propriedades Contratuais
+mostra Detalhista e Número de Pavimentos corretos, e Atribuição de
+Tarefas (Pontos Máximo) continua calculando certo pra tarefas dentro
+de Detalhamento. `node --check` limpo nos 3 arquivos JS tocados.

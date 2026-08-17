@@ -4,10 +4,11 @@
 // agosto/2026). Tela só-Administrador (ver MENU_POR_NIVEL, core.js).
 //
 // Duas contas independentes, cruzadas só no fim:
-//  1) TAMANHO DO BOLO (R$): rateia a Verba de Distribuição de Lucros
-//     (já calculada por projeto na aba 3 da Distribuição de Custos —
-//     distribuicao-custos.js) entre Pavimento/Tarefa, MESMA fórmula das
-//     abas 4/5 daquele módulo (reaproveitada, não duplicada) — e soma o
+//  1) TAMANHO DO BOLO (R$): rateia o Fundo Distribuição de Lucros (%
+//     descontado na Aba 4/Verba por Pavimento da Distribuição de Custos
+//     — distribuicao-custos.js, ver calcularListaPavimentosComVerbaSalva())
+//     entre Pavimento/Tarefa, MESMA fórmula da aba 5 daquele módulo
+//     (reaproveitada, não duplicada) — e soma o
 //     "valor de lucro" de toda tarefa FINALIZADA dentro do período
 //     escolhido, de QUALQUER projeto, independente de quem executou.
 //     Só tarefas de Etapa Subdividida entram aqui (Etapa Única/
@@ -37,28 +38,26 @@
 
 // --- CONTA 1: TAMANHO DO BOLO ---
 
-// Rateia a Verba de Distribuição de Lucros de UM projeto entre
-// Pavimento (Área Equivalente) e Tarefa (Pontos). Item 10
-// (prompt_gemini.md §14, leva 4): reaproveita a cascata por Etapa
-// (distribuirVerbaRecursiva/listarPavimentosDoProjeto, de
-// distribuicao-custos.js, já carregadas na mesma página) — antes essa
-// conta usava um bolo único pra todo o projeto
-// (aplicarVerbaProporcionalAosPavimentos, removida nesta mudança), sem
-// respeitar de qual Etapa cada Pavimento era. Agora o bolo de lucros de
-// CADA Etapa (calcularVerbaPorEtapaSalvo().valorLucros) cascateia só
-// dentro da própria Etapa, mesmo critério de proporção (Área
-// Equivalente/Pontos) que a verba normal já usa. Retorna
-// [{ tarefa, valorLucroTarefa }].
+// Rateia o Fundo Distribuição de Lucros de UM projeto entre Pavimento
+// (Área Equivalente) e Tarefa (Pontos). Reforma de 2026-08-15: antes o
+// "bolo" vinha do % Distribuição de Lucros descontado de CADA Etapa
+// (aba "Verba para Detalhamento", removida — precisava recascatear uma
+// lista de "verbasLucrosPorEtapa" fake pra chegar no Pavimento). Esse
+// conceito migrou pra Aba 4 (Verba por Pavimento) da Distribuição de
+// Custos: um % (pré-setado 5%) descontado direto na cascata da Etapa
+// "Detalhamento" até o Pavimento — `calcularListaPavimentosComVerbaSalva()`
+// já devolve, pra cada Pavimento, o `valorFundoLucros` que coube a ele
+// (proporcional à Área Equivalente). Só falta ratear esse valor entre
+// as Tarefas do próprio Pavimento, por Pontos (mesmo critério de
+// sempre). Retorna [{ tarefa, valorLucroTarefa }].
 function calcularValorLucroPorTarefaDoProjeto(nomeProjeto) {
-    const verbasPorEtapa = calcularVerbaPorEtapaSalvo(nomeProjeto);
-    const verbasLucrosPorEtapa = verbasPorEtapa.map(v => ({ nome: v.nome, verbaLiquida: v.valorLucros }));
-    const pavimentos = listarPavimentosDoProjeto(nomeProjeto, verbasLucrosPorEtapa);
+    const { pavimentos } = calcularListaPavimentosComVerbaSalva(nomeProjeto);
 
     const resultado = [];
     pavimentos.forEach(p => {
         const totalPontosPav = (p.tarefas || []).reduce((soma, t) => soma + (parseFloat(t.pontos) || 0), 0);
         (p.tarefas || []).forEach(t => {
-            const valorLucroTarefa = totalPontosPav > 0 ? ((parseFloat(t.pontos) || 0) / totalPontosPav) * p.valorVerba : 0;
+            const valorLucroTarefa = totalPontosPav > 0 ? ((parseFloat(t.pontos) || 0) / totalPontosPav) * p.valorFundoLucros : 0;
             resultado.push({ tarefa: t, valorLucroTarefa: valorLucroTarefa });
         });
     });
