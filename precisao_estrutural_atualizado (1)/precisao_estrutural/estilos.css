@@ -285,6 +285,53 @@
         .tabela-compacta th, .tabela-compacta td { padding: 2px 8px; font-size: 12px; line-height: 1.1; }
         .tabela-compacta td { border-bottom-width: 0.5px; }
         .tabela-compacta .col-centralizada { text-align: center; }
+
+        /* Pedido do usuário: linhas da Distribuição de Custos com a
+           mesma altura, tenham elas <input> (Etapas) ou só texto
+           (Fundo Garantidor/Totais) — o <input> global (padding
+           8px 12px) é bem mais alto que a célula compacta (2px 8px),
+           daí a diferença de altura entre linhas. */
+        #panel-distribuicao-custos .tabela-compacta input[type="number"],
+        #panel-distribuicao-custos .tabela-compacta input[type="text"] {
+            padding: 2px 6px;
+            font-size: 12px;
+            line-height: 1.1;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+
+        /* Altura fixa nas linhas da Aba "Parcela Global para Produção"
+           — reduzir o padding do <input> (acima) já deixa as linhas
+           bem mais parecidas, mas a diferença de "chrome" (padding +
+           borda) entre um <input> e uma célula de só-texto ainda sobra
+           alguns px. Fixar a altura da linha resolve de vez, pedido
+           explícito do usuário ("use sempre a mesma altura"). */
+        #conteudo-distribuicao-analista table.tabela-compacta tbody tr,
+        #conteudo-distribuicao-analista table.tabela-compacta tfoot tr {
+            height: 28px;
+        }
+        #conteudo-distribuicao-analista table.tabela-compacta tbody td,
+        #conteudo-distribuicao-analista table.tabela-compacta tfoot td {
+            height: 28px;
+            box-sizing: border-box;
+            vertical-align: middle;
+        }
+
+        /* Sufixo "%" visual nos campos percentuais editáveis — o valor
+           em si continua um número puro (formatado com 2 casas via
+           formatarCampoPercentual()), o "%" é só decoração ao lado. */
+        .campo-percentual { position: relative; display: inline-block; width: 100%; }
+        .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; }
+        .campo-percentual .sufixo-pct { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #64748b; pointer-events: none; }
+
+        /* Pedido do usuário: borda visível também nos campos
+           não-editáveis do Fundo Garantidor e das linhas de Total,
+           pro valor parecer um "campo" como os demais, mesmo sem
+           poder ser digitado. */
+        #panel-distribuicao-custos .campo-somente-leitura-borda {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+        }
         .paginacao { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px; font-size:12px; color:#475569; }
         .paginacao button { padding:6px 14px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer; font-size:12px; }
         .paginacao button:disabled { opacity:0.4; cursor:default; }

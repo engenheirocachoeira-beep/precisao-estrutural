@@ -7209,3 +7209,65 @@ botão Salvar desabilitado, alerta vermelho de bloqueio, e chamando
 `salvarDistribuicaoAnalista()` diretamente (bypassando o botão) o
 `alert()` de bloqueio dispara e nada é salvo. Voltando a 85% o estado
 normal retorna. `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 8) — Altura das linhas, % com 2 casas nos campos editáveis, bordas nos campos só-leitura
+
+Pedido do usuário: usar sempre a mesma altura de linha na Distribuição
+de Custos; formatar também os campos PERCENTUAIS EDITÁVEIS com 2 casas
+decimais (não só os já-calculados); e colocar borda nos campos
+não-editáveis do Fundo Garantidor e das linhas de Total (pra parecerem
+"campo" como os demais, mesmo sem poder digitar).
+
+**Mudanças:**
+- **`estilos.css`**:
+  - Inputs numéricos dentro de `#panel-distribuicao-custos
+    .tabela-compacta` ganharam padding compacto (2px 6px, antes usavam
+    o padding global de 8px 12px, bem maior que o das células de
+    texto — causa raiz da diferença de altura entre a linha de uma
+    Etapa, com `<input>`, e a do Fundo Garantidor/Totais, só texto).
+  - Nova classe `.campo-percentual` (+ `.sufixo-pct`): envolve o
+    `<input>` percentual com um "%" decorativo posicionado à direita
+    (o valor do input continua um número puro).
+  - Nova classe `.campo-somente-leitura-borda`: borda cinza + cantos
+    arredondados, usada nas células não-editáveis do Fundo Garantidor
+    e das linhas de Total.
+  - Pra fechar de vez a diferença de altura (o "chrome" próprio de um
+    `<input>` — padding + borda dele mesmo — ainda deixava a linha da
+    Etapa ~6px mais alta mesmo com o padding do input reduzido): altura
+    fixa de 28px em toda `<tr>`/`<td>` da tabela da Aba 2 (`#conteudo-distribuicao-analista
+    table.tabela-compacta`), com `vertical-align:middle`.
+- **`js/distribuicao-custos.js`**:
+  - Novo helper `formatarCampoPercentual(el)` — `el.value =
+    (parseFloat(el.value)||0).toFixed(2)` — chamado no `onblur` de
+    TODOS os campos percentuais editáveis da Distribuição de Custos
+    (Aba 1: Impostos/Analista/Supervisor/Escritório/Coparticipação
+    Supervisão/Escritório; Aba 2: % de cada Etapa; Aba 4: % Fundo
+    Distribuição de Lucros) e também logo ao CARREGAR o projeto (não
+    só depois de um blur manual), inclusive quando o campo de
+    coparticipação é travado em '0' (trava de Item 4 — antes ficava
+    "0" cru, agora "0.00").
+  - `construirLinhaDistribuicaoAnalista()`: removida a nota
+    "(automático: 100% − soma das Etapas)" do rótulo da linha do Fundo
+    Garantidor — já explicada no aviso azul acima da tabela, e o texto
+    extra quebrava em 2 linhas na coluna estreita, sendo a causa real
+    (junto com o padding do input) da diferença de altura da linha.
+  - Célula `#dca-pct-fundo-garantidor` e a Verba do Fundo Garantidor
+    ganharam `campo-somente-leitura-borda`; mesma classe nas 4 células
+    de valor das linhas Total (Etapas) e Total Geral.
+
+Testado no navegador (AP Praia): as 6 linhas do corpo da tabela
+(5 Etapas + Fundo Garantidor) e as 2 do rodapé (Total Etapas/Total
+Geral) medem exatamente 28,0px cada, via `getBoundingClientRect()`.
+Campos percentuais mostrando 2 casas decimais em todos os pontos
+verificados (Aba 1, Aba 2, Aba 4, inclusive campo de coparticipação
+travado em "0.00"). Digitando um valor tosco ("99.999") e saindo do
+campo (blur) arredonda pra "100.00" corretamente. Bordas visíveis
+(`1px solid rgb(203, 213, 225)`, `border-radius:4px`) confirmadas via
+`getComputedStyle()` no Fundo Garantidor e nos 4 campos de Total.
+`node --check` limpo.
+
+**Nota**: a diferença de altura tinha DUAS causas somadas — o padding
+grande do `<input>` global e uma nota de texto que quebrava linha só
+na linha do Fundo Garantidor. Resolver só uma das duas não bastava;
+por isso a solução final usa altura fixa de linha (mais robusta a
+qualquer causa futura de descompasso) em vez de só ajustar paddings.

@@ -283,21 +283,31 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     // de célula das Etapas (só muda o preenchimento — fundo verde,
     // ver estiloLinha abaixo).
     const estiloLinha = ehFundoGarantidor ? ' style="background:#f0fdf4;"' : '';
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(automático: 100% − soma das Etapas)</small>' : nomeLinha;
+    // Nota "(automático: 100% − soma das Etapas)" removida daqui — já
+    // explicada no aviso azul acima da tabela, e o texto extra quebrava
+    // em 2 linhas nesta coluna estreita, deixando esta linha mais alta
+    // que as demais (pedido do usuário: mesma altura sempre).
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : nomeLinha;
 
     let celulaPct;
     if (ehFundoGarantidor) {
-        celulaPct = '<td id="dca-pct-fundo-garantidor" class="col-centralizada" style="font-weight:bold;">0%</td>';
+        celulaPct = '<td id="dca-pct-fundo-garantidor" class="col-centralizada campo-somente-leitura-borda" style="font-weight:bold;">0.00%</td>';
     } else {
         const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
-        celulaPct = '<td><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + nomeLinha + '" value="' + pct + '" style="width:80px;" oninput="recalcularTabelaDistribuicaoAnalista()"></td>';
+        const pctFormatado = pct === '' ? '' : (parseFloat(pct) || 0).toFixed(2);
+        celulaPct = '<td><div class="campo-percentual" style="width:80px;"><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + nomeLinha + '" value="' + pctFormatado + '" oninput="recalcularTabelaDistribuicaoAnalista()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></td>';
     }
+
+    // Pedido do usuário: borda também na Verba do Fundo Garantidor (as
+    // demais Etapas continuam sem — só a coluna % delas é editável, a
+    // Verba nunca teve borda pedida).
+    const classeVerba = ehFundoGarantidor ? 'dca-verba campo-somente-leitura-borda' : 'dca-verba';
 
     const marcadorLinha = ehFundoGarantidor ? ' data-fundo-garantidor-linha="1"' : '';
     return '<tr' + estiloLinha + marcadorLinha + '>' +
         '<td>' + rotulo + '</td>' +
         celulaPct +
-        '<td class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
+        '<td class="' + classeVerba + '" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
         '<td style="color:#334155;">' + nomeParaExibicao(nomeAnalista) + '</td>' +
         '</tr>';
 }
@@ -738,7 +748,10 @@ function carregarAbaVerbaPavimento() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     document.getElementById('vp-projeto-ref').innerText = nomeProjeto;
     const inputFundoLucros = document.getElementById('vp-pct-fundo-lucros');
-    if (inputFundoLucros) inputFundoLucros.value = obterPctFundoLucrosPavimento(nomeProjeto);
+    if (inputFundoLucros) {
+        inputFundoLucros.value = obterPctFundoLucrosPavimento(nomeProjeto);
+        formatarCampoPercentual(inputFundoLucros);
+    }
     renderizarTabelasVerbaPavimento();
 }
 
@@ -1091,6 +1104,14 @@ function formatarMoeda(valor) {
     return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// Pedido do usuário: campos percentuais editáveis da Distribuição de
+// Custos sempre com 2 casas decimais (o "%" em si é só o <span
+// class="sufixo-pct"> ao lado — ver .campo-percentual no CSS; o valor
+// do <input> continua puro, parseFloat funciona igual).
+function formatarCampoPercentual(el) {
+    el.value = (parseFloat(el.value) || 0).toFixed(2);
+}
+
 function carregarProjetoDistribuicao() {
     const nomeProjeto = document.getElementById('dc-projeto').value;
     if (!nomeProjeto) {
@@ -1133,6 +1154,12 @@ function carregarProjetoDistribuicao() {
         document.getElementById('dc-pct-coparticipacao-supervisor').value = '0';
         document.getElementById('dc-pct-coparticipacao-escritorio').value = '0';
     }
+
+    // Pedido do usuário: campos percentuais editáveis sempre com 2
+    // casas decimais, já ao carregar o projeto (não só depois de um
+    // blur manual do usuário).
+    ['dc-pct-impostos', 'dc-pct-analista', 'dc-pct-supervisor', 'dc-pct-escritorio', 'dc-pct-coparticipacao-supervisor', 'dc-pct-coparticipacao-escritorio']
+        .forEach(id => formatarCampoPercentual(document.getElementById(id)));
 
     recalcularDistribuicaoCustos();
 }
@@ -1178,9 +1205,9 @@ function recalcularDistribuicaoCustos() {
     const inputCoparticipacaoSupervisor = document.getElementById('dc-pct-coparticipacao-supervisor');
     const inputCoparticipacaoEscritorio = document.getElementById('dc-pct-coparticipacao-escritorio');
     inputCoparticipacaoSupervisor.disabled = (pctSupervisor === 0);
-    if (inputCoparticipacaoSupervisor.disabled) inputCoparticipacaoSupervisor.value = '0';
+    if (inputCoparticipacaoSupervisor.disabled) { inputCoparticipacaoSupervisor.value = '0'; formatarCampoPercentual(inputCoparticipacaoSupervisor); }
     inputCoparticipacaoEscritorio.disabled = (pctEscritorio === 0);
-    if (inputCoparticipacaoEscritorio.disabled) inputCoparticipacaoEscritorio.value = '0';
+    if (inputCoparticipacaoEscritorio.disabled) { inputCoparticipacaoEscritorio.value = '0'; formatarCampoPercentual(inputCoparticipacaoEscritorio); }
 
     // Valor Coparticipação (preview) — mesma fórmula de
     // calcularVerbaDetalhamentoPuro() (abaixo), só que pra pré-visualizar
