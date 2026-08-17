@@ -331,8 +331,11 @@ function recalcularTabelaDistribuicaoAnalista() {
 
     const pctImpostos = parseFloat(document.getElementById('dc-pct-impostos').value) || 0;
     const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
-    const pctSupervisor = parseFloat(document.getElementById('dc-pct-supervisor').value) || 0;
-    const pctEscritorio = parseFloat(document.getElementById('dc-pct-escritorio').value) || 0;
+    // Reforma 2026-08-17: a fórmula do Detalhamento não usa mais %Supervisor/
+    // %Escritório do item 3 — usa os 2 campos de Coparticipação do item 4
+    // (independentes, não herdam do item 3).
+    const pctCoparticipacaoSupervisor = parseFloat(document.getElementById('dc-pct-coparticipacao-supervisor').value) || 0;
+    const pctCoparticipacaoEscritorio = parseFloat(document.getElementById('dc-pct-coparticipacao-escritorio').value) || 0;
     const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
     const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
 
@@ -351,7 +354,7 @@ function recalcularTabelaDistribuicaoAnalista() {
 
         let verbaBruta;
         if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctEtapa, 0, '');
+            const r = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapa);
             verbaBruta = r.verbaTotal;
         } else {
             verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
@@ -407,35 +410,32 @@ function salvarDistribuicaoAnalista() {
 }
 
 // --- CÁLCULO COMPARTILHADO: FÓRMULA ESPECIAL DA ETAPA "DETALHAMENTO" ---
-// Item 10 (prompt_gemini.md §14, leva 4): esta fórmula pura
-// (calcularVerbaDetalhamentoPuro) não depende de DOM nem de
-// localStorage, só dos números que recebe — continua em uso, agora
-// chamada de dentro de calcularVerbaPorEtapa/calcularVerbaPorEtapaSalvo
+// Fórmula pura (não depende de DOM nem localStorage, só dos números que
+// recebe) — chamada de dentro de calcularVerbaPorEtapa/calcularVerbaPorEtapaSalvo
 // (abaixo), só para a Etapa cujo nome contém "Detalhamento" (regra de
-// negócio: essa Etapa tem custo compartilhado com Escritório e
-// Supervisor, as demais Etapas usam só a fatia do Analista). As duas
-// funções que existiam aqui antes desta mudança —
-// calcularVerbaDetalhamento(nomeProjeto) e
-// calcularVerbaDetalhamentoSalvo(nomeProjeto) — calculavam um bolo
-// ÚNICO pro projeto inteiro a partir só dessa etapa, ignorando as
-// demais; foram REMOVIDAS nesta leva, substituídas por
-// calcularVerbaPorEtapa/calcularVerbaPorEtapaSalvo, que calculam a
-// verba de CADA Etapa (usando esta fórmula só pra "Detalhamento").
-// buscarPctDetalhamentoEAviso() também foi removida — só existia pra
-// alimentar as duas funções acima.
-function calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctDetalhamento, pctLucros, avisoDetalhamento) {
-    const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
-    const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
+// negócio: essa Etapa pode ter custo compartilhado com Escritório e
+// Supervisor via COPARTICIPAÇÃO; as demais Etapas usam só a fatia do
+// Analista).
+//
+// Reforma de 2026-08-17 (Item 4, "Coparticipações no Detalhamento" —
+// Aba 1/Orçamento Global): ANTES, Escritório/Supervisor participavam do
+// Detalhamento pela MESMA % geral deles no projeto inteiro (`%Escritório`/
+// `%Supervisor` do item 3, fixa, valia igual pra todo projeto). Pedido
+// explícito do usuário: em alguns projetos existe coparticipação, em
+// outros não — precisa ser configurável POR PROJETO, independente do %
+// geral. Agora usa 2 campos NOVOS e SEPARADOS
+// (`pctCoparticipacaoSupervisor`/`pctCoparticipacaoEscritorio`, Item 4),
+// que NÃO herdam do % geral — só ficam disponíveis pra editar quando o
+// % geral correspondente (item 3) não é 0% (trava aplicada em
+// recalcularDistribuicaoCustos(), não aqui — esta função só calcula).
+function calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctDetalhamento) {
     const verbaAnalista = pctDetalhamento / 100 * valorAnalistaTotal;
 
-    const verbaEscritorio = pctAnalista > 0 ? verbaAnalista * (pctEscritorio / pctAnalista) : 0;
-    const verbaSupervisor = pctAnalista > 0 ? verbaAnalista * (pctSupervisor / pctAnalista) : 0;
+    const verbaEscritorio = pctAnalista > 0 ? verbaAnalista * (pctCoparticipacaoEscritorio / pctAnalista) : 0;
+    const verbaSupervisor = pctAnalista > 0 ? verbaAnalista * (pctCoparticipacaoSupervisor / pctAnalista) : 0;
     const verbaTotal = verbaAnalista + verbaEscritorio + verbaSupervisor;
 
-    const valorLucros = pctLucros / 100 * verbaTotal;
-    const verbaLiquida = verbaTotal - valorLucros;
-
-    return { verbaAnalista, verbaEscritorio, verbaSupervisor, verbaTotal, pctLucros, valorLucros, verbaLiquida, avisoDetalhamento: avisoDetalhamento || '' };
+    return { verbaAnalista, verbaEscritorio, verbaSupervisor, verbaTotal };
 }
 
 // --- ITEM 10 (prompt_gemini.md §14, leva 4): CASCATA DE VERBA POR ETAPA ---
@@ -505,8 +505,11 @@ function calcularVerbaPorEtapa(nomeProjeto) {
 
     const pctImpostos = parseFloat(document.getElementById('dc-pct-impostos').value) || 0;
     const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
-    const pctSupervisor = parseFloat(document.getElementById('dc-pct-supervisor').value) || 0;
-    const pctEscritorio = parseFloat(document.getElementById('dc-pct-escritorio').value) || 0;
+    // Reforma 2026-08-17: a fórmula do Detalhamento usa os 2 campos de
+    // Coparticipação do item 4 (independentes do %Supervisor/%Escritório
+    // do item 3 — não herdam).
+    const pctCoparticipacaoSupervisor = parseFloat(document.getElementById('dc-pct-coparticipacao-supervisor').value) || 0;
+    const pctCoparticipacaoEscritorio = parseFloat(document.getElementById('dc-pct-coparticipacao-escritorio').value) || 0;
 
     const valorLiquido = valorContrato - (pctImpostos / 100 * valorContrato);
     const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
@@ -523,7 +526,7 @@ function calcularVerbaPorEtapa(nomeProjeto) {
 
         let verbaBruta;
         if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctEtapa, 0, '');
+            const r = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapa);
             verbaBruta = r.verbaTotal;
         } else {
             verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
@@ -565,8 +568,11 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
     const orcamento = orcamentosSalvos[nomeProjeto] || {};
     const pctImpostos = parseFloat(orcamento.pct_impostos) || 0;
     const pctAnalista = parseFloat(orcamento.pct_analista) || 0;
-    const pctSupervisor = parseFloat(orcamento.pct_supervisor) || 0;
-    const pctEscritorio = parseFloat(orcamento.pct_escritorio) || 0;
+    // Reforma 2026-08-17: fórmula do Detalhamento usa os 2 campos de
+    // Coparticipação (item 4, salvos junto no mesmo orçamento) — não
+    // mais %Supervisor/%Escritório (item 3).
+    const pctCoparticipacaoSupervisor = parseFloat(orcamento.pct_coparticipacao_supervisor) || 0;
+    const pctCoparticipacaoEscritorio = parseFloat(orcamento.pct_coparticipacao_escritorio) || 0;
 
     const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     const projeto = projetos.find(p => p.nome === nomeProjeto);
@@ -586,7 +592,7 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
 
         let verbaBruta;
         if (ehDetalhamento) {
-            const r = calcularVerbaDetalhamentoPuro(valorContrato, pctImpostos, pctAnalista, pctSupervisor, pctEscritorio, pctEtapa, 0, '');
+            const r = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapa);
             verbaBruta = r.verbaTotal;
         } else {
             verbaBruta = pctEtapa / 100 * valorAnalistaTotal;
@@ -1133,6 +1139,12 @@ function carregarProjetoDistribuicao() {
         document.getElementById('dc-pct-analista').value = salvo.pct_analista;
         document.getElementById('dc-pct-supervisor').value = salvo.pct_supervisor;
         document.getElementById('dc-pct-escritorio').value = salvo.pct_escritorio;
+        // Item 4 (reforma de 2026-08-17): coparticipação NÃO herda do %
+        // geral do item 3 (pedido explícito do usuário) — sempre começa
+        // do que já foi salvo pra ela mesma, ou '0' se nunca foi
+        // preenchida (projeto sem coparticipação por padrão).
+        document.getElementById('dc-pct-coparticipacao-supervisor').value = salvo.pct_coparticipacao_supervisor || '0';
+        document.getElementById('dc-pct-coparticipacao-escritorio').value = salvo.pct_coparticipacao_escritorio || '0';
     } else {
         // Melhoria #13 (prompt_gemini.md §12): percentuais padrão
         // pré-preenchidos (editáveis) quando o projeto ainda não tem
@@ -1145,6 +1157,8 @@ function carregarProjetoDistribuicao() {
         document.getElementById('dc-pct-analista').value = '30';
         document.getElementById('dc-pct-supervisor').value = '10';
         document.getElementById('dc-pct-escritorio').value = '60';
+        document.getElementById('dc-pct-coparticipacao-supervisor').value = '0';
+        document.getElementById('dc-pct-coparticipacao-escritorio').value = '0';
     }
 
     recalcularDistribuicaoCustos();
@@ -1166,7 +1180,8 @@ function recalcularDistribuicaoCustos() {
     const pctSupervisor = parseFloat(document.getElementById('dc-pct-supervisor').value) || 0;
     const pctEscritorio = parseFloat(document.getElementById('dc-pct-escritorio').value) || 0;
 
-    document.getElementById('dc-valor-analista').value = formatarMoeda(pctAnalista / 100 * valorLiquido);
+    const valorAnalistaTotal = pctAnalista / 100 * valorLiquido;
+    document.getElementById('dc-valor-analista').value = formatarMoeda(valorAnalistaTotal);
     document.getElementById('dc-valor-supervisor').value = formatarMoeda(pctSupervisor / 100 * valorLiquido);
     document.getElementById('dc-valor-escritorio').value = formatarMoeda(pctEscritorio / 100 * valorLiquido);
 
@@ -1181,6 +1196,54 @@ function recalcularDistribuicaoCustos() {
         alerta.style.background = '#fef9c3'; alerta.style.color = '#854d0e';
         alerta.innerHTML = '⚠️ Percentuais somam ' + somaPct.toFixed(2) + '% (não fecham 100%). Isso não impede salvar, mas confira se é intencional.';
     }
+
+    // Item 4 (reforma de 2026-08-17): trava o campo de coparticipação
+    // quando o % geral (item 3) correspondente é 0% — pedido explícito
+    // do usuário ("necessariamente não haverá coparticipação"). Força
+    // o valor pra '0' ao travar, pra nunca deixar um valor escondido
+    // não-zero atrás de um campo desabilitado influenciando o cálculo.
+    const inputCoparticipacaoSupervisor = document.getElementById('dc-pct-coparticipacao-supervisor');
+    const inputCoparticipacaoEscritorio = document.getElementById('dc-pct-coparticipacao-escritorio');
+    inputCoparticipacaoSupervisor.disabled = (pctSupervisor === 0);
+    if (inputCoparticipacaoSupervisor.disabled) inputCoparticipacaoSupervisor.value = '0';
+    inputCoparticipacaoEscritorio.disabled = (pctEscritorio === 0);
+    if (inputCoparticipacaoEscritorio.disabled) inputCoparticipacaoEscritorio.value = '0';
+
+    // Valor Coparticipação (preview) — mesma fórmula de
+    // calcularVerbaDetalhamentoPuro() (abaixo), só que pra pré-visualizar
+    // aqui na aba 1 antes mesmo de ir na aba 2. Precisa buscar a %
+    // salva da Etapa "Detalhamento" (aba 2/`banco_distribuicao_custos_analista`)
+    // — se o projeto ainda não tem árvore ou essa % nunca foi salva,
+    // mostra R$ 0,00 (comportamento normal, não é erro).
+    const pctCoparticipacaoSupervisor = parseFloat(inputCoparticipacaoSupervisor.value) || 0;
+    const pctCoparticipacaoEscritorio = parseFloat(inputCoparticipacaoEscritorio.value) || 0;
+    const pctEtapaDetalhamento = obterPctEtapaDetalhamentoSalvo(nomeProjeto);
+    const verbaAnalistaDetalhamento = pctEtapaDetalhamento / 100 * valorAnalistaTotal;
+
+    const valorCoparticipacaoSupervisor = pctAnalista > 0 ? verbaAnalistaDetalhamento * (pctCoparticipacaoSupervisor / pctAnalista) : 0;
+    const valorCoparticipacaoEscritorio = pctAnalista > 0 ? verbaAnalistaDetalhamento * (pctCoparticipacaoEscritorio / pctAnalista) : 0;
+    document.getElementById('dc-valor-coparticipacao-supervisor').value = formatarMoeda(valorCoparticipacaoSupervisor);
+    document.getElementById('dc-valor-coparticipacao-escritorio').value = formatarMoeda(valorCoparticipacaoEscritorio);
+}
+
+// Busca a % já salva da Etapa "Detalhamento" (aba 2 — banco_distribuicao_custos_analista),
+// usada tanto pelo preview do item 4 (acima) quanto pela fórmula real
+// de calcularVerbaDetalhamentoPuro() via calcularVerbaPorEtapa(Salvo)().
+// Retorna 0 se o projeto não tem árvore, não tem Etapa "Detalhamento",
+// ou essa % nunca foi salva — comportamento normal (ainda não configurado),
+// não é erro.
+function obterPctEtapaDetalhamentoSalvo(nomeProjeto) {
+    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = arvores[nomeProjeto];
+    const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
+    const etapaDetalhamento = etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
+    if (!etapaDetalhamento) return 0;
+
+    const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
+    const salvoProjeto = salvos[nomeProjeto] || {};
+    const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
+    const dadosEtapa = salvoEtapas[etapaDetalhamento.nome];
+    return (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
 }
 
 function salvarDistribuicaoCustos() {
@@ -1192,13 +1255,17 @@ function salvarDistribuicaoCustos() {
     const pctAnalista = document.getElementById('dc-pct-analista').value;
     const pctSupervisor = document.getElementById('dc-pct-supervisor').value;
     const pctEscritorio = document.getElementById('dc-pct-escritorio').value;
+    const pctCoparticipacaoSupervisor = document.getElementById('dc-pct-coparticipacao-supervisor').value;
+    const pctCoparticipacaoEscritorio = document.getElementById('dc-pct-coparticipacao-escritorio').value;
 
     const todasDistribuicoes = JSON.parse(localStorage.getItem('banco_distribuicao_custos')) || {};
     todasDistribuicoes[nomeProjeto] = {
         pct_impostos: pctImpostos,
         pct_analista: pctAnalista,
         pct_supervisor: pctSupervisor,
-        pct_escritorio: pctEscritorio
+        pct_escritorio: pctEscritorio,
+        pct_coparticipacao_supervisor: pctCoparticipacaoSupervisor,
+        pct_coparticipacao_escritorio: pctCoparticipacaoEscritorio
     };
     localStorage.setItem('banco_distribuicao_custos', JSON.stringify(todasDistribuicoes));
     localStorage.setItem('banco_ultimo_percentual_impostos', pctImpostos);

@@ -6930,3 +6930,87 @@ conferência ✅ bate com a aba anterior, Propriedades Contratuais
 mostra Detalhista e Número de Pavimentos corretos, e Atribuição de
 Tarefas (Pontos Máximo) continua calculando certo pra tarefas dentro
 de Detalhamento. `node --check` limpo nos 3 arquivos JS tocados.
+
+## Retomada em 2026-08-17 (parte 2) — Item 4 "Coparticipações no Detalhamento"
+
+Pedido do usuário, também planejado com simulação numérica ANTES de
+codar (pediu explicitamente 2 vezes — a primeira fórmula que ele
+descreveu dava um resultado sem sentido dimensional, um % em vez de
+R$; ele mesmo percebeu e reformulou). Motivação: em alguns projetos
+Escritório/Supervisor coparticipam de uma parcela do custo do
+Detalhamento, em outros não — precisa ser configurável POR PROJETO,
+não mais uma % fixa que valia igual pra todos (como era antes, via
+`%Supervisor`/`%Escritório` do item 3, usados na fórmula especial de
+`calcularVerbaDetalhamentoPuro`).
+
+**Fórmula final confirmada** (2ª tentativa, a 1ª tinha um passo
+faltando): `Valor Coparticipação = (Verba Bruta da Etapa Detalhamento
+× % Coparticipação) ÷ % Analista (item 3)`. Simulação de validação
+(AP Praia, 60% Escritório / 10% Supervisão, batida à mão antes de
+implementar): Verba Detalhamento bruta R$ 29.791,89 (35% × Parcela
+Global R$ 85.119,68) → Coparticipação Escritório R$ 44.687,83,
+Coparticipação Supervisão R$ 7.447,97 → Verba Total do Detalhamento
+R$ 81.927,69 → líquida do Fundo Garantidor (15%) R$ 69.638,54.
+Conferido depois no navegador que a implementação bate exatamente com
+essa simulação.
+
+**Regra de trava confirmada pelo usuário**: os 2 campos novos NÃO
+herdam do `%Supervisor`/`%Escritório` do item 3 (são independentes) —
+mas ficam DESABILITADOS (forçados a 0%) sempre que o % geral
+correspondente do item 3 for 0%, já que "necessariamente não haverá
+coparticipação" nesse caso. Mesma regra pros dois (Escritório e
+Supervisão), simétrica.
+
+**Mudanças:**
+- **`index.html`**: novo "4. Coparticipações no Detalhamento" na aba
+  Orçamento Global, mesma grade de 3 colunas do item 3 (coluna do
+  Analista fica vazia — ele não coparticipa, é a base do cálculo).
+  Mostrado ao usuário como mockup HTML antes de implementar (mesmo
+  padrão desta sessão: simular/mostrar antes de codar mudança
+  financeira).
+- **`estilos.css`**: espaçamento mais compacto só dentro de
+  `#conteudo-orcamento-global` (`.form-section`/`.form-grid`, via
+  seletor com ID — não mexe no `.form-section` genérico usado em
+  outras telas), pedido do usuário pra os 4 itens caberem melhor numa
+  tela só. Reduz a altura útil em ~60px medido no navegador; não
+  elimina rolagem em qualquer tamanho de janela (o painel já tinha
+  `overflow-y:auto` como respaldo antes disso, continua tendo).
+- **`js/distribuicao-custos.js`**:
+  - `carregarProjetoDistribuicao()`: carrega os 2 novos %'s (default
+    '0', NUNCA herda do item 3, mesmo quando o projeto não tem nada
+    salvo ainda).
+  - `recalcularDistribuicaoCustos()`: trava/destrava os 2 campos ao
+    vivo conforme `%Supervisor`/`%Escritório` mudam (força valor '0'
+    ao travar — defesa em profundidade, testado forçando valor via JS
+    com o campo travado, confirmado que volta pra 0). Novo cálculo do
+    "Valor Coparticipação" (preview, cross-referencia a % salva da
+    Etapa Detalhamento na aba 2 via nova `obterPctEtapaDetalhamentoSalvo()`
+    — mostra R$ 0,00 se o projeto ainda não tem essa % salva, não é
+    erro).
+  - `salvarDistribuicaoCustos()`: persiste os 2 novos campos em
+    `banco_distribuicao_custos[projeto]` (`pct_coparticipacao_supervisor`/
+    `pct_coparticipacao_escritorio`).
+  - `calcularVerbaDetalhamentoPuro()`: assinatura simplificada — não
+    recebe mais `valorContrato`/`pctImpostos`/`pctLucros`/`avisoDetalhamento`
+    (vestigiais, sempre chamados com valores fixos/0 há tempos); troca
+    `pctSupervisor`/`pctEscritorio` (item 3) pelos 2 novos
+    `pctCoparticipacaoSupervisor`/`pctCoparticipacaoEscritorio` (item
+    4) — resto da fórmula (proporção contra `%Analista`) igual.
+  - `calcularVerbaPorEtapa()` (ao vivo, lê da Aba 1)/
+    `calcularVerbaPorEtapaSalvo()` (lê de `banco_distribuicao_custos`
+    salvo) e `recalcularTabelaDistribuicaoAnalista()` (Aba 2, também ao
+    vivo): as 3 chamadas pra `calcularVerbaDetalhamentoPuro()`
+    atualizadas pra nova assinatura/fonte dos %'s.
+
+Testado no navegador local (AP Praia): campo de Supervisão trava
+corretamente quando `%Supervisor`=0% (valor salvo real do projeto) e
+destrava ao mudar pra um valor não-zero, sem herdar; valores
+calculados batem exatamente com a simulação prévia em toda a cadeia
+(item 4 → Aba 2 "Detalhamento" → , por consequência, Aba 4/5 que já
+dependiam da mesma verba). `node --check` limpo.
+
+**Mesmo aviso da rodada anterior**: qualquer projeto que já tinha
+coparticipação configurada pela fórmula ANTIGA (via `%Supervisor`/
+`%Escritório` do item 3) precisa ter os 2 novos campos preenchidos de
+propósito — não migra sozinho, os valores do item 3 nunca alimentaram
+os novos campos automaticamente.
