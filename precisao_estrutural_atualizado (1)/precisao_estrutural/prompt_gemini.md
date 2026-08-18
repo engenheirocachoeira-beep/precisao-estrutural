@@ -8120,3 +8120,73 @@ o Pavimento "SUBSOLO" (`►`, ainda tem Tarefas por baixo pra abrir);
 recolher o projeto de novo volta a seta dele pra `►` e esconde
 Etapa/Pavimento (confirmado via `style.display`). Sem erros no
 console.
+
+## Retomada em 2026-08-17 (parte 22) — Correção: nome da Tarefa duplicado como Pavimento na árvore de Custos
+
+**Bug relatado pelo usuário**: na árvore de "Relatório de Custos"
+(parte 18), abrindo AP PRAIA → Detalhamento → SUBSOLO, aparecia um
+nível a mais — um "Pavimento" com o MESMO NOME da Tarefa dentro dele
+(ex: "LC_Blocos" contendo só "LC_Blocos"). Pergunta do usuário: "Por
+que aparece duas vezes o nome das tarefas?"
+
+**Causa raiz**: `coletarNosFolhaDaArvore()` (`js/core.js`) devolve um
+`localizacao` tipo "Etapa › Setor › Pavimento" — mas esse breadcrumb
+SEMPRE inclui o nome do próprio nó-folha como último pedaço (ex:
+"Detalhamento › SUBSOLO › LC_Blocos", onde "LC_Blocos" ali é a
+Tarefa, não um ancestral). `coletarLinhasSessaoTrabalho()` e
+`coletarLinhasTarefa()` (`js/relatorios.js`) liam esse breadcrumb por
+POSIÇÃO fixa (`partes[1]` = Setor, `partes[2]` = Pavimento) — certo
+quando os 3 níveis (Etapa+Setor+Pavimento) existem de verdade antes da
+Tarefa, mas errado quando um projeto pula o Setor (Árvore Genérica
+permite isso, e o projeto AP Praia faz exatamente isso: Etapa →
+Pavimento → Tarefa, sem Setor no meio). Nesse caso, `partes[1]` é na
+verdade o Pavimento (rotulado por engano como Setor) e `partes[2]` é o
+nome da PRÓPRIA TAREFA (rotulado por engano como Pavimento) — daí o
+nível fantasma.
+
+**Correção (`js/relatorios.js`)**: nova função pura
+`resolverLocalizacaoPorNivel(arv, path)` — em vez de fatiar o
+breadcrumb por posição, caminha pelos ancestrais de verdade via
+`resolverNoPorPath()` (já existente em `core.js`) e usa o `.nivel` de
+cada um pra saber se é Setor ou Pavimento, funcionando em qualquer
+combinação de níveis pulados. Trata à parte o caso "Etapa Única"
+(quando a própria Etapa é a folha, path de 1 segmento só, sem Pavimento/
+Tarefa abaixo) — o objeto de Etapa não carrega `.nivel` próprio
+(mesma convenção de `arvore.js`, onde `nivel === 'etapa'` é sempre um
+parâmetro externo, nunca lido de `no.nivel`), então o 1º segmento do
+path é sempre tratado como Etapa, incondicionalmente.
+`coletarLinhasSessaoTrabalho()`/`coletarLinhasTarefa()` trocaram o
+fatiamento de `localizacao.split(' › ')` por essa função nova.
+
+**Verificação**: `node --check` limpo. Testado no navegador (aba
+nova): AP Praia → Detalhamento → SUBSOLO agora mostra direto
+LC_Blocos/DT_Blocos/DT_Pilares como Tarefas-folha (sem o nível
+fantasma); projeto "R" (Etapa → Pavimento "TERREO" → Tarefa, também
+sem Setor) confirmado correto; projeto "D" (Etapa Única — "PRÉ-
+LANÇAMENTO" é a própria folha) confirmado correto depois de um
+ajuste extra (a 1ª versão da correção zerava a Etapa nesse caso
+específico — só testando os 3 projetos reais é que esse caso apareceu).
+Total geral conferido de novo: 69:32 / R$ 2.348,35, batendo com todas
+as verificações anteriores desta sessão — a correção não mudou nenhum
+número, só a hierarquia exibida.
+
+**Achado relacionado, ainda não corrigido**: enquanto investigava, o
+usuário também perguntou por que "Detalhamento" aparece de duas formas
+diferentes no filtro de Etapa. Confirmado: é um problema de DADOS, não
+de código — o projeto "R" tem a Etapa gravada como "DETALHAMENTO"
+(bate com o Catálogo de Etapas, `banco_etapas_lego`, que tem
+"DETALHAMENTO" maiúsculo), mas o projeto AP Praia tem "Detalhamento"
+(minúsculo, não bate com o catálogo atual). Uma varredura mais ampla
+achou o mesmo padrão em outros lugares: "ANÁLISE" (catálogo) vs.
+"Análise" (outro projeto); uma Etapa "Cargas" que nem existe no
+catálogo atual; e no Pavimento, "TÉRREO" (catálogo) vs. "TERREO" (sem
+acento, outro projeto). O formulário de adicionar Etapa na Árvore
+(`js/arvore.js`, "Plugar Componente na Árvore") já usa um `<select>`
+alimentado pelo catálogo — não é entrada livre — então a explicação
+mais provável é que esses projetos foram criados ANTES do catálogo ser
+editado/renomeado pro nome atual, e o nome não é uma referência viva
+(cada árvore guarda uma cópia do nome no momento da criação, não um
+ID). Fica registrado como decisão pendente do usuário: é uma limpeza
+de dados em produção (renomear os nós divergentes pra bater com o
+catálogo atual), não uma correção de código — não mexi em nada disso
+ainda, só documentei o que achei.

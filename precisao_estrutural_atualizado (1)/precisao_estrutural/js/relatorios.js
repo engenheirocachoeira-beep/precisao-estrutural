@@ -41,6 +41,47 @@
 // Funções puras, testáveis sem DOM (ver
 // /home/claude/testes/teste_relatorios_camada_dados.js).
 
+// Resolve Etapa/Setor/Pavimento de uma Tarefa-folha PELO NÍVEL REAL de
+// cada ancestral (`no.nivel`), não pela posição no breadcrumb. Bug
+// relatado pelo usuário ("por que aparece duas vezes o nome das
+// tarefas"): `coletarNosFolhaDaArvore()` inclui o nome da própria
+// folha como último pedaço do `localizacao` (ex: "Etapa › Pavimento ›
+// NomeDaTarefa"), e o código antigo lia `partes[1]`/`partes[2]` como
+// se fossem sempre Setor/Pavimento — certo quando os 3 níveis
+// existem, mas errado quando um projeto pula o Setor (Árvore Genérica
+// permite isso): `partes[1]` vira o Pavimento de verdade (rotulado
+// como Setor por engano) e `partes[2]` vira o nome da PRÓPRIA TAREFA
+// (rotulado como Pavimento por engano) — daí o nome duplicado
+// aparecendo como se fosse um Pavimento com o mesmo nome da Tarefa
+// dentro dele. Caminha pelos ancestrais de verdade via
+// `resolverNoPorPath()` e usa o `.nivel` de cada um pra saber onde
+// colocar o nome — funciona em qualquer profundidade/combinação de
+// níveis pulados.
+function resolverLocalizacaoPorNivel(arv, path) {
+    const segs = String(path).split('-');
+    const resultado = { etapa: '—', setor: '—', pavimento: '—' };
+
+    // A Etapa (1º segmento) entra sempre — mesmo no caso "Etapa Única"
+    // (path de 1 segmento só, onde a própria Etapa é a folha, sem
+    // Setor/Pavimento/Tarefa abaixo dela). O objeto de Etapa não
+    // carrega um `.nivel` próprio (mesma convenção de arvore.js, onde
+    // `nivel === 'etapa'` chega como parâmetro externo, nunca lido de
+    // `no.nivel`), por isso não dá pra usar `no.nivel` pra ela.
+    const noEtapa = resolverNoPorPath(arv, segs[0]);
+    if (noEtapa) resultado.etapa = noEtapa.nome;
+
+    // Os segmentos do meio (se existirem) são ancestrais de verdade —
+    // o ÚLTIMO segmento é sempre a própria folha (a Tarefa, ou a
+    // Etapa/Pavimento agindo como folha), por isso fica de fora da
+    // varredura.
+    for (let i = 1; i < segs.length - 1; i++) {
+        const prefixo = segs.slice(0, i + 1).join('-');
+        const no = resolverNoPorPath(arv, prefixo);
+        if (no && resultado.hasOwnProperty(no.nivel)) resultado[no.nivel] = no.nome;
+    }
+    return resultado;
+}
+
 // Uma linha por SESSÃO DE TRABALHO, de todos os projetos/executores.
 // `caminho` no mesmo formato usado em todo o resto do projeto
 // (`nomeProjeto|fIdx-eIdx-sIdx-tIdx`), útil pra rastrear de volta à
@@ -98,9 +139,9 @@ function coletarLinhasSessaoTrabalho() {
             });
         }
 
-        coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path, localizacao }) => {
-            const partes = localizacao.split(' › ');
-            empilharSessoes(tarefa, partes[0], partes[1] || '—', partes[2] || '—', nomeProjeto + '|' + path);
+        coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path }) => {
+            const loc = resolverLocalizacaoPorNivel(arv, path);
+            empilharSessoes(tarefa, loc.etapa, loc.setor, loc.pavimento, nomeProjeto + '|' + path);
         });
     });
 
@@ -127,9 +168,9 @@ function coletarLinhasTarefa() {
         const projCadastro = projetos.find(p => p.nome === nomeProjeto);
         const cliente = projCadastro ? projCadastro.cliente : '';
 
-        coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path, localizacao }) => {
+        coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path }) => {
             if (!tarefa.executor) return;
-            const partes = localizacao.split(' › ');
+            const loc = resolverLocalizacaoPorNivel(arv, path);
             const horasRealizadas = parseFloat(tarefa.horas_reais) || 0;
             const custoReal = calcularCustoRealTarefa(tarefa, tarefa.executor);
             const dataInicioReal = obterDataInicioExecucaoReal(tarefa);
@@ -154,9 +195,9 @@ function coletarLinhasTarefa() {
                 caminho: nomeProjeto + '|' + path,
                 projeto: nomeProjeto,
                 cliente: cliente,
-                etapa: partes[0],
-                setor: partes[1] || '—',
-                pavimento: partes[2] || '—',
+                etapa: loc.etapa,
+                setor: loc.setor,
+                pavimento: loc.pavimento,
                 tarefa: tarefa.nome,
                 executor: tarefa.executor,
                 status: tarefa.status || 'Apontada',
