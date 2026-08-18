@@ -7941,3 +7941,97 @@ trabalho) — a wiring usa exatamente o mesmo padrão
 outras telas desta mesma sessão (ex: parte 17, botão "Avanço de
 Projeto"), então o risco é baixo, mas fica registrado como a única
 verificação que ficou só no nível funcional/DOM, não visual.
+
+## Retomada em 2026-08-17 (parte 19) — Horas Previstas = Pontos, filtro de Status no Personalizado, orelhas no lugar da barra lateral
+
+**3 pedidos do usuário nesta parte:**
+
+**1) "Horas Previstas" passa a ser igual aos Pontos da tarefa.**
+Até aqui, a coluna "Horas Previstas" (Nível Tarefa, motor genérico) usava
+`calcularHorasPrevistasTarefa()`: `base_h` (do Catálogo de Tarefas,
+`banco_tarefas_lego`, casado por nome) × qtd_física × peso_esforço (do
+Pavimento) × f_esb × f_analista (do projeto) — e só existia pra
+tarefas cujo pai direto era um Pavimento. O usuário decidiu: "As horas
+base cadastradas para aquele tipo de tarefa, no cadastro, servem
+apenas como referência. A quantidade de horas previstas deve ser
+igual ao número de pontos da tarefa, atribuído na aba Atribuição de
+Tarefas." Ou seja, 1 Ponto = 1 Hora Prevista, direto — sem fórmula, e
+sem a restrição de precisar de um Pavimento-pai (Pontos é um campo
+livre em QUALQUER tarefa, editável na tabela de Atribuição de Tarefas
+via `editarPontosTarefaAtribuicao()`).
+
+**Mudança (`js/relatorios.js`, `coletarLinhasTarefa()`):**
+`calcularHorasPrevistasTarefa()` foi removida (não é mais chamada em
+lugar nenhum) — `horasPrevistas` agora é `parseFloat(tarefa.pontos) || 0`,
+direto, pra QUALQUER tarefa com executor (não só as com Pavimento-pai).
+`desvioPct`/`outlier` (usado no destaque visual de linha na tabela)
+continuam com a mesma lógica de sempre (>40% de desvio), só mudou a
+base do cálculo. **Nota importante deixada no código**: a Calibração
+BI (`js/arvore.js`, marcação de `is_outlier` ao finalizar uma tarefa)
+tem sua PRÓPRIA implementação separada da fórmula antiga (nunca
+chamou `calcularHorasPrevistasTarefa` — só usava a mesma matemática em
+paralelo) e **não foi tocada nesta parte** — não foi pedido. Os dois
+critérios de outlier (Relatório vs. Calibração BI) podem divergir
+agora; fica registrado caso o usuário quera alinhar isso depois.
+
+**2) Novo filtro por Status no "Relatório Personalizado".**
+A coluna Status já existia no Nível Tarefa (e já dava pra agrupar por
+ela), mas não tinha filtro dedicado. Acrescentado
+`<select id="rel-filtro-status">` no grid de filtros (`index.html`,
+dentro de `#rel-conteudo-personalizado`) e no motor
+(`aplicarFiltrosRelatorio`, `renderizarOpcoesFiltroRelatorio`,
+`lerFiltrosRelatorio`, `limparFiltrosRelatorio`, `mudarNivelRelatorio`,
+`carregarVisaoSelecionadaRelatorio`) — mesmo padrão dos filtros já
+existentes (Projeto/Etapa/Cliente/Executor). No Nível Sessão (que não
+tem campo `status`), o select simplesmente fica só com "-- Todos --"
+(sem opções), sem quebrar nada — mesma tolerância que outros campos
+ausentes já tinham.
+
+**3) Menu de tipos de relatório virou orelhas horizontais, "mesma
+lógica da aba Cadastros".**
+A barra lateral vertical (`#rel-sidebar-tipos`, `.rel-sidebar`/
+`.rel-tipo-item`, com os 3 placeholders desabilitados "Relatório de
+conclusão/comissões/Importar planilha") foi substituída por uma barra
+de orelhas horizontal, reaproveitando as MESMAS classes que a aba
+Cadastro já usa pra alternar entre Clientes/Funcionários/Projetos/etc.
+(`.aprov-abas`/`.aprov-aba`/`.aprov-aba-ativa` — originalmente da
+Aprovações, já compartilhadas com Cadastro). Diferença importante:
+os placeholders desabilitados foram REMOVIDOS — pedido do usuário foi
+"se houver mais algum pré-estabelecido, criar novas orelhas", ou seja,
+uma orelha só nasce quando o relatório correspondente é implementado
+de verdade, não como reserva de lugar.
+
+**Mudanças (`index.html`):** `#panel-relatorios` voltou a
+`flex-direction:column` (era `row` pra caber a barra lateral ao lado);
+a barra lateral virou `<div class="aprov-abas">` com 2
+`<button class="aprov-aba">` (`rel-aba-custos`, `rel-aba-personalizado`).
+
+**Mudanças (`js/relatorios.js`):** `alternarTipoRelatorio()` reescrita
+pra ser data-driven sobre um array `TIPOS_RELATORIO = ['custos', 'personalizado']`
+(mesmo espírito do `ABAS_CADASTRO` que `abrirAbaCadastro()` já usa em
+`core.js`) — looping sobre os tipos, alternando `aprov-aba-ativa` no
+botão `rel-aba-<tipo>` e `display` no `rel-conteudo-<tipo>`. Acrescentar
+um novo relatório pré-estabelecido no futuro vira: 1 linha nesse
+array + 1 botão + 1 div de conteúdo no HTML — não precisa mais tocar
+na função.
+
+**Mudanças (`estilos.css`):** removidas as regras agora mortas
+`.rel-sidebar`/`.rel-sidebar-titulo`/`.rel-tipo-item*`/
+`.rel-sidebar-separador` (nada mais usa essas classes). Regra de
+impressão trocada de `.rel-sidebar` pra `#panel-relatorios .aprov-abas`
+(escopada só à tela de Relatórios — não esconde as orelhas de
+Cadastro/Aprovações ao imprimir outras telas).
+
+**Verificação**: `node --check js/relatorios.js` limpo. Testado no
+navegador local: `coletarLinhasTarefa()` confirma Horas Previstas ===
+Pontos linha a linha (ex: "Vigas-Detalhamento", 8 pontos → 8h
+previstas); filtro de Status populado com os 5 status reais do banco,
+filtrar por "Finalizada" mostra exatamente as 6 tarefas finalizadas
+(+ 1 linha de Total); orelhas alternam corretamente entre "Relatório
+de Custos" e "Relatório Personalizado" (classe ativa, display
+block/none), barra lateral antiga confirmada ausente do DOM
+(`#rel-sidebar-tipos` não existe mais); tela de Custos (parte 18)
+continua funcionando sem regressão depois da mudança de layout do
+painel. Mesma ressalva da parte 18: não foi possível confirmar por
+clique de mouse real (aba de preview sem screenshot/click por
+coordenada nesta sessão) — verificação só funcional/DOM.

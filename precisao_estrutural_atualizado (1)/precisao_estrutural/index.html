@@ -795,18 +795,11 @@
                     </div>
                 </div>
 
-                <div id="panel-relatorios" class="content-panel" style="flex-direction:row; gap:16px;">
-                    <div id="rel-sidebar-tipos" class="rel-sidebar">
-                        <div class="rel-sidebar-titulo">Relatórios</div>
-                        <div class="rel-tipo-item ativo" id="rel-tipo-item-custos" onclick="alternarTipoRelatorio('custos')">Relatório de Custos</div>
-                        <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Relatório de conclusão</div>
-                        <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Relatório de comissões</div>
-                        <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Importar planilha</div>
-                        <div class="rel-sidebar-separador"></div>
-                        <div class="rel-tipo-item" id="rel-tipo-item-personalizado" onclick="alternarTipoRelatorio('personalizado')">Relatório personalizado</div>
+                <div id="panel-relatorios" class="content-panel" style="flex-direction:column;">
+                    <div class="aprov-abas">
+                        <button type="button" id="rel-aba-custos" class="aprov-aba aprov-aba-ativa" onclick="alternarTipoRelatorio('custos')">Relatório de Custos</button>
+                        <button type="button" id="rel-aba-personalizado" class="aprov-aba" onclick="alternarTipoRelatorio('personalizado')">Relatório Personalizado</button>
                     </div>
-
-                    <div id="rel-conteudo-tipos" style="flex:1; min-width:0; overflow-y:auto;">
 
                     <div id="rel-conteudo-custos">
                         <div class="painel-filtro" style="margin-bottom:14px;">
@@ -880,6 +873,7 @@
                                 <div class="campo"><label>Etapa</label><select id="rel-filtro-etapa" onchange="renderizarTabelaRelatorio()"></select></div>
                                 <div class="campo"><label>Cliente</label><select id="rel-filtro-cliente" onchange="renderizarTabelaRelatorio()"></select></div>
                                 <div class="campo"><label>Executor</label><select id="rel-filtro-executor" onchange="renderizarTabelaRelatorio()"></select></div>
+                                <div class="campo"><label>Status</label><select id="rel-filtro-status" onchange="renderizarTabelaRelatorio()"></select></div>
                                 <div class="campo"><label>Data inicial</label><input type="date" id="rel-filtro-data-de" onchange="renderizarTabelaRelatorio()"></div>
                                 <div class="campo"><label>Data final</label><input type="date" id="rel-filtro-data-ate" onchange="renderizarTabelaRelatorio()"></div>
                             </div>
@@ -900,8 +894,6 @@
                     </div>
 
                     <div id="rel-area-resultado"></div>
-                    </div>
-
                     </div>
                 </div>
 

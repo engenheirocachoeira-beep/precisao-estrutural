@@ -41,17 +41,6 @@
 // Funções puras, testáveis sem DOM (ver
 // /home/claude/testes/teste_relatorios_camada_dados.js).
 
-function calcularHorasPrevistasTarefa(tarefa, pavimento, arv) {
-    const tarefasLego = JSON.parse(localStorage.getItem('banco_tarefas_lego')) || [];
-    const tCat = tarefasLego.find(t => t.nome === tarefa.nome);
-    const baseH = tCat ? (parseFloat(tCat.base_h) || 2.0) : 2.0;
-    const qtdFisica = parseFloat(tarefa.qtd_fisica) || 1;
-    const pesoPav = parseFloat(pavimento.peso_esforco) || 1;
-    const fEsb = parseFloat(arv.f_esb) || 1;
-    const fAnalista = parseFloat(arv.f_analista) || 1;
-    return baseH * qtdFisica * pesoPav * fEsb * fAnalista;
-}
-
 // Uma linha por SESSÃO DE TRABALHO, de todos os projetos/executores.
 // `caminho` no mesmo formato usado em todo o resto do projeto
 // (`nomeProjeto|fIdx-eIdx-sIdx-tIdx`), útil pra rastrear de volta à
@@ -138,31 +127,28 @@ function coletarLinhasTarefa() {
         const projCadastro = projetos.find(p => p.nome === nomeProjeto);
         const cliente = projCadastro ? projCadastro.cliente : '';
 
-        // Árvore Genérica Recursiva (prompt_gemini.md §12.31): só
-        // Tarefa de verdade dentro de Pavimento container (path de 4
-        // posições) tem Pavimento-pai com peso pra calcular "horas
-        // previstas por área equivalente" — Etapa/Setor/Pavimento
-        // agindo como folha (path de 1 a 3 posições) fica sem
-        // baseline/outlier, mesmo espírito de exclusão que já existia
-        // pra Etapa Única.
         coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path, localizacao }) => {
             if (!tarefa.executor) return;
-            const segs = path.split('-');
             const partes = localizacao.split(' › ');
             const horasRealizadas = parseFloat(tarefa.horas_reais) || 0;
             const custoReal = calcularCustoRealTarefa(tarefa, tarefa.executor);
             const dataInicioReal = obterDataInicioExecucaoReal(tarefa);
 
-            let horasPrevistas = 0;
-            let desvioPct = 0;
-            let outlier = false;
-            const pathPai = segs.length > 1 ? segs.slice(0, -1).join('-') : null;
-            const noPai = pathPai ? resolverNoPorPath(arv, pathPai) : null;
-            if (tarefa.nivel === 'tarefa' && noPai && noPai.nivel === 'pavimento') {
-                horasPrevistas = calcularHorasPrevistasTarefa(tarefa, noPai, arv);
-                desvioPct = horasPrevistas > 0 ? Math.abs((horasRealizadas - horasPrevistas) / horasPrevistas) * 100 : 0;
-                outlier = desvioPct > 40; // mesmo critério da Calibração BI
-            }
+            // Horas Previstas = Pontos da tarefa (pedido do usuário,
+            // parte 19): o campo "Pontos", atribuído na aba Atribuição
+            // de Tarefas, passou a ser a própria estimativa de horas —
+            // 1 ponto = 1 hora prevista. A fórmula antiga (base_h do
+            // Catálogo de Tarefas × qtd_física × peso_esforço ×
+            // f_esb × f_analista) foi abandonada aqui: o usuário disse
+            // que a hora-base cadastrada no catálogo "serve apenas
+            // como referência", não deve mais alimentar o previsto.
+            // Nota: a Calibração BI (arvore.js, marcação de
+            // is_outlier) ainda usa a fórmula antiga em separado — não
+            // foi pedido mexer nela nesta parte, então os dois
+            // critérios de outlier podem divergir por enquanto.
+            const horasPrevistas = parseFloat(tarefa.pontos) || 0;
+            const desvioPct = horasPrevistas > 0 ? Math.abs((horasRealizadas - horasPrevistas) / horasPrevistas) * 100 : 0;
+            const outlier = desvioPct > 40; // mesmo critério de sempre (>40% de desvio)
 
             linhas.push({
                 caminho: nomeProjeto + '|' + path,
@@ -239,6 +225,7 @@ function aplicarFiltrosRelatorio(linhas, filtros) {
         if (filtros.etapa && l.etapa !== filtros.etapa) return false;
         if (filtros.cliente && l.cliente !== filtros.cliente) return false;
         if (filtros.executor && l.executor !== filtros.executor) return false;
+        if (filtros.status && l.status !== filtros.status) return false;
         if (filtros.campoData && (filtros.dataDe || filtros.dataAte)) {
             const dataLinha = l[filtros.campoData];
             if (!dataLinha) return false;
@@ -525,7 +512,7 @@ function mudarNivelRelatorio(nivel) {
     relColunasAtivas = new Set(NIVEIS_RELATORIO[nivel].colunas.filter(c => c.padrao).map(c => c.id));
     relAgruparAtivos = new Set();
 
-    ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
+    ['projeto', 'etapa', 'cliente', 'executor', 'status'].forEach(c => {
         const el = document.getElementById('rel-filtro-' + c);
         if (el) el.value = '';
     });
@@ -578,7 +565,7 @@ function renderizarOpcoesFiltroRelatorio() {
     const linhas = NIVEIS_RELATORIO[relNivelAtivo].coletor();
     const distintos = (campo) => Array.from(new Set(linhas.map(l => l[campo]).filter(Boolean))).sort();
 
-    ['projeto', 'etapa', 'cliente', 'executor'].forEach(campo => {
+    ['projeto', 'etapa', 'cliente', 'executor', 'status'].forEach(campo => {
         const sel = document.getElementById('rel-filtro-' + campo);
         if (!sel) return;
         const valorAtual = sel.value;
@@ -599,13 +586,14 @@ function lerFiltrosRelatorio() {
         etapa: document.getElementById('rel-filtro-etapa').value || null,
         cliente: document.getElementById('rel-filtro-cliente').value || null,
         executor: document.getElementById('rel-filtro-executor').value || null,
+        status: document.getElementById('rel-filtro-status').value || null,
         dataDe: document.getElementById('rel-filtro-data-de').value || null,
         dataAte: document.getElementById('rel-filtro-data-ate').value || null
     };
 }
 
 function limparFiltrosRelatorio() {
-    ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
+    ['projeto', 'etapa', 'cliente', 'executor', 'status'].forEach(c => {
         const el = document.getElementById('rel-filtro-' + c);
         if (el) el.value = '';
     });
@@ -665,7 +653,7 @@ function carregarVisaoSelecionadaRelatorio() {
     atualizarBotoesNivelRelatorio(visao.nivel);
     renderizarOpcoesFiltroRelatorio();
 
-    ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
+    ['projeto', 'etapa', 'cliente', 'executor', 'status'].forEach(c => {
         const el = document.getElementById('rel-filtro-' + c);
         if (el) el.value = (visao.filtros && visao.filtros[c]) || '';
     });
@@ -719,19 +707,28 @@ function apagarVisaoSelecionadaRelatorio() {
 // as funções PURAS de dados já existentes (coletarLinhasSessaoTrabalho,
 // aplicarFiltrosRelatorio, nomeParaExibicao, formatarValorColuna) — só
 // a camada de tela é nova. O motor genérico continua 100% intacto
-// (virou "Relatório personalizado", mais uma opção na lista à
-// esquerda) — nada foi apagado, só deixou de ser a tela padrão.
+// (virou "Relatório personalizado", mais uma orelha ao lado) — nada
+// foi apagado, só deixou de ser a tela padrão. A partir da parte 19 a
+// troca de tipo usa orelhas horizontais (ver TIPOS_RELATORIO logo
+// abaixo), não mais a barra lateral original desta parte 16.
 // =========================================================================
 
-// Troca qual "tipo" de relatório aparece — chamado pelos itens da lista
-// à esquerda (#rel-sidebar-tipos). Itens "desabilitado" (Conclusão,
-// Comissões, Importar planilha) não têm onclick — ficam de fora de
-// propósito, decisão de escopo em aberto ("decidiremos depois").
+// Orelhas horizontais (parte 19, pedido do usuário: "mesma lógica da
+// aba Cadastros" — reaproveita as classes .aprov-abas/.aprov-aba já
+// usadas lá e em Aprovações, em vez da antiga barra lateral
+// .rel-sidebar). Um item por relatório REALMENTE implementado — sem
+// placeholders "em breve": quando um novo tipo pré-estabelecido for
+// construído de verdade, basta acrescentar aqui + a orelha/conteúdo
+// correspondente no index.html (id `rel-aba-<tipo>` / `rel-conteudo-<tipo>`).
+const TIPOS_RELATORIO = ['custos', 'personalizado'];
+
 function alternarTipoRelatorio(tipo) {
-    document.getElementById('rel-tipo-item-custos').classList.toggle('ativo', tipo === 'custos');
-    document.getElementById('rel-tipo-item-personalizado').classList.toggle('ativo', tipo === 'personalizado');
-    document.getElementById('rel-conteudo-custos').style.display = tipo === 'custos' ? 'block' : 'none';
-    document.getElementById('rel-conteudo-personalizado').style.display = tipo === 'personalizado' ? 'block' : 'none';
+    TIPOS_RELATORIO.forEach(t => {
+        const aba = document.getElementById('rel-aba-' + t);
+        if (aba) aba.classList.toggle('aprov-aba-ativa', t === tipo);
+        const conteudo = document.getElementById('rel-conteudo-' + t);
+        if (conteudo) conteudo.style.display = t === tipo ? 'block' : 'none';
+    });
     if (tipo === 'custos') carregarRelatorioCustos();
 }
 

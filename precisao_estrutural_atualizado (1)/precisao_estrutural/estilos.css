@@ -201,20 +201,14 @@
 
         /* Pedido do usuário: reformulação da aba Relatórios — tela
            dedicada de "Relatório de Custos" (baseada no sistema
-           antigo, renomeada de "Relatório de horas" na parte 18), com
-           uma lista de relatórios à esquerda (só "Relatório de
-           Custos" ativo por enquanto; os demais ficam reservados, "em
-           breve"). O motor flexível antigo (Visão/filtro/colunas/
-           agrupar) continua intacto, só virou mais um item dessa
-           lista ("Relatório personalizado"), não foi apagado. */
-        .rel-sidebar { width: 190px; flex-shrink: 0; background: #0a192f; border-radius: 6px; padding: 10px 0; align-self: flex-start; }
-        .rel-sidebar-titulo { color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 0 16px 6px; }
-        .rel-tipo-item { color: #94a3b8; font-size: 13px; padding: 9px 16px; cursor: pointer; user-select: none; border-left: 3px solid transparent; }
-        .rel-tipo-item:hover { background: #132a4e; color: #ffffff; }
-        .rel-tipo-item.ativo { background: #1e3a66; color: #00b4d8; font-weight: 600; border-left-color: #00b4d8; }
-        .rel-tipo-item.desabilitado { color: #3f4a5e; cursor: default; }
-        .rel-tipo-item.desabilitado:hover { background: transparent; color: #3f4a5e; }
-        .rel-sidebar-separador { height: 1px; background: #1e293b; margin: 8px 16px; }
+           antigo, renomeada de "Relatório de horas" na parte 18). A
+           troca entre "Relatório de Custos" e "Relatório personalizado"
+           (motor flexível antigo, intacto) virou orelhas horizontais
+           na parte 19 — pedido do usuário: "mesma lógica da aba
+           Cadastros" — reaproveitando as classes .aprov-abas/.aprov-aba
+           já usadas lá e em Aprovações, sem CSS próprio novo. A barra
+           lateral original desta reforma (`.rel-sidebar`) foi
+           removida por não ter mais nenhum uso. */
 
         /* Mesma proteção da tela de Relatórios (ver nota lá acima) —
            achada durante investigação do item 9 da Rodada de Comentários
@@ -260,7 +254,8 @@
         tr.linha-outlier td:first-child { border-left:4px solid #ef4444; }
 
         @media print {
-            .app-header, .sidebar, .barra-visoes, .painel-filtro, .rel-sidebar { display:none !important; }
+            .app-header, .sidebar, .barra-visoes, .painel-filtro { display:none !important; }
+            #panel-relatorios .aprov-abas { display:none !important; }
             .main-content { padding:0 !important; overflow:visible !important; }
             /* Causa real do bug "só aparece um pedaço, sem cabeçalho"
                (achado testando #20): .content-panel tem overflow:hidden
