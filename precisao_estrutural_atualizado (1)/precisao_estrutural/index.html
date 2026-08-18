@@ -798,9 +798,8 @@
                 <div id="panel-relatorios" class="content-panel" style="flex-direction:row; gap:16px;">
                     <div id="rel-sidebar-tipos" class="rel-sidebar">
                         <div class="rel-sidebar-titulo">Relatórios</div>
-                        <div class="rel-tipo-item ativo" id="rel-tipo-item-horas" onclick="alternarTipoRelatorio('horas')">Relatório de horas</div>
+                        <div class="rel-tipo-item ativo" id="rel-tipo-item-custos" onclick="alternarTipoRelatorio('custos')">Relatório de Custos</div>
                         <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Relatório de conclusão</div>
-                        <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Relatório de custos</div>
                         <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Relatório de comissões</div>
                         <div class="rel-tipo-item desabilitado" title="Ainda não implementado">Importar planilha</div>
                         <div class="rel-sidebar-separador"></div>
@@ -809,33 +808,36 @@
 
                     <div id="rel-conteudo-tipos" style="flex:1; min-width:0; overflow-y:auto;">
 
-                    <div id="rel-conteudo-horas">
+                    <div id="rel-conteudo-custos">
                         <div class="painel-filtro" style="margin-bottom:14px;">
-                            <div class="painel-filtro-cabecalho" onclick="alternarPainelFiltroRelatorioHoras()">
+                            <div class="painel-filtro-cabecalho" onclick="alternarPainelFiltroRelatorioCustos()">
                                 <span class="titulo">🔽 Filtro avançado</span>
-                                <span class="seta aberto" id="rel-horas-seta-filtro">▲</span>
+                                <span class="seta aberto" id="rel-custos-seta-filtro">▲</span>
                             </div>
-                            <div class="painel-filtro-corpo aberto" id="rel-horas-corpo-filtro">
+                            <div class="painel-filtro-corpo aberto" id="rel-custos-corpo-filtro">
                                 <div class="grid-filtros">
-                                    <div class="campo"><label>Projeto</label><select id="rel-horas-filtro-projeto"></select></div>
-                                    <div class="campo"><label>Etapa</label><select id="rel-horas-filtro-etapa"></select></div>
-                                    <div class="campo"><label>Cliente</label><select id="rel-horas-filtro-cliente"></select></div>
-                                    <div class="campo"><label>Executor</label><select id="rel-horas-filtro-executor"></select></div>
-                                    <div class="campo"><label>Data inicial</label><input type="date" id="rel-horas-filtro-data-de"></div>
-                                    <div class="campo"><label>Data final</label><input type="date" id="rel-horas-filtro-data-ate"></div>
+                                    <div class="campo"><label>Projeto</label><select id="rel-custos-filtro-projeto"></select></div>
+                                    <div class="campo"><label>Etapa</label><select id="rel-custos-filtro-etapa"></select></div>
+                                    <div class="campo"><label>Cliente</label><select id="rel-custos-filtro-cliente"></select></div>
+                                    <div class="campo"><label>Executor</label><select id="rel-custos-filtro-executor"></select></div>
+                                    <div class="campo"><label>Data inicial</label><input type="date" id="rel-custos-filtro-data-de"></div>
+                                    <div class="campo"><label>Data final</label><input type="date" id="rel-custos-filtro-data-ate"></div>
                                 </div>
                                 <div class="rodape-filtro">
-                                    <button class="btn-texto" onclick="limparFiltrosRelatorioHoras()">Limpar filtros</button>
+                                    <button class="btn-texto" onclick="limparFiltrosRelatorioCustos()">Limpar filtros</button>
                                     <div style="display:flex; gap:8px;">
-                                        <button class="btn-primary" onclick="exibirRelatorioHoras()">Exibir</button>
+                                        <button class="btn-primary" onclick="exibirRelatorioCustos()">Exibir</button>
                                         <button class="btn-secondary" onclick="window.print()">🖨️ Imprimir</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="rel-horas-cabecalho-resultado" style="font-weight:600; font-size:13px; color:#0a192f; margin-bottom:8px;">Relatório de lançamentos de horas</div>
-                        <div id="rel-horas-area-resultado"></div>
+                        <div id="rel-custos-cabecalho-resultado" style="font-weight:600; font-size:13px; color:#0a192f; margin-bottom:8px;">Relatório por Projeto / Etapa</div>
+                        <div id="rel-custos-area-resultado"></div>
+
+                        <div style="font-weight:600; font-size:13px; color:#0a192f; margin:18px 0 8px;">Relatório por Executor</div>
+                        <div id="rel-custos-area-resultado-executor"></div>
                     </div>
 
                     <div id="rel-conteudo-personalizado" style="display:none;">

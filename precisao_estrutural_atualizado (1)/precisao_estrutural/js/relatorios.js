@@ -499,11 +499,11 @@ function carregarPainelRelatorios() {
     document.getElementById('rel-seletor-visao').value = '';
     document.getElementById('rel-btn-apagar-visao').style.display = 'none';
     mudarNivelRelatorio('sessao');
-    // Pedido do usuário: a tela sempre abre no "Relatório de horas"
+    // Pedido do usuário: a tela sempre abre no "Relatório de Custos"
     // (tela dedicada, baseada no sistema antigo) — mesma lógica de
     // "sempre volta pro estado inicial" que outras telas já usam
     // (ex: alternarModulo('arvore')).
-    alternarTipoRelatorio('horas');
+    alternarTipoRelatorio('custos');
 }
 
 function renderizarSeletorVisoesRelatorio() {
@@ -705,48 +705,52 @@ function apagarVisaoSelecionadaRelatorio() {
 }
 
 // =========================================================================
-// "RELATÓRIO DE HORAS" — tela dedicada (reforma de 2026-08-17, pedido do
-// usuário: reformular a aba Relatórios com base no sistema antigo da
-// equipe, tentando melhorar). Ao contrário do motor genérico acima
-// (Nível/Filtro/Colunas/Agrupar/Visões), esta é uma tela FIXA, com
-// colunas fixas — mais parecida com o relatório de lançamentos de horas
-// que a equipe já conhecia. Reaproveita as funções PURAS de dados já
-// existentes (coletarLinhasSessaoTrabalho, aplicarFiltrosRelatorio,
-// nomeParaExibicao, formatarValorColuna) — só a camada de tela é nova.
-// O motor genérico continua 100% intacto (virou "Relatório
-// personalizado", mais uma opção na lista à esquerda) — nada foi
-// apagado, só deixou de ser a tela padrão.
+// "RELATÓRIO DE CUSTOS" — tela dedicada (reforma de 2026-08-17, pedido
+// do usuário: reformular a aba Relatórios com base no sistema antigo
+// da equipe). Renomeado de "Relatório de horas" (parte 16) pra
+// "Relatório de Custos" (parte 18) — pedido do usuário, com base no
+// modelo real do sistema antigo que ele mostrou: uma árvore
+// Projeto → Etapa → Setor → Pavimento → Tarefa, recolhida por padrão
+// (só Projeto visível, com Tempo/Custo já somados), que expande nível
+// por nível; e um resumo separado por Executor (nome, Tempo, Custo),
+// pra fechar pagamento mensal. Ao contrário do motor genérico acima
+// (Nível/Filtro/Colunas/Agrupar/Visões), esta é uma tela FIXA — mais
+// parecida com o relatório antigo que a equipe já conhecia. Reaproveita
+// as funções PURAS de dados já existentes (coletarLinhasSessaoTrabalho,
+// aplicarFiltrosRelatorio, nomeParaExibicao, formatarValorColuna) — só
+// a camada de tela é nova. O motor genérico continua 100% intacto
+// (virou "Relatório personalizado", mais uma opção na lista à
+// esquerda) — nada foi apagado, só deixou de ser a tela padrão.
 // =========================================================================
 
 // Troca qual "tipo" de relatório aparece — chamado pelos itens da lista
 // à esquerda (#rel-sidebar-tipos). Itens "desabilitado" (Conclusão,
-// Custos, Comissões, Importar planilha) não têm onclick — ficam de
-// fora de propósito, decisão de escopo em aberto ("decidiremos
-// depois").
+// Comissões, Importar planilha) não têm onclick — ficam de fora de
+// propósito, decisão de escopo em aberto ("decidiremos depois").
 function alternarTipoRelatorio(tipo) {
-    document.getElementById('rel-tipo-item-horas').classList.toggle('ativo', tipo === 'horas');
+    document.getElementById('rel-tipo-item-custos').classList.toggle('ativo', tipo === 'custos');
     document.getElementById('rel-tipo-item-personalizado').classList.toggle('ativo', tipo === 'personalizado');
-    document.getElementById('rel-conteudo-horas').style.display = tipo === 'horas' ? 'block' : 'none';
+    document.getElementById('rel-conteudo-custos').style.display = tipo === 'custos' ? 'block' : 'none';
     document.getElementById('rel-conteudo-personalizado').style.display = tipo === 'personalizado' ? 'block' : 'none';
-    if (tipo === 'horas') carregarRelatorioHoras();
+    if (tipo === 'custos') carregarRelatorioCustos();
 }
 
-function carregarRelatorioHoras() {
-    renderizarOpcoesFiltroRelatorioHoras();
-    exibirRelatorioHoras();
+function carregarRelatorioCustos() {
+    renderizarOpcoesFiltroRelatorioCustos();
+    exibirRelatorioCustos();
 }
 
 // Popula Projeto/Etapa/Cliente/Executor só com os valores que aparecem
 // de verdade nas sessões de trabalho existentes — mesmo padrão de
 // renderizarOpcoesFiltroRelatorio() (motor genérico), só que fixo no
 // nível Sessão (é a única fonte de dado que faz sentido pra um
-// relatório de HORAS).
-function renderizarOpcoesFiltroRelatorioHoras() {
+// relatório de CUSTOS).
+function renderizarOpcoesFiltroRelatorioCustos() {
     const linhas = coletarLinhasSessaoTrabalho();
     const distintos = (campo) => Array.from(new Set(linhas.map(l => l[campo]).filter(Boolean))).sort();
 
     ['projeto', 'etapa', 'cliente', 'executor'].forEach(campo => {
-        const sel = document.getElementById('rel-horas-filtro-' + campo);
+        const sel = document.getElementById('rel-custos-filtro-' + campo);
         if (!sel) return;
         const valorAtual = sel.value;
         const rotulo = (v) => campo === 'executor' ? nomeParaExibicao(v) : v;
@@ -755,81 +759,221 @@ function renderizarOpcoesFiltroRelatorioHoras() {
     });
 }
 
-function lerFiltrosRelatorioHoras() {
+function lerFiltrosRelatorioCustos() {
     return {
-        projeto: document.getElementById('rel-horas-filtro-projeto').value || null,
-        etapa: document.getElementById('rel-horas-filtro-etapa').value || null,
-        cliente: document.getElementById('rel-horas-filtro-cliente').value || null,
-        executor: document.getElementById('rel-horas-filtro-executor').value || null,
-        dataDe: document.getElementById('rel-horas-filtro-data-de').value || null,
-        dataAte: document.getElementById('rel-horas-filtro-data-ate').value || null,
+        projeto: document.getElementById('rel-custos-filtro-projeto').value || null,
+        etapa: document.getElementById('rel-custos-filtro-etapa').value || null,
+        cliente: document.getElementById('rel-custos-filtro-cliente').value || null,
+        executor: document.getElementById('rel-custos-filtro-executor').value || null,
+        dataDe: document.getElementById('rel-custos-filtro-data-de').value || null,
+        dataAte: document.getElementById('rel-custos-filtro-data-ate').value || null,
         campoData: 'data'
     };
 }
 
-function limparFiltrosRelatorioHoras() {
+function limparFiltrosRelatorioCustos() {
     ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
-        const el = document.getElementById('rel-horas-filtro-' + c);
+        const el = document.getElementById('rel-custos-filtro-' + c);
         if (el) el.value = '';
     });
-    document.getElementById('rel-horas-filtro-data-de').value = '';
-    document.getElementById('rel-horas-filtro-data-ate').value = '';
-    exibirRelatorioHoras();
+    document.getElementById('rel-custos-filtro-data-de').value = '';
+    document.getElementById('rel-custos-filtro-data-ate').value = '';
+    exibirRelatorioCustos();
 }
 
-function alternarPainelFiltroRelatorioHoras() {
-    document.getElementById('rel-horas-corpo-filtro').classList.toggle('aberto');
-    document.getElementById('rel-horas-seta-filtro').classList.toggle('aberto');
+function alternarPainelFiltroRelatorioCustos() {
+    document.getElementById('rel-custos-corpo-filtro').classList.toggle('aberto');
+    document.getElementById('rel-custos-seta-filtro').classList.toggle('aberto');
 }
 
 // Botão "Exibir" (pedido do usuário, igual ao sistema antigo — a
 // tabela só atualiza quando a pessoa manda, não a cada tecla digitada
-// no filtro).
-function exibirRelatorioHoras() {
+// no filtro). Alimenta as DUAS áreas de resultado (árvore Projeto/
+// Etapa/... e resumo por Executor) com o MESMO conjunto de linhas já
+// filtradas, pra garantir que os totais das duas batem entre si.
+function exibirRelatorioCustos() {
     const linhas = coletarLinhasSessaoTrabalho();
-    const filtradas = aplicarFiltrosRelatorio(linhas, lerFiltrosRelatorioHoras());
-    // Lançamento mais recente primeiro — mesma ordem do sistema antigo.
-    filtradas.sort((a, b) => (b.data + b.horaInicio).localeCompare(a.data + a.horaInicio));
-    renderizarTabelaRelatorioHoras(filtradas);
+    const filtradas = aplicarFiltrosRelatorio(linhas, lerFiltrosRelatorioCustos());
+    renderizarArvoreRelatorioCustos(filtradas);
+    renderizarResumoExecutorRelatorioCustos(filtradas);
 }
 
-function renderizarTabelaRelatorioHoras(linhas) {
-    const area = document.getElementById('rel-horas-area-resultado');
-    document.getElementById('rel-horas-cabecalho-resultado').innerText = 'Relatório de lançamentos de horas (' + linhas.length + ')';
+// Formata como HH:MM (ex: "16:05"), podendo passar de 24h — é soma
+// acumulada de horas trabalhadas, não hora do relógio. Modelo pedido
+// pelo usuário (relatório antigo). Diferente de
+// formatarValorColuna('horas', ...), que mostra decimal ("16.1h") —
+// essa outra função continua em uso no motor genérico ("Relatório
+// personalizado"), que não teve seu formato alterado.
+function formatarHorasHHMM(horasDecimal) {
+    const totalMin = Math.round((parseFloat(horasDecimal) || 0) * 60);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h + ':' + String(m).padStart(2, '0');
+}
 
-    if (linhas.length === 0) {
+// --- Árvore Projeto → Etapa → Setor → Pavimento → Tarefa ---
+// Constrói a árvore a partir das linhas JÁ FILTRADAS (não lê o banco
+// de árvores direto) — assim os totais de cada nível respeitam
+// exatamente o filtro/período escolhido, sem precisar recalcular nada
+// separado. Um nível sem valor real pro ramo (Setor ou Pavimento
+// '—', quando a Tarefa está direto na Etapa, ex: Etapa Única) é
+// pulado — mesmo espírito de "níveis puláveis" que a Árvore Genérica
+// Recursiva já usa no resto do sistema (ver arvore.js).
+function agruparArvoreCustoRelatorio(linhas) {
+    const porProjeto = {};
+    const ordemProjetos = [];
+    linhas.forEach(l => {
+        if (!porProjeto[l.projeto]) { porProjeto[l.projeto] = []; ordemProjetos.push(l.projeto); }
+        porProjeto[l.projeto].push(l);
+    });
+    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'setor', 'pavimento', 'tarefa']));
+}
+
+function construirNoArvoreCustoRelatorio(nome, linhasDoNo, niveisRestantes) {
+    const horas = linhasDoNo.reduce((s, l) => s + (parseFloat(l.horas) || 0), 0);
+    const custo = linhasDoNo.reduce((s, l) => s + (parseFloat(l.custo) || 0), 0);
+    let filhos = [];
+
+    if (niveisRestantes.length > 0) {
+        const [campo, ...resto] = niveisRestantes;
+        const grupos = {};
+        const ordem = [];
+        linhasDoNo.forEach(l => {
+            const valor = l[campo];
+            if (!valor || valor === '—') return; // nível pulado, tratado abaixo
+            if (!grupos[valor]) { grupos[valor] = []; ordem.push(valor); }
+            grupos[valor].push(l);
+        });
+        filhos = ordem.map(valor => construirNoArvoreCustoRelatorio(valor, grupos[valor], resto));
+
+        // Linhas que pularam ESTE nível (sem valor) continuam a
+        // recursão direto pro próximo nível, sem virar um filho aqui —
+        // os netos delas "sobem" e viram filhos deste mesmo nó.
+        const linhasPuladas = linhasDoNo.filter(l => !l[campo] || l[campo] === '—');
+        if (linhasPuladas.length > 0 && resto.length > 0) {
+            filhos = filhos.concat(construirNoArvoreCustoRelatorio(nome, linhasPuladas, resto).filhos);
+        }
+    }
+
+    return { nome: nome, horas: horas, custo: custo, filhos: filhos };
+}
+
+let relCustoUidContador = 0;
+
+function renderizarArvoreRelatorioCustos(linhasFiltradas) {
+    relCustoUidContador = 0;
+    const arvore = agruparArvoreCustoRelatorio(linhasFiltradas);
+    const area = document.getElementById('rel-custos-area-resultado');
+    document.getElementById('rel-custos-cabecalho-resultado').innerText = 'Relatório por Projeto / Etapa (' + arvore.length + ' projeto' + (arvore.length === 1 ? '' : 's') + ')';
+
+    if (arvore.length === 0) {
         area.innerHTML = '<div class="aviso-selecione">Nenhum lançamento de horas encontrado com esses filtros.</div>';
         return;
     }
 
-    const totalHoras = linhas.reduce((soma, l) => soma + (parseFloat(l.horas) || 0), 0);
-    // "#" não é um ID de banco de verdade (as sessões não têm um) — é
-    // só a posição no relatório, decrescente, pra dar a mesma
-    // sensação do sistema antigo (lançamento mais novo com o número
-    // mais alto) sem fingir uma precisão que não existe.
-    const corpo = linhas.map((l, i) => {
+    const totalHoras = arvore.reduce((s, n) => s + n.horas, 0);
+    const totalCusto = arvore.reduce((s, n) => s + n.custo, 0);
+    const corpo = arvore.map(no => renderizarLinhaArvoreCustoRelatorio(no, 0, null)).join('');
+
+    area.innerHTML =
+        '<div class="table-wrapper"><table class="tabela-compacta">' +
+        '<thead><tr><th>Projeto / Etapa / Setor / Pavimento / Tarefa</th><th class="col-centralizada">Tempo</th><th style="text-align:right;">Custo</th></tr></thead>' +
+        '<tbody>' + corpo + '</tbody>' +
+        '<tfoot><tr class="linha-total"><td>Total</td><td class="col-centralizada">' + formatarHorasHHMM(totalHoras) + '</td><td style="text-align:right;">' + formatarValorColuna('moeda', totalCusto) + '</td></tr></tfoot>' +
+        '</table></div>';
+}
+
+// Linha recursiva — cada nó vira uma <tr> com um id único (`rc-<uid>`)
+// e um `data-pai-custo` apontando pro uid do pai (raiz não tem). Só o
+// nível 0 (Projeto) começa visível; os demais nascem com
+// `display:none` e só aparecem quando o pai é expandido
+// (alternarGrupoCustoRelatorio) — sem re-renderizar a tabela inteira a
+// cada clique, só alterna a visibilidade das linhas filhas diretas.
+function renderizarLinhaArvoreCustoRelatorio(no, nivel, uidPai) {
+    const uid = 'n' + (relCustoUidContador++);
+    const temFilhos = no.filhos && no.filhos.length > 0;
+    const indent = 10 + nivel * 20;
+
+    let html = '<tr id="rc-' + uid + '"' + (uidPai ? ' data-pai-custo="' + uidPai + '"' : '') +
+        (nivel === 0 ? '' : ' style="display:none;"') + '>' +
+        '<td style="padding-left:' + indent + 'px;' + (temFilhos ? ' cursor:pointer;' : '') + '"' + (temFilhos ? ' onclick="alternarGrupoCustoRelatorio(\'' + uid + '\')"' : '') + '>' +
+        (temFilhos ? '<span class="rc-seta">▸</span> ' : '') + no.nome +
+        '</td>' +
+        '<td class="col-centralizada">' + formatarHorasHHMM(no.horas) + '</td>' +
+        '<td style="text-align:right;">' + formatarValorColuna('moeda', no.custo) + '</td>' +
+        '</tr>';
+
+    if (temFilhos) {
+        html += no.filhos.map(filho => renderizarLinhaArvoreCustoRelatorio(filho, nivel + 1, uid)).join('');
+    }
+    return html;
+}
+
+function alternarGrupoCustoRelatorio(uid) {
+    const linha = document.getElementById('rc-' + uid);
+    const abrindo = !linha.classList.contains('aberto');
+    linha.classList.toggle('aberto', abrindo);
+    const seta = linha.querySelector('.rc-seta');
+    if (seta) seta.textContent = abrindo ? '▾' : '▸';
+
+    document.querySelectorAll('[data-pai-custo="' + uid + '"]').forEach(tr => { tr.style.display = abrindo ? '' : 'none'; });
+
+    // Ao recolher, recolhe também tudo que estava aberto mais fundo —
+    // senão reabrir o pai mostraria netos soltos sem os filhos
+    // intermediários visíveis.
+    if (!abrindo) recolherDescendentesCustoRelatorio(uid);
+}
+
+function recolherDescendentesCustoRelatorio(uidPai) {
+    document.querySelectorAll('[data-pai-custo="' + uidPai + '"]').forEach(tr => {
+        tr.style.display = 'none';
+        tr.classList.remove('aberto');
+        const seta = tr.querySelector('.rc-seta');
+        if (seta) seta.textContent = '▸';
+        recolherDescendentesCustoRelatorio(tr.id.replace('rc-', ''));
+    });
+}
+
+// --- Resumo por Executor --- (pedido do usuário: "muito útil pra
+// fazer os pagamentos mensais", onde o que mais importa é o Nome, o
+// número de horas e o valor a pagar). Achata TODOS os projetos/etapas
+// — não é uma árvore, é uma lista simples ordenada por nome.
+function renderizarResumoExecutorRelatorioCustos(linhasFiltradas) {
+    const area = document.getElementById('rel-custos-area-resultado-executor');
+    const porExecutor = {};
+    const ordem = [];
+    linhasFiltradas.forEach(l => {
+        if (!porExecutor[l.executor]) { porExecutor[l.executor] = { horas: 0, custo: 0 }; ordem.push(l.executor); }
+        porExecutor[l.executor].horas += parseFloat(l.horas) || 0;
+        porExecutor[l.executor].custo += parseFloat(l.custo) || 0;
+    });
+
+    if (ordem.length === 0) {
+        area.innerHTML = '<div class="aviso-selecione">Nenhum lançamento de horas encontrado com esses filtros.</div>';
+        return;
+    }
+
+    // Ordem alfabética pelo nome de exibição — fica mais fácil achar
+    // uma pessoa na hora de fechar o pagamento do mês.
+    ordem.sort((a, b) => nomeParaExibicao(a).localeCompare(nomeParaExibicao(b), 'pt-BR'));
+
+    let totalHoras = 0, totalCusto = 0;
+    const corpo = ordem.map(executor => {
+        const dados = porExecutor[executor];
+        totalHoras += dados.horas;
+        totalCusto += dados.custo;
         return '<tr>' +
-            '<td style="color:#94a3b8;">' + (linhas.length - i) + '</td>' +
-            '<td>' + formatarValorColuna('data', l.data) + '</td>' +
-            '<td>' + nomeParaExibicao(l.executor) + '</td>' +
-            '<td>' + (l.cliente || '—') + '</td>' +
-            '<td>' + l.projeto + '</td>' +
-            '<td>' + l.etapa + '</td>' +
-            '<td>' + l.tarefa + '</td>' +
-            '<td class="col-centralizada">' + (l.horaInicio || '—') + '</td>' +
-            '<td class="col-centralizada">' + (l.horaFim || '—') + '</td>' +
-            '<td style="text-align:right; font-weight:600; color:#166534;">' + formatarValorColuna('horas', l.horas) + '</td>' +
+            '<td>' + nomeParaExibicao(executor) + '</td>' +
+            '<td class="col-centralizada">' + formatarHorasHHMM(dados.horas) + '</td>' +
+            '<td style="text-align:right;">' + formatarValorColuna('moeda', dados.custo) + '</td>' +
             '</tr>';
     }).join('');
 
     area.innerHTML =
         '<div class="table-wrapper"><table class="tabela-compacta">' +
-        '<thead><tr>' +
-            '<th>#</th><th>Data</th><th>Executor</th><th>Cliente</th><th>Projeto</th><th>Etapa</th><th>Tarefa</th>' +
-            '<th class="col-centralizada">Início</th><th class="col-centralizada">Fim</th><th style="text-align:right;">Tempo</th>' +
-        '</tr></thead>' +
+        '<thead><tr><th>Executor</th><th class="col-centralizada">Tempo</th><th style="text-align:right;">Custo</th></tr></thead>' +
         '<tbody>' + corpo + '</tbody>' +
-        '<tfoot><tr class="linha-total"><td colspan="9" style="text-align:right;">Total</td><td style="text-align:right;">' + formatarValorColuna('horas', totalHoras) + '</td></tr></tfoot>' +
+        '<tfoot><tr class="linha-total"><td>Total</td><td class="col-centralizada">' + formatarHorasHHMM(totalHoras) + '</td><td style="text-align:right;">' + formatarValorColuna('moeda', totalCusto) + '</td></tr></tfoot>' +
         '</table></div>';
 }
 

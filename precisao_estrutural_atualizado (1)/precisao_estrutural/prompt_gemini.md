@@ -7845,3 +7845,99 @@ nível, chips de agrupar recarregam pras opções desse nível
 "Relatório de horas" (parte 16) não foi tocada nesta parte — nenhum
 teste de regressão necessário além do `node --check`, já que nenhuma
 função dela foi alterada.
+
+## Retomada em 2026-08-17 (parte 18) — "Relatório de horas" renomeado pra "Relatório de Custos", virou árvore expansível + resumo por Executor
+
+**Pedido do usuário**: mostrou 2 capturas de tela do relatório real do
+sistema antigo ("Relatório por projeto/etapa" e "Relatório por
+técnico") e pediu pra usar esse modelo na tela fixa da parte 16:
+1. Renomear "Relatório de horas" → "Relatório de Custos".
+2. Acrescentar uma coluna de Custo no final.
+3. A tabela principal aparece **agrupada por Projeto** (recolhida,
+   só o total), podendo **expandir pra Etapas, Pavimentos, etc.**
+4. Ao final, um **resumo por Executor** (Nome, Tempo, Valor a pagar) —
+   "muito útil pra fazer os pagamentos mensais", onde o que importa é
+   Nome + horas + valor, sem entrar em qual projeto/etapa.
+
+**Mudanças (`js/relatorios.js`)** — toda a seção "RELATÓRIO DE HORAS"
+virou "RELATÓRIO DE CUSTOS": a listagem linha-a-linha (uma linha por
+lançamento, com Início/Fim) foi substituída por duas visões novas,
+construídas em cima das MESMAS linhas filtradas
+(`coletarLinhasSessaoTrabalho` + `aplicarFiltrosRelatorio`, sem
+mudança nelas):
+- **Árvore Projeto → Etapa → Setor → Pavimento → Tarefa**
+  (`agruparArvoreCustoRelatorio`/`construirNoArvoreCustoRelatorio`):
+  agrupa recursivamente pelas linhas já filtradas, somando Tempo e
+  Custo em cada nível. Um nível sem valor pro ramo (Setor/Pavimento
+  '—', quando a Tarefa está direto na Etapa — "Etapa Única") é pulado
+  na recursão, mesmo espírito de "níveis puláveis" que a Árvore
+  Genérica Recursiva já usa no resto do sistema — então a árvore se
+  adapta à profundidade real de cada projeto, não força 4 níveis fixos
+  (bateu certo no teste: um ramo do projeto "R" pulou Setor e foi
+  direto de Etapa pro Pavimento "TERREO").
+- Renderização (`renderizarLinhaArvoreCustoRelatorio`): recursiva,
+  cada nó vira uma `<tr>` com id único (`rc-<uid>`) e um
+  `data-pai-custo` apontando pro uid do pai. Só o nível 0 (Projeto)
+  nasce visível; os demais nascem com `display:none` e só aparecem
+  quando o usuário expande o pai (seta ▸/▾, clique em qualquer parte
+  da célula do nome) — `alternarGrupoCustoRelatorio()` alterna só a
+  visibilidade das linhas filhas diretas via DOM, sem re-renderizar a
+  tabela inteira a cada clique; ao recolher, recolhe também tudo que
+  estava aberto mais fundo (`recolherDescendentesCustoRelatorio`),
+  senão reabrir o pai deixaria netos soltos sem os filhos
+  intermediários visíveis.
+- **Resumo por Executor** (`renderizarResumoExecutorRelatorioCustos`):
+  lista simples (não é árvore), agrupada só por executor,
+  **ordenada alfabeticamente pelo nome de exibição** (pedido do
+  usuário — "mais fácil achar uma pessoa na hora de fechar o
+  pagamento"), com linha de Total no rodapé.
+- Nova `formatarHorasHHMM(horasDecimal)`: formata Tempo como "16:05"
+  (podendo passar de 24h — é soma acumulada, não hora do relógio),
+  igual ao relatório antigo. Diferente de `formatarValorColuna('horas', ...)`
+  (que mostra decimal, "16.1h") — essa outra continua em uso, sem
+  mudança, no motor genérico ("Relatório personalizado").
+- Rename completo de identificadores (`horas`→`custos`) em todas as
+  funções/ids dessa seção: `alternarTipoRelatorio('custos')`,
+  `carregarRelatorioCustos`, `renderizarOpcoesFiltroRelatorioCustos`,
+  `lerFiltrosRelatorioCustos`, `limparFiltrosRelatorioCustos`,
+  `alternarPainelFiltroRelatorioCustos`, `exibirRelatorioCustos`.
+  `formatarHoraMinutoRelatorio` (helper de Início/Fim) foi mantida —
+  ainda usada por `coletarLinhasSessaoTrabalho` — mas os campos
+  `horaInicio`/`horaFim` que ela alimenta não aparecem mais nesta tela
+  (não fazem sentido numa linha agrupada); continuam disponíveis pro
+  motor genérico, se algum dia uma Visão quiser usá-los.
+
+**Mudanças (`index.html`):**
+- Item da barra lateral renomeado: `#rel-tipo-item-custos` ("Relatório
+  de Custos", antes `#rel-tipo-item-horas`/"Relatório de horas") — e o
+  placeholder desabilitado "Relatório de custos" (que existia como
+  item "em breve" separado) foi removido, já que virou o item ativo.
+- `#rel-conteudo-custos` (antes `#rel-conteudo-horas`): mesmo painel
+  de filtro (Projeto/Etapa/Cliente/Executor/Data inicial/final,
+  Limpar/Exibir/Imprimir), mas agora com DUAS áreas de resultado:
+  `#rel-custos-area-resultado` (árvore) e `#rel-custos-area-resultado-executor`
+  (resumo por Executor), cada uma com seu próprio título.
+
+**Mudanças (`estilos.css`):** seletor de altura do `.table-wrapper`
+renomeado (`#rel-custos-area-resultado`/`-executor`), nova
+`.rc-seta` (ícone ▸/▾ da árvore), comentário da seção atualizado pra
+refletir o novo nome da tela.
+
+**Verificação**: `node --check js/relatorios.js` limpo. Testado no
+navegador local: árvore renderiza com dado real (ex: projeto "R" →
+Etapa "DETALHAMENTO" → Pavimento "TERREO" → Tarefa
+"Vigas-Detalhamento", pulando Setor corretamente), totais batendo em
+cada nível até a raiz; resumo por Executor mostra 69:32 / R$ 2.348,35
+no Total, mesmo total já conhecido das partes anteriores desta sessão
+(19 sessões, incluindo as 17 da Luiza recompostas). Expandir/recolher
+testado via chamada direta das funções (mesmo padrão de verificação
+funcional já usado nas partes 16/17): expandir mostra os filhos
+diretos, expandir um filho mostra os netos, recolher o pai esconde
+filhos E netos e reseta o estado deles. Não foi possível confirmar
+com um clique de mouse real nesta parte (a aba de preview não estava
+disponível pra screenshot/click por coordenada nesta sessão de
+trabalho) — a wiring usa exatamente o mesmo padrão
+`onclick="funcao('id')"` já usado (e já confirmado por clique real) em
+outras telas desta mesma sessão (ex: parte 17, botão "Avanço de
+Projeto"), então o risco é baixo, mas fica registrado como a única
+verificação que ficou só no nível funcional/DOM, não visual.

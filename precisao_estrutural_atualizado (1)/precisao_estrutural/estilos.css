@@ -196,16 +196,17 @@
            pra tabela. */
         #panel-relatorios { overflow-y: auto; }
         #rel-area-resultado .table-wrapper { max-height: none; }
-        #rel-horas-area-resultado .table-wrapper { max-height: none; }
+        #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { max-height: none; }
+        .rc-seta { display: inline-block; width: 12px; color: #64748b; }
 
         /* Pedido do usuário: reformulação da aba Relatórios — tela
-           dedicada de "Relatório de horas" (baseada no sistema
-           antigo), com uma lista de relatórios à esquerda (só
-           "Relatório de horas" ativo por enquanto; os demais ficam
-           reservados, "em breve"). O motor flexível antigo (Visão/
-           filtro/colunas/agrupar) continua intacto, só virou mais um
-           item dessa lista ("Relatório personalizado"), não foi
-           apagado. */
+           dedicada de "Relatório de Custos" (baseada no sistema
+           antigo, renomeada de "Relatório de horas" na parte 18), com
+           uma lista de relatórios à esquerda (só "Relatório de
+           Custos" ativo por enquanto; os demais ficam reservados, "em
+           breve"). O motor flexível antigo (Visão/filtro/colunas/
+           agrupar) continua intacto, só virou mais um item dessa
+           lista ("Relatório personalizado"), não foi apagado. */
         .rel-sidebar { width: 190px; flex-shrink: 0; background: #0a192f; border-radius: 6px; padding: 10px 0; align-self: flex-start; }
         .rel-sidebar-titulo { color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 0 16px 6px; }
         .rel-tipo-item { color: #94a3b8; font-size: 13px; padding: 9px 16px; cursor: pointer; user-select: none; border-left: 3px solid transparent; }
