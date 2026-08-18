@@ -96,7 +96,11 @@
             document.getElementById('subpanel-lista-projetos-arvore').style.display = 'none';
             document.getElementById('subpanel-arvore-visual').style.display = 'flex';
             document.getElementById('nome-projeto-titulo-arvore').innerText = "📋 " + nomeProj.substring(0,18) + "...";
-            
+            // Pedido do usuário: título principal da tela + orelhas
+            // (Estrutura de Projeto/Custos) — ver atualizarOrelhasProjetoAtivo()
+            // em core.js.
+            if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nomeProj, 'estrutura');
+
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
             if (!todas[projetoSelecionadoAtivo]) {
                 // Etapas Default v2 (prompt_gemini.md §12.30): projeto
@@ -123,6 +127,11 @@
             document.getElementById('subpanel-arvore-visual').style.display = 'none';
             document.getElementById('subpanel-lista-projetos-arvore').style.display = 'flex';
             document.getElementById('painel-propriedades-lego').innerHTML = '';
+            // Sem projeto aberto, some a barra de orelhas e o título volta
+            // a ser o genérico da tela (mesmo texto que alternarModulo('arvore')
+            // já usava antes das orelhas existirem).
+            document.getElementById('page-context-title').innerText = "Estrutura de Projeto Construtiva";
+            if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo('', null);
         }
 
         // Pedido do usuário: abrir um projeto já mostra a lista de Etapas

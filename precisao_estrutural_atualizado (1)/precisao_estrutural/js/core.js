@@ -626,10 +626,40 @@ function abrirAbaCadastro(modulo) {
     else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
 }
 
+// Pedido do usuário: quando um Projeto está "aberto" (na Árvore/Estrutura
+// de Projeto OU na Distribuição de Custos dele), o título principal da
+// tela mostra o NOME do projeto (em vez de um rótulo genérico), e logo
+// abaixo aparecem 2 "orelhas" (abas) — Estrutura de Projeto / Custos —
+// pra pular de uma pra outra sem re-escolher o projeto. Sem projeto
+// aberto, a barra de orelhas fica escondida e cada tela cuida do seu
+// próprio título genérico (esta função só MEXE no título quando HÁ
+// projeto — ver `nomeProjeto` vazio abaixo).
+function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
+    const barra = document.getElementById('orelhas-projeto-ativo');
+    if (!barra) return;
+    if (!nomeProjeto) {
+        barra.style.display = 'none';
+        return;
+    }
+    barra.style.display = 'flex';
+    document.getElementById('page-context-title').innerText = nomeProjeto;
+    const orelhaEstrutura = document.getElementById('orelha-estrutura-projeto');
+    const orelhaCustos = document.getElementById('orelha-custos-projeto');
+    if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
+    if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
+}
+
 function alternarModulo(modulo) {
     document.getElementById('panel-blank-state').style.display = 'none';
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+
+    // As "orelhas" (Estrutura de Projeto/Custos) só fazem sentido dentro
+    // do fluxo de Projeto — indo pra QUALQUER outro módulo, escondem.
+    // 'arvore' fica de fora daqui de propósito: fecharProjetoAtivoNaArvore()
+    // (chamada logo abaixo) já decide se mostra ou esconde, conforme tinha
+    // ou não um projeto aberto antes.
+    if (modulo !== 'arvore' && typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo('', null);
 
     if (document.getElementById('nav-' + modulo)) document.getElementById('nav-' + modulo).classList.add('active');
 
@@ -710,7 +740,7 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
     if (!nome) return;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-distribuicao-custos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Distribuição de Custos";
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'custos');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     carregarPainelDistribuicaoCustos();
@@ -723,7 +753,6 @@ function irParaEstruturaProjetoDoProjetoAtivo() {
     if (!nome) return;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-arvore-projetos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Estrutura de Projeto Construtiva";
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     abrirProjetoNaArvore(nome);

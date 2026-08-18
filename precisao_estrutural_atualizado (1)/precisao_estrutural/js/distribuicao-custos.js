@@ -152,6 +152,10 @@ function voltarParaPortalSelecaoProjeto() {
     document.getElementById('dc-portal-busca-projeto').value = '';
     filtrarTabelaProjetosDistribuicao();
     document.getElementById('dc-projeto').value = '';
+    // Sem projeto escolhido, some a barra de orelhas e o título volta a
+    // ser o genérico da tela.
+    document.getElementById('page-context-title').innerText = "Distribuição de Custos";
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo('', null);
 }
 
 // Chamada ao clicar numa linha da lista do portal — escolher um projeto
@@ -163,6 +167,10 @@ function escolherProjetoDistribuicaoInicial(nomeProjeto) {
     document.getElementById('dc-projeto').value = nomeProjeto;
     document.getElementById('dc-portal-selecao-projeto').style.display = 'none';
     document.getElementById('dc-conteudo-principal').style.display = 'block';
+    // Pedido do usuário: título principal + orelhas (Estrutura de
+    // Projeto/Custos) — cobre também quem escolhe o projeto DIRETO por
+    // aqui (portal desta aba), sem passar pela Árvore antes.
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nomeProjeto, 'custos');
     carregarProjetoDistribuicao();
 }
 

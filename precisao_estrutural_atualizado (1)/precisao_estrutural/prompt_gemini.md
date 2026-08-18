@@ -7571,3 +7571,88 @@ linha seguem uniformes em 28px. Aba 4 — Área Total Equivalente
 da Verba" `center` e "Valor da Verba"/"Verba" (Setores) `right`. Aba
 5 — cabeçalho "Pontos" `center` e input `center`; cabeçalho "Valor"
 `right`; célula de Valor e Subtotal `right`. `node --check` limpo.
+
+## Retomada em 2026-08-17 (parte 15) — "Orelhas" Estrutura de Projeto/Custos + título com nome do projeto
+
+Pedido do usuário: na aba "Projetos", quando um projeto é selecionado,
+o título principal da tela deve mostrar o NOME do projeto (em vez de
+um rótulo genérico) — e logo abaixo devem aparecer 2 "orelhas" (abas),
+a primeira com a Estrutura de Projeto, a segunda com os Custos, pra
+alternar entre as duas sem re-escolher o projeto.
+
+O sistema já tinha esse "hub" por baixo dos panos (Estrutura de
+Projeto e Distribuição de Custos compartilham `projetoSelecionadoAtivo`
+desde uma reforma anterior, com botões pequenos "📊 Custos"/"📁
+Estrutura de Projeto" pra pular de um pro outro) — o pedido de hoje é
+dar uma cara de "abas" de verdade a esse hub, com o nome do projeto
+em destaque no título.
+
+**Mudanças (`index.html`):**
+- Nova barra `#orelhas-projeto-ativo` (classe `tab-bar`, reaproveitando
+  o mesmo estilo visual das sub-abas já usadas em Distribuição de
+  Custos), logo abaixo do `#page-context-title`, com 2
+  `.tab-selector`: "🏗️ Estrutura de Projeto" (chama
+  `irParaEstruturaProjetoDoProjetoAtivo()`) e "📊 Custos" (chama
+  `irParaDistribuicaoCustosDoProjetoAtivo()`) — reaproveita as MESMAS
+  funções que os botões pequenos já antigos chamavam, só que agora
+  como abas visíveis e proeminentes. Fica `display:none` até um
+  projeto ser aberto.
+
+**Mudanças (`js/core.js`):**
+- Nova `atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva)`: com
+  projeto, mostra a barra, põe o NOME do projeto no
+  `#page-context-title`, e marca qual orelha fica `.active`. Sem
+  projeto (`nomeProjeto` vazio), só esconde a barra — não mexe no
+  título (cada tela cuida do seu próprio rótulo genérico nesse caso).
+- `alternarModulo()`: primeira linha nova esconde a barra de orelhas
+  sempre que o destino NÃO é `'arvore'` (as orelhas só fazem sentido
+  dentro do fluxo de Projeto) — `'arvore'` fica de fora dessa regra de
+  propósito, porque `fecharProjetoAtivoNaArvore()` (chamada logo
+  depois, já existia) decide sozinha se mostra ou esconde.
+- `irParaDistribuicaoCustosDoProjetoAtivo()`/
+  `irParaEstruturaProjetoDoProjetoAtivo()`: a linha que fixava o
+  título genérico ("Distribuição de Custos"/"Estrutura de Projeto
+  Construtiva") virou uma chamada a `atualizarOrelhasProjetoAtivo()`
+  (a segunda delas nem precisou de chamada própria — já termina
+  chamando `abrirProjetoNaArvore()`, que cuida disso).
+
+**Mudanças (`js/arvore.js`):**
+- `abrirProjetoNaArvore()`: chama `atualizarOrelhasProjetoAtivo(nomeProj,
+  'estrutura')` ao abrir um projeto.
+- `fecharProjetoAtivoNaArvore()`: ao fechar (botão "Fechar" OU
+  `alternarModulo('arvore')` reabrindo do zero), volta o título pro
+  genérico "Estrutura de Projeto Construtiva" e esconde a barra.
+
+**Mudanças (`js/distribuicao-custos.js`):**
+- `escolherProjetoDistribuicaoInicial()`: chama
+  `atualizarOrelhasProjetoAtivo(nomeProjeto, 'custos')` — cobre quem
+  escolhe o projeto DIRETO pelo portal desta aba, sem passar pela
+  Árvore antes.
+- `voltarParaPortalSelecaoProjeto()` ("🔁 Trocar Projeto"): ao voltar
+  pro portal (nenhum projeto mais selecionado nesta tela), volta o
+  título pro genérico "Distribuição de Custos" e esconde a barra.
+
+**Nota sobre a verificação**: essa parte exigiu uma investigação bem
+mais longa que o normal — os primeiros testes (via `eval()` repetido
+de arquivos inteiros na mesma aba) davam falso-negativo, porque
+`js/core.js` tem uma declaração `const`/`let` no nível superior
+(`funcionariosSeed`) que não pode ser redeclarada; reavaliar o arquivo
+inteiro mais de uma vez na mesma aba lança um `SyntaxError` silencioso
+que aborta o carregamento sem avisar. A técnica que resolveu de vez:
+extrair só as funções especificamente alteradas (via busca de chaves
+balanceadas) e injetá-las como um `<script>` novo — sem tocar nas
+declarações de nível superior, sem conflito. Depois disso, um clique de
+mouse de verdade confirmou tudo funcionando ponta a ponta (com a
+ressalva à parte de que, numa janela redimensionada para um tamanho
+diferente do da screenshot, as coordenadas de clique do teste ficam
+desalinhadas — resolvido testando numa janela do mesmo tamanho da
+screenshot). Nenhum desses dois problemas afeta o código do app em si,
+só o processo de teste.
+
+Testado no navegador (AP Praia, clique de mouse real, janela 800×600):
+abrir o projeto mostra "AP PRAIA (SAVOIA) - SETOR B" no título com as
+2 orelhas aparecendo, "Estrutura de Projeto" ativa; clicar em "Custos"
+troca pra Distribuição de Custos (Orçamento Global carregado com os
+dados do projeto), orelha "Custos" fica ativa; clicar em "Estrutura de
+Projeto" volta corretamente, título e orelha batendo. `node --check`
+limpo nos 3 arquivos.
