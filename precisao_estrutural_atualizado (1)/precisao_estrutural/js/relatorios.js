@@ -903,16 +903,25 @@ function renderizarArvoreRelatorioCustos(linhasFiltradas) {
 // nível 0 (Projeto) começa visível; os demais nascem com
 // `display:none` e só aparecem quando o pai é expandido
 // (alternarGrupoCustoRelatorio) — sem re-renderizar a tabela inteira a
-// cada clique, só alterna a visibilidade das linhas filhas diretas.
+// cada clique, só alterna a visibilidade das linhas filhas diretas
+// (diferente da Estrutura de Projeto, que re-renderiza a árvore
+// inteira a cada clique — aqui não, por ter potencialmente muito mais
+// linhas de sessões somadas).
+// Seta igual à Estrutura de Projeto (pedido do usuário: "criar setas
+// de expansão do menu, como na estrutura de projetos") — reaproveita
+// a MESMA classe `.tree-toggle-icon` e os MESMOS glifos (► recolhido,
+// ▼ expandido, • sem filhos) que `js/arvore.js` já usa, em vez de um
+// estilo próprio.
 function renderizarLinhaArvoreCustoRelatorio(no, nivel, uidPai) {
     const uid = 'n' + (relCustoUidContador++);
     const temFilhos = no.filhos && no.filhos.length > 0;
     const indent = 10 + nivel * 20;
+    const seta = temFilhos ? '►' : '•';
 
     let html = '<tr id="rc-' + uid + '"' + (uidPai ? ' data-pai-custo="' + uidPai + '"' : '') +
         (nivel === 0 ? '' : ' style="display:none;"') + '>' +
         '<td style="padding-left:' + indent + 'px;' + (temFilhos ? ' cursor:pointer;' : '') + '"' + (temFilhos ? ' onclick="alternarGrupoCustoRelatorio(\'' + uid + '\')"' : '') + '>' +
-        (temFilhos ? '<span class="rc-seta">▸</span> ' : '') + no.nome +
+        '<span class="tree-toggle-icon"' + (temFilhos ? '' : ' style="color:#cbd5e1;"') + '>' + seta + '</span> ' + no.nome +
         '</td>' +
         '<td class="col-centralizada">' + formatarHorasHHMM(no.horas) + '</td>' +
         '<td style="text-align:right;">' + formatarValorColuna('moeda', no.custo) + '</td>' +
@@ -928,8 +937,8 @@ function alternarGrupoCustoRelatorio(uid) {
     const linha = document.getElementById('rc-' + uid);
     const abrindo = !linha.classList.contains('aberto');
     linha.classList.toggle('aberto', abrindo);
-    const seta = linha.querySelector('.rc-seta');
-    if (seta) seta.textContent = abrindo ? '▾' : '▸';
+    const seta = linha.querySelector('.tree-toggle-icon');
+    if (seta) seta.textContent = abrindo ? '▼' : '►';
 
     document.querySelectorAll('[data-pai-custo="' + uid + '"]').forEach(tr => { tr.style.display = abrindo ? '' : 'none'; });
 
@@ -943,8 +952,8 @@ function recolherDescendentesCustoRelatorio(uidPai) {
     document.querySelectorAll('[data-pai-custo="' + uidPai + '"]').forEach(tr => {
         tr.style.display = 'none';
         tr.classList.remove('aberto');
-        const seta = tr.querySelector('.rc-seta');
-        if (seta) seta.textContent = '▸';
+        const seta = tr.querySelector('.tree-toggle-icon');
+        if (seta && seta.textContent !== '•') seta.textContent = '►';
         recolherDescendentesCustoRelatorio(tr.id.replace('rc-', ''));
     });
 }

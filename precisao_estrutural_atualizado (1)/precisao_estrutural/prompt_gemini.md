@@ -8073,3 +8073,50 @@ navegador (aba nova, sem cache): grid de ambas as telas confirmado em
 valores); Personalizado com 7 campos e Custos com 6, ambos cabendo em
 2 linhas; select de Status mostra as 5 opções fixas + "-- Todos --"
 independente do que está carregado no momento. Sem erros no console.
+
+## Retomada em 2026-08-17 (parte 21) — Setas de expansão da árvore de Custos iguais às da Estrutura de Projeto
+
+**Pedido do usuário**: reexplicitou o comportamento já construído na
+parte 18 (só Projeto aparece de início, com soma de Tempo/Custo;
+expande pra Etapa, depois Pavimento, depois Tarefa, cada nível com sua
+própria soma) e acrescentou um pedido novo e concreto: "Junto ao nome
+do projeto, criar setas de expansão do menu, **como na estrutura de
+projetos**."
+
+A árvore da parte 18 já tinha exatamente esse comportamento de
+expansão — o que faltava era o estilo VISUAL da seta bater com a tela
+de Estrutura de Projeto (`js/arvore.js`), que usa um padrão próprio:
+glifos `►` (recolhido) / `▼` (expandido) / `•` (nó sem filhos, sempre
+visível pra manter o alinhamento da coluna) dentro de um
+`<span class="tree-toggle-icon">` — classe já compartilhada por
+`arvore.js` e `distribuicao-custos.js` (Verba por Tarefa). A árvore de
+Custos usava um estilo próprio (`.rc-seta`, glifos `▸`/`▾`, sem
+bullet nos nós-folha).
+
+**Mudanças (`js/relatorios.js`):**
+- `renderizarLinhaArvoreCustoRelatorio()`: troca `.rc-seta` por
+  `.tree-toggle-icon` e os glifos `▸`/`▾` por `►`/`▼` — igual à
+  Estrutura de Projeto. Nós-folha (Tarefa, sem filhos) agora também
+  mostram um `•` (antes não mostravam nada), com a mesma cor apagada
+  (`#cbd5e1`) usada em `arvore.js` pro mesmo caso.
+- `alternarGrupoCustoRelatorio()`/`recolherDescendentesCustoRelatorio()`:
+  mesma troca de seletor/glifo; ao recolher em cascata, só reseta pra
+  `►` os nós que TÊM filhos (preserva o `•` dos nós-folha, que nunca
+  muda).
+- Continua com a MESMA arquitetura de antes (mostra/some `<tr>`s via
+  `display:none`, não re-renderiza a árvore inteira a cada clique,
+  diferente de `arvore.js`) — só o visual da seta mudou, não o
+  mecanismo, registrado em comentário no código pra não confundir
+  quem for mexer depois.
+
+**Mudanças (`estilos.css`):** removida a regra `.rc-seta` (sem uso
+depois da troca).
+
+**Verificação**: `node --check js/relatorios.js` limpo. Testado no
+navegador (aba nova, sem cache): os 3 projetos da raiz mostram `►`;
+expandir "AP PRAIA (SAVOIA) - SETOR B" mostra `▼` nele e revela a
+Etapa "Detalhamento" (`►`); expandir a Etapa mostra `▼` nela e revela
+o Pavimento "SUBSOLO" (`►`, ainda tem Tarefas por baixo pra abrir);
+recolher o projeto de novo volta a seta dele pra `►` e esconde
+Etapa/Pavimento (confirmado via `style.display`). Sem erros no
+console.

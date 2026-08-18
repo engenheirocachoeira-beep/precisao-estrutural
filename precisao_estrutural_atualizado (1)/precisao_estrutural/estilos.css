@@ -197,7 +197,6 @@
         #panel-relatorios { overflow-y: auto; }
         #rel-area-resultado .table-wrapper { max-height: none; }
         #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { max-height: none; }
-        .rc-seta { display: inline-block; width: 12px; color: #64748b; }
 
         /* Pedido do usuário: reformulação da aba Relatórios — tela
            dedicada de "Relatório de Custos" (baseada no sistema
