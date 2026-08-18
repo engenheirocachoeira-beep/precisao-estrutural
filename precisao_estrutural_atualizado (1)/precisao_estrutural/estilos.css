@@ -207,8 +207,24 @@
            "toda célula depois da 1ª"; na 2ª linha (Tempo/Custo) e no
            corpo, cada coluna é uma célula própria, então o início de
            cada par cai num índice par (2, 4, 6, 8, 10). */
-        .tabela-arvore-custos thead tr:first-child th:not(:first-child) { border-left: 1px solid #e2e8f0; text-align: center; }
+        .tabela-arvore-custos thead tr:first-child th:not(:first-child) { border-left: 1px solid rgba(255,255,255,0.15); text-align: center; }
         .tabela-arvore-custos thead tr:last-child th:nth-child(2n), .tabela-arvore-custos tbody td:nth-child(2n), .tabela-arvore-custos tfoot td:nth-child(2n) { border-left: 1px solid #e2e8f0; }
+
+        /* Pedido do usuário: cabeçalho da árvore de Custos (e do
+           resumo por Executor, mesma tela) mais destacado — mesma
+           linha azul-escura + fio ciano do cabeçalho principal do app
+           (`.app-header`), em vez do cabeçalho cinza-claro genérico
+           que as outras tabelas do sistema usam. Escopado só a esta
+           tela — não muda o `th` padrão do resto do sistema. */
+        #rel-custos-area-resultado thead th, #rel-custos-area-resultado-executor thead th {
+            background: #0a192f; color: #ffffff; border-bottom: 2px solid #00b4d8;
+        }
+        /* Precisa repetir o #id aqui pra ganhar da regra acima em
+           especificidade (um seletor só de classe perde pra um de
+           id, mesmo vindo depois) — senão a 2ª linha do cabeçalho
+           ficaria com a MESMA cor da 1ª em vez do tom mais claro. */
+        #rel-custos-area-resultado .tabela-arvore-custos thead tr:last-child th { background: #13294d; color: #cbd5e1; font-weight: 600; border-bottom: 2px solid #00b4d8; }
+        #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { border-radius: 8px; }
 
         /* Pedido do usuário: reformulação da aba Relatórios — tela
            dedicada de "Relatório de Custos" (baseada no sistema

@@ -8259,3 +8259,39 @@ confirmadas alinhadas nas 2 linhas do cabeçalho e no corpo/rodapé
 brinde, a expansão também confirmou visualmente as correções de dados
 da parte anterior: projeto "D" mostra "PRÉ-LANÇAMENTO" e AP Praia
 mostra "DETALHAMENTO" em maiúsculas, batendo com o catálogo.
+
+## Retomada em 2026-08-17 (parte 24) — Cabeçalho da árvore de Custos com a mesma cara da amostra
+
+**Pedido do usuário**: "A formatação da amostra é bem mais bonita do
+que aquela que está no site. Linhas de título azul escuro, separação
+dos cartões mais destacados. Por que não usou o modelo que você mesmo
+sugeriu?" — reparo justo: a parte 23 implementou a ESTRUTURA da
+amostra (colunas por nível), mas reaproveitou o `<th>` genérico do
+resto do sistema (fundo cinza-claro, `estilos.css:55`) em vez do
+cabeçalho azul-marinho que a própria amostra usava — perdeu o
+contraste visual que fazia os 5 pares de nível saltarem aos olhos.
+
+**Mudança (`estilos.css`)**: cabeçalho das duas tabelas desta tela
+(árvore de Custos E resumo por Executor) ganhou fundo `#0a192f`
+(mesmo azul-marinho do `.app-header` do sistema) com texto branco e
+um fio ciano `#00b4d8` embaixo — mesma combinação já usada no topo do
+app, não uma cor nova. A 2ª linha do cabeçalho da árvore (Tempo/Custo)
+fica num tom um pouco mais claro (`#13294d`) pra diferenciar das 2
+linhas sem depender só da borda entre elas. `.table-wrapper` (o
+"cartão" branco que envolve cada tabela) ganhou `border-radius: 8px`
+(era 6px) — leve mas ajuda a separação visual pedida. Escopado com
+`#rel-custos-area-resultado`/`#rel-custos-area-resultado-executor` —
+não muda o `<th>` genérico do resto do sistema.
+
+**Nota técnica**: a 1ª tentativa usou só seletor de classe pra
+diferenciar a 2ª linha do cabeçalho da árvore — perdeu pro seletor de
+ID (mais específico) que pinta as duas linhas iguais. Corrigido
+repetindo o `#id` no seletor mais específico, comentado no código pra
+não cair na mesma pegadinha de novo.
+
+**Verificação**: testado no navegador (aba nova) via
+`getComputedStyle` em cada linha do cabeçalho: 1ª linha
+`rgb(10,25,47)`/branco, 2ª linha `rgb(19,41,77)`/cinza-claro, cabeçalho
+do Executor `rgb(10,25,47)`/branco — as 3 batem com o pedido. Dados
+da tabela conferidos de novo, inalterados (só CSS mudou). Sem erros no
+console.
