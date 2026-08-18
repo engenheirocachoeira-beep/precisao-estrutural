@@ -7760,3 +7760,88 @@ parte 15), o que evita o erro de redeclaração de `const`/`let` de
 nível superior do arquivo. Isso não afeta o comportamento em produção
 (Netlify serve o conteúdo publicado normalmente) — é uma
 característica só do servidor local de desenvolvimento.
+
+## Retomada em 2026-08-17 (parte 17) — Motor de Visões: agrupamento por múltiplos campos + nível "Avanço de Projeto"
+
+**Contexto**: depois da parte 16 (tela fixa "Relatório de horas"), o
+usuário disse que ainda não tem os tipos de relatório todos definidos,
+e prefere poder "montar visões diferentes como tínhamos antes" (o
+motor genérico, agora "Relatório personalizado") — foi descrevendo,
+uma por uma, as necessidades que foi lembrando:
+1. Horas por período, acumuladas por executor, por projeto, ou por
+   projeto e executor.
+2. Horas previstas × realizadas, acumuladas por projeto, por
+   executor, ou por status da tarefa.
+3. Avanço de projeto (% concluída).
+4. Custos, com nome do executor/horas/valor, acumulados por projeto,
+   por executor, por período.
+5. Lista de todos os lançamentos de horas num período, acumulados por
+   projeto, por executor, ou por projeto e executor.
+
+O motor de Visões já cobria a maior parte disso — o que faltava de
+verdade era: (a) agrupar por **mais de um campo ao mesmo tempo**
+(ex: Projeto + Executor juntos), que hoje só aceitava um campo por
+vez; e (b) um jeito de calcular "% concluída de projeto" dentro do
+motor (esse dado só existia dentro do Painel de Progresso).
+
+**Mudanças (`js/relatorios.js`):**
+- `agruparLinhasRelatorio(linhas, camposAgrupar, camposSoma)`: agora
+  aceita um ARRAY de campos (chave composta = valores concatenados
+  com um separador improvável de colidir, `␟`) em vez de um campo só.
+  Continua aceitando uma string única ou vazio/nulo por compatibilidade
+  (`normalizarCamposAgrupar()`, nova função — trata os dois formatos
+  igual em qualquer lugar que leia `agrupar`).
+- `montarResultadoRelatorio()`: recebe `camposAgrupar` (array),
+  normaliza internamente, `agrupado` agora é `length > 0`.
+- UI: o antigo `<select id="rel-agrupar">` (escolha única) virou uma
+  lista de "chips" clicáveis (`#rel-lista-agrupar`, mesmo componente
+  visual que "Colunas a exibir" já usava) — `relAgruparAtivos` (Set)
+  + `renderizarChipsAgruparRelatorio()` + `alternarAgruparRelatorio(id)`,
+  espelhando o padrão que `relColunasAtivas`/`alternarColunaRelatorio`
+  já tinham. Agora dá pra marcar Projeto E Executor ao mesmo tempo.
+- Novo nível **`avanco`** no catálogo `NIVEIS_RELATORIO`: uma linha
+  por (Projeto, Etapa), com `% Concluída (Etapa)` e `% Concluída
+  (Projeto)` (média das Etapas). Coletor novo,
+  `coletarLinhasAvancoProjeto()`, reaproveita
+  `calcularProgressoProjeto()` (já existente em `painel-progresso.js`,
+  mesmo cálculo que a barra de progresso já mostra — verba das
+  Tarefas "Finalizada" sobre a verba total da Etapa). Esse nível não
+  tem filtro de período (`campoData: null`) — % concluída é uma foto
+  do estado atual, não um evento datado.
+- `mudarNivelRelatorio()`/`carregarVisaoSelecionadaRelatorio()`:
+  trocada a checagem manual de 2 botões (Sessão/Tarefa) por
+  `atualizarBotoesNivelRelatorio()`, um loop sobre
+  `Object.keys(NIVEIS_RELATORIO)` — já nasce pronta pro 3º nível, e
+  qualquer nível futuro não precisa mais tocar em 2 lugares.
+- `visoesDeFabrica()`: 8 visões novas cobrindo os 5 relatórios
+  descritos (`Custo por Projeto e Executor`, `Horas por Projeto e
+  Período`, `Horas por Projeto e Executor`, `Lançamentos de Horas
+  (lista detalhada)`, `Previsto × Realizado por Projeto/Executor/
+  Status`, `Avanço de Projeto (%)`), além das 5 originais (que
+  passaram a guardar `agrupar` como array, ex. `['executor']`).
+- `carregarVisoesRelatorio()`: antes só semeava as visões de fábrica
+  na PRIMEIRA vez (storage vazio). Agora também faz uma migração leve
+  — se o array já salvo não tem alguma visão de fábrica nova (caso de
+  quem já usava a tela antes desta parte), ela é acrescentada sem
+  duplicar nem mexer nas visões existentes (de fábrica ou próprias do
+  usuário).
+
+**Verificação**: `node --check js/relatorios.js` limpo. Testado no
+navegador local: nível "Avanço de Projeto" mostra % reais por projeto
+(ex. projeto D, etapa PRÉ-LANÇAMENTO 100%, projeto geral 25%);
+agrupamento por Projeto+Executor simultâneo testado no nível Sessão —
+resultado bate com o total já conhecido (Luiza/AP Praia = 69,5h,
+R$2.347,01, mesmo total das partes anteriores desta sessão); as 13
+visões de fábrica aparecem certas no seletor; carregar uma visão
+antiga com `agrupar` no formato string (simulando quem já tinha as 5
+originais salvas antes desta mudança) continua funcionando igual
+(normalizado pra array na hora de aplicar); migração testada
+simulando storage com só as 5 antigas — as 8 novas são acrescentadas
+sem duplicar nem alterar as existentes. Clique de mouse real no botão
+"Avanço de Projeto" (não só chamada direta de função) confirmado
+funcionando ponta a ponta: nível troca, colunas voltam pro padrão do
+nível, chips de agrupar recarregam pras opções desse nível
+(`projeto`/`cliente`), tabela renderiza com dado real. A tela fixa
+"Relatório de horas" (parte 16) não foi tocada nesta parte — nenhum
+teste de regressão necessário além do `node --check`, já que nenhuma
+função dela foi alterada.

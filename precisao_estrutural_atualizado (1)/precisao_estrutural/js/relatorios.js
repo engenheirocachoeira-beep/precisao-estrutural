@@ -188,6 +188,40 @@ function coletarLinhasTarefa() {
     return linhas;
 }
 
+// Uma linha por (Projeto, Etapa) — % concluída, mesmo cálculo já usado
+// no Painel de Progresso (`calcularProgressoProjeto()`, painel-progresso.js:
+// verba das Tarefas "Finalizada" sobre a verba total da Etapa). Junto
+// com a % de cada Etapa, cada linha também carrega `pctProjeto` — a
+// média das Etapas daquele projeto — pra dar um número único de
+// "avanço geral" sem precisar agrupar (pedido do usuário: "Relatório
+// de avanço de projeto (% concluída)"). Projeto sem nenhuma Etapa
+// cadastrada não entra (não tem % pra mostrar).
+function coletarLinhasAvancoProjeto() {
+    const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    const projetosPermitidos = typeof obterNomesProjetosPermitidos === 'function' ? obterNomesProjetosPermitidos() : null;
+    let linhas = [];
+
+    projetos.forEach(proj => {
+        if (projetosPermitidos && !projetosPermitidos.has(proj.nome)) return;
+        const etapas = typeof calcularProgressoProjeto === 'function' ? calcularProgressoProjeto(proj.nome) : [];
+        if (etapas.length === 0) return;
+        const pctProjeto = etapas.reduce((s, e) => s + e.percentual, 0) / etapas.length;
+
+        etapas.forEach(e => {
+            linhas.push({
+                projeto: proj.nome,
+                cliente: proj.cliente || '',
+                etapa: e.etapa,
+                pctEtapa: e.percentual,
+                pctProjeto: pctProjeto,
+                localizacaoAtual: e.localizacaoAtual || '—'
+            });
+        });
+    });
+
+    return linhas;
+}
+
 // --- MOTOR DE FILTRO ---
 // Genérico — funciona em cima de QUALQUER lista de linhas (Sessão ou
 // Tarefa), desde que os campos existam nelas. `filtros.campoData` diz
@@ -215,22 +249,35 @@ function aplicarFiltrosRelatorio(linhas, filtros) {
     });
 }
 
+// Aceita tanto um array de campos (['projeto','executor']) quanto,
+// por compatibilidade com Visões salvas antes desta versão, uma
+// string única ('executor') ou vazio/nulo — sempre devolve array
+// (sem campo nenhum = []).
+function normalizarCamposAgrupar(agrupar) {
+    if (Array.isArray(agrupar)) return agrupar.filter(Boolean);
+    return agrupar ? [agrupar] : [];
+}
+
 // --- MOTOR DE AGRUPAMENTO ---
-// Agrupa por um campo (ex: 'projeto', 'executor') e soma os campos
-// numéricos listados em `camposSoma` — os outros campos da linha
-// original se perdem no agrupamento (só faz sentido ver o campo que
-// virou o agrupador + os totais). Sem campo de agrupar, devolve a lista
+// Agrupa por UM OU MAIS campos (ex: só 'executor', ou 'projeto' +
+// 'executor' juntos — pedido do usuário: "acumulado por projeto, por
+// executor, ou projeto e executor") e soma os campos numéricos
+// listados em `camposSoma` — os outros campos da linha original se
+// perdem no agrupamento (só faz sentido ver os campos que viraram
+// agrupador + os totais). Sem nenhum campo de agrupar, devolve a lista
 // original sem alterar (linha a linha). `_quantidade` = quantas linhas
 // originais formaram aquele grupo, útil pra dar contexto no relatório
 // (ex: "12 sessões" por trás do total). Função pura, testável sem DOM.
-function agruparLinhasRelatorio(linhas, campoAgrupar, camposSoma) {
-    if (!campoAgrupar) return linhas;
+function agruparLinhasRelatorio(linhas, camposAgrupar, camposSoma) {
+    const campos = normalizarCamposAgrupar(camposAgrupar);
+    if (campos.length === 0) return linhas;
     const grupos = {};
     const ordem = []; // preserva a ordem de primeira aparição, não ordena por nome
     linhas.forEach(l => {
-        const chave = l[campoAgrupar];
+        const chave = campos.map(c => l[c]).join('␟'); // separador improvável de colidir com dado real
         if (!grupos[chave]) {
-            grupos[chave] = { [campoAgrupar]: chave, _quantidade: 0 };
+            grupos[chave] = { _quantidade: 0 };
+            campos.forEach(c => grupos[chave][c] = l[c]);
             camposSoma.forEach(c => grupos[chave][c] = 0);
             ordem.push(chave);
         }
@@ -287,6 +334,21 @@ const NIVEIS_RELATORIO = {
             { id: 'dataInicioReal', rotulo: 'Data de Início Real', padrao: false, somavel: false, tipo: 'data' },
         ],
         camposAgrupar: ['projeto', 'etapa', 'cliente', 'executor', 'status']
+    },
+    avanco: {
+        rotulo: 'Avanço de Projeto',
+        descricao: '% concluída por Etapa e no Projeto (mesmo cálculo do Painel de Progresso)',
+        coletor: coletarLinhasAvancoProjeto,
+        campoData: null, // "foto" do estado atual — não tem "quando", então não filtra por período
+        colunas: [
+            { id: 'projeto', rotulo: 'Projeto', padrao: true, somavel: false, tipo: 'texto' },
+            { id: 'cliente', rotulo: 'Cliente', padrao: false, somavel: false, tipo: 'texto' },
+            { id: 'etapa', rotulo: 'Etapa', padrao: true, somavel: false, tipo: 'texto' },
+            { id: 'pctEtapa', rotulo: '% Concluída (Etapa)', padrao: true, somavel: false, tipo: 'percentual' },
+            { id: 'pctProjeto', rotulo: '% Concluída (Projeto)', padrao: true, somavel: false, tipo: 'percentual' },
+            { id: 'localizacaoAtual', rotulo: 'Localização Atual', padrao: false, somavel: false, tipo: 'texto' },
+        ],
+        camposAgrupar: ['projeto', 'cliente']
     }
 };
 
@@ -306,14 +368,15 @@ function formatarValorColuna(tipo, valor) {
 // coletadas (não chama coletarLinhas* sozinha), então fica fácil de
 // testar e reaproveitável fora da tela também (ex: um export futuro).
 // Função pura, testável sem DOM.
-function montarResultadoRelatorio(nivel, linhasBase, filtros, colunasAtivasIds, campoAgrupar) {
+function montarResultadoRelatorio(nivel, linhasBase, filtros, colunasAtivasIds, camposAgrupar) {
     const def = NIVEIS_RELATORIO[nivel];
     const filtrosComData = Object.assign({}, filtros, { campoData: def.campoData });
     const linhasFiltradas = aplicarFiltrosRelatorio(linhasBase, filtrosComData);
 
     const colunas = def.colunas.filter(c => colunasAtivasIds.has(c.id));
     const camposSoma = colunas.filter(c => c.somavel).map(c => c.id);
-    const linhasFinal = agruparLinhasRelatorio(linhasFiltradas, campoAgrupar, camposSoma);
+    const camposAgruparNorm = normalizarCamposAgrupar(camposAgrupar);
+    const linhasFinal = agruparLinhasRelatorio(linhasFiltradas, camposAgruparNorm, camposSoma);
 
     // Linha de "Total Geral" no rodapé — soma os campos somáveis
     // independente de estar agrupado ou não (agrupar ou não dá na mesma
@@ -323,7 +386,7 @@ function montarResultadoRelatorio(nivel, linhasBase, filtros, colunasAtivasIds, 
     const totais = {};
     camposSoma.forEach(c => { totais[c] = linhasFinal.reduce((s, l) => s + (parseFloat(l[c]) || 0), 0); });
 
-    return { colunas: colunas, linhas: linhasFinal, agrupado: !!campoAgrupar, totalLinhasBase: linhasFiltradas.length, totais: totais };
+    return { colunas: colunas, linhas: linhasFinal, agrupado: camposAgruparNorm.length > 0, totalLinhasBase: linhasFiltradas.length, totais: totais };
 }
 
 // --- VISÕES SALVAS (compartilhadas — decisão explícita do usuário, não
@@ -333,29 +396,55 @@ function montarResultadoRelatorio(nivel, linhasBase, filtros, colunasAtivasIds, 
 //     agrupar }
 
 // Os 5 relatórios originais que encaixam de verdade no motor genérico
-// (ver prompt_gemini.md §11) — os outros 2 ("Tarefas em atraso" e
-// "Orçado vs. Realizado por Projeto") ficaram de fora de propósito, por
-// decisão do usuário: precisam de colunas que o catálogo ainda não tem
-// (Data Prevista de Fim por tarefa, verba orçada por projeto) — fica
-// pra quando/se o catálogo for estendido.
+// (ver prompt_gemini.md §11), mais os que o usuário foi descrevendo na
+// rodada de reformulação da aba (prompt_gemini.md, parte 17): "número
+// de horas por período, acumulado por executor/projeto/projeto e
+// executor" (2 novas), "custos com nome do executor/horas/valor,
+// acumulado por projeto e executor" (1 nova), "lista de lançamentos de
+// horas no período" (1 nova — o motor genérico serve de complemento à
+// tela fixa "Relatório de horas", pra quem quiser combinar com outros
+// filtros/colunas/agrupamentos), "previsto × realizado, acumulado por
+// projeto/executor/status" (3 novas) e "avanço de projeto, % concluída"
+// (1 nova, usa o novo nível `avanco`). Os 2 que ficaram de fora de
+// propósito ("Tarefas em atraso" e um detalhamento por Etapa que
+// precisaria de Data Prevista de Fim por tarefa) seguem pendentes —
+// fica pra quando/se o catálogo for estendido com essa coluna.
 function visoesDeFabrica() {
     return [
-        { id: 'fabrica_custo_funcionario', nome: 'Custo por Funcionário e Período', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['executor', 'horas', 'custo'], agrupar: 'executor' },
-        { id: 'fabrica_custo_projeto', nome: 'Custo por Projeto', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'horas', 'custo'], agrupar: 'projeto' },
-        { id: 'fabrica_custo_total', nome: 'Custo Total', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'executor', 'horas', 'custo'], agrupar: '' },
-        { id: 'fabrica_horas_funcionario', nome: 'Horas Trabalhadas por Funcionário e Período', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['executor', 'horas'], agrupar: 'executor' },
-        { id: 'fabrica_previsto_realizado', nome: 'Horas Previstas vs. Realizadas', fabrica: true, nivel: 'tarefa', filtros: {}, colunas: ['tarefa', 'executor', 'horasPrevistas', 'horasRealizadas', 'desvioPct'], agrupar: '' }
+        { id: 'fabrica_custo_funcionario', nome: 'Custo por Funcionário e Período', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['executor', 'horas', 'custo'], agrupar: ['executor'] },
+        { id: 'fabrica_custo_projeto', nome: 'Custo por Projeto', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'horas', 'custo'], agrupar: ['projeto'] },
+        { id: 'fabrica_custo_projeto_executor', nome: 'Custo por Projeto e Executor', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'executor', 'horas', 'custo'], agrupar: ['projeto', 'executor'] },
+        { id: 'fabrica_custo_total', nome: 'Custo Total', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'executor', 'horas', 'custo'], agrupar: [] },
+        { id: 'fabrica_horas_funcionario', nome: 'Horas por Executor e Período', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['executor', 'horas'], agrupar: ['executor'] },
+        { id: 'fabrica_horas_projeto', nome: 'Horas por Projeto e Período', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'horas'], agrupar: ['projeto'] },
+        { id: 'fabrica_horas_projeto_executor', nome: 'Horas por Projeto e Executor', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'executor', 'horas'], agrupar: ['projeto', 'executor'] },
+        { id: 'fabrica_lancamentos_periodo', nome: 'Lançamentos de Horas (lista detalhada)', fabrica: true, nivel: 'sessao', filtros: {}, colunas: ['projeto', 'executor', 'tarefa', 'data', 'horas'], agrupar: [] },
+        { id: 'fabrica_previsto_realizado', nome: 'Horas Previstas vs. Realizadas', fabrica: true, nivel: 'tarefa', filtros: {}, colunas: ['tarefa', 'executor', 'horasPrevistas', 'horasRealizadas', 'desvioPct'], agrupar: [] },
+        { id: 'fabrica_previsto_realizado_projeto', nome: 'Previsto × Realizado por Projeto', fabrica: true, nivel: 'tarefa', filtros: {}, colunas: ['projeto', 'horasPrevistas', 'horasRealizadas', 'desvioPct'], agrupar: ['projeto'] },
+        { id: 'fabrica_previsto_realizado_executor', nome: 'Previsto × Realizado por Executor', fabrica: true, nivel: 'tarefa', filtros: {}, colunas: ['executor', 'horasPrevistas', 'horasRealizadas', 'desvioPct'], agrupar: ['executor'] },
+        { id: 'fabrica_previsto_realizado_status', nome: 'Previsto × Realizado por Status', fabrica: true, nivel: 'tarefa', filtros: {}, colunas: ['status', 'horasPrevistas', 'horasRealizadas', 'desvioPct'], agrupar: ['status'] },
+        { id: 'fabrica_avanco_projeto', nome: 'Avanço de Projeto (%)', fabrica: true, nivel: 'avanco', filtros: {}, colunas: ['projeto', 'etapa', 'pctEtapa', 'pctProjeto'], agrupar: [] }
     ];
 }
 
-// Semeia as 5 de fábrica na PRIMEIRA vez que a tela é aberta
-// (`banco_relatorios_visoes` inexistente ou vazio) — depois disso o
-// array salvo é sempre a fonte de verdade, nunca semeia de novo por
-// cima do que já existe.
+// Semeia as de fábrica na PRIMEIRA vez que a tela é aberta
+// (`banco_relatorios_visoes` inexistente ou vazio). Depois disso, o
+// array salvo é sempre a fonte de verdade — mas se uma versão nova
+// deste arquivo acrescentou uma visão de fábrica que ainda não existe
+// no array já salvo (ex: alguém que já usava a tela antes desta
+// reformulação), ela é adicionada por cima, sem duplicar nem mexer nas
+// visões que a pessoa já tem ou já editou.
 function carregarVisoesRelatorio() {
     let visoes = JSON.parse(localStorage.getItem('banco_relatorios_visoes'));
     if (!Array.isArray(visoes) || visoes.length === 0) {
         visoes = visoesDeFabrica();
+        localStorage.setItem('banco_relatorios_visoes', JSON.stringify(visoes));
+        return visoes;
+    }
+    const idsExistentes = new Set(visoes.map(v => v.id));
+    const faltando = visoesDeFabrica().filter(v => !idsExistentes.has(v.id));
+    if (faltando.length > 0) {
+        visoes = visoes.concat(faltando);
         localStorage.setItem('banco_relatorios_visoes', JSON.stringify(visoes));
     }
     return visoes;
@@ -365,7 +454,7 @@ function salvarNovaVisaoRelatorio(nome, nivel, filtros, colunasIds, agrupar) {
     if (!nome || !nome.trim()) return { ok: false, erro: 'Informe um nome pra visão.' };
     const visoes = carregarVisoesRelatorio();
     const id = 'visao_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    visoes.push({ id: id, nome: nome.trim(), fabrica: false, nivel: nivel, filtros: filtros || {}, colunas: Array.from(colunasIds), agrupar: agrupar || '' });
+    visoes.push({ id: id, nome: nome.trim(), fabrica: false, nivel: nivel, filtros: filtros || {}, colunas: Array.from(colunasIds), agrupar: normalizarCamposAgrupar(agrupar) });
     localStorage.setItem('banco_relatorios_visoes', JSON.stringify(visoes));
     return { ok: true, id: id };
 }
@@ -390,6 +479,19 @@ function apagarVisaoRelatorio(id) {
 
 let relNivelAtivo = 'sessao';
 let relColunasAtivas = new Set();
+let relAgruparAtivos = new Set();
+
+// Loop sobre os níveis do catálogo em vez de listar cada botão à mão —
+// assim o 3º nível (Avanço de Projeto) não precisou duplicar essa
+// lógica num segundo lugar (mudarNivelRelatorio E
+// carregarVisaoSelecionadaRelatorio já tinham essa duplicação com só 2
+// níveis; ia piorar com 3).
+function atualizarBotoesNivelRelatorio(nivel) {
+    Object.keys(NIVEIS_RELATORIO).forEach(id => {
+        const el = document.getElementById('rel-nivel-' + id);
+        if (el) el.classList.toggle('ativo', id === nivel);
+    });
+}
 
 function carregarPainelRelatorios() {
     carregarVisoesRelatorio(); // garante que as 5 de fábrica existem
@@ -419,9 +521,9 @@ function renderizarSeletorVisoesRelatorio() {
 // pode nem existir mais na lista).
 function mudarNivelRelatorio(nivel) {
     relNivelAtivo = nivel;
-    document.getElementById('rel-nivel-sessao').classList.toggle('ativo', nivel === 'sessao');
-    document.getElementById('rel-nivel-tarefa').classList.toggle('ativo', nivel === 'tarefa');
+    atualizarBotoesNivelRelatorio(nivel);
     relColunasAtivas = new Set(NIVEIS_RELATORIO[nivel].colunas.filter(c => c.padrao).map(c => c.id));
+    relAgruparAtivos = new Set();
 
     ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
         const el = document.getElementById('rel-filtro-' + c);
@@ -432,7 +534,7 @@ function mudarNivelRelatorio(nivel) {
 
     renderizarOpcoesFiltroRelatorio();
     renderizarChipsColunasRelatorio();
-    renderizarOpcoesAgruparRelatorio();
+    renderizarChipsAgruparRelatorio();
     renderizarTabelaRelatorio();
 }
 
@@ -449,13 +551,23 @@ function alternarColunaRelatorio(id) {
     renderizarTabelaRelatorio();
 }
 
-function renderizarOpcoesAgruparRelatorio() {
-    const sel = document.getElementById('rel-agrupar');
+// Chips (não mais um <select> de opção única) — pedido do usuário:
+// poder acumular por MAIS de um campo ao mesmo tempo (ex: Projeto +
+// Executor juntos numa mesma linha do relatório).
+function renderizarChipsAgruparRelatorio() {
+    const lista = document.getElementById('rel-lista-agrupar');
     const def = NIVEIS_RELATORIO[relNivelAtivo];
     const rotulos = {};
     def.colunas.forEach(c => { rotulos[c.id] = c.rotulo; });
-    sel.innerHTML = '<option value="">-- Sem agrupamento (linha a linha) --</option>' +
-        def.camposAgrupar.map(id => '<option value="' + id + '">' + rotulos[id] + '</option>').join('');
+    lista.innerHTML = def.camposAgrupar.map(id =>
+        '<div class="coluna-chip ' + (relAgruparAtivos.has(id) ? 'ativo' : '') + '" onclick="alternarAgruparRelatorio(\'' + id + '\')">' + rotulos[id] + '</div>'
+    ).join('');
+}
+
+function alternarAgruparRelatorio(id) {
+    if (relAgruparAtivos.has(id)) relAgruparAtivos.delete(id); else relAgruparAtivos.add(id);
+    renderizarChipsAgruparRelatorio();
+    renderizarTabelaRelatorio();
 }
 
 // Popula Projeto/Etapa/Cliente/Executor com os valores DISTINTOS que
@@ -504,7 +616,7 @@ function limparFiltrosRelatorio() {
 
 function renderizarTabelaRelatorio() {
     const linhasBase = NIVEIS_RELATORIO[relNivelAtivo].coletor();
-    const resultado = montarResultadoRelatorio(relNivelAtivo, linhasBase, lerFiltrosRelatorio(), relColunasAtivas, document.getElementById('rel-agrupar').value);
+    const resultado = montarResultadoRelatorio(relNivelAtivo, linhasBase, lerFiltrosRelatorio(), relColunasAtivas, Array.from(relAgruparAtivos));
 
     const area = document.getElementById('rel-area-resultado');
     if (resultado.colunas.length === 0) {
@@ -550,8 +662,7 @@ function carregarVisaoSelecionadaRelatorio() {
     if (!visao) return;
 
     relNivelAtivo = visao.nivel;
-    document.getElementById('rel-nivel-sessao').classList.toggle('ativo', visao.nivel === 'sessao');
-    document.getElementById('rel-nivel-tarefa').classList.toggle('ativo', visao.nivel === 'tarefa');
+    atualizarBotoesNivelRelatorio(visao.nivel);
     renderizarOpcoesFiltroRelatorio();
 
     ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
@@ -563,8 +674,8 @@ function carregarVisaoSelecionadaRelatorio() {
 
     relColunasAtivas = new Set(visao.colunas);
     renderizarChipsColunasRelatorio();
-    renderizarOpcoesAgruparRelatorio();
-    document.getElementById('rel-agrupar').value = visao.agrupar || '';
+    relAgruparAtivos = new Set(normalizarCamposAgrupar(visao.agrupar));
+    renderizarChipsAgruparRelatorio();
 
     renderizarTabelaRelatorio();
 }
@@ -572,7 +683,7 @@ function carregarVisaoSelecionadaRelatorio() {
 function salvarVisaoAtualRelatorio() {
     const nome = prompt('Nome da visão (fica disponível pra todo mundo que acessa Relatórios):');
     if (!nome) return;
-    const resultado = salvarNovaVisaoRelatorio(nome, relNivelAtivo, lerFiltrosRelatorio(), relColunasAtivas, document.getElementById('rel-agrupar').value);
+    const resultado = salvarNovaVisaoRelatorio(nome, relNivelAtivo, lerFiltrosRelatorio(), relColunasAtivas, Array.from(relAgruparAtivos));
     if (!resultado.ok) { alert(resultado.erro); return; }
 
     renderizarSeletorVisoesRelatorio();

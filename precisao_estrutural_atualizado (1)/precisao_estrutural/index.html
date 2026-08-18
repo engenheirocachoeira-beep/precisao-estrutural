@@ -866,6 +866,10 @@
                                     Tarefa
                                     <small>Previsto × Realizado, Pontos, Status</small>
                                 </div>
+                                <div class="nivel-opcao" id="rel-nivel-avanco" onclick="mudarNivelRelatorio('avanco')">
+                                    Avanço de Projeto
+                                    <small>% Concluída por Etapa e no Projeto</small>
+                                </div>
                             </div>
 
                             <div class="secao-titulo">Filtros</div>
@@ -881,12 +885,8 @@
                             <div class="secao-titulo">Colunas a exibir</div>
                             <div class="lista-colunas" id="rel-lista-colunas"></div>
 
-                            <div class="linha-agrupar">
-                                <div class="campo">
-                                    <label>Agrupar por</label>
-                                    <select id="rel-agrupar" onchange="renderizarTabelaRelatorio()"></select>
-                                </div>
-                            </div>
+                            <div class="secao-titulo">Agrupar por <small style="text-transform:none; font-weight:400;">(pode escolher mais de um — ex: Projeto + Executor)</small></div>
+                            <div class="lista-colunas" id="rel-lista-agrupar"></div>
 
                             <div class="rodape-filtro">
                                 <button class="btn-texto" onclick="limparFiltrosRelatorio()">Limpar filtros</button>
