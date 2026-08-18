@@ -7656,3 +7656,107 @@ troca pra Distribuição de Custos (Orçamento Global carregado com os
 dados do projeto), orelha "Custos" fica ativa; clicar em "Estrutura de
 Projeto" volta corretamente, título e orelha batendo. `node --check`
 limpo nos 3 arquivos.
+
+## Retomada em 2026-08-17 (parte 16) — Reforma da aba Relatórios: nova tela fixa "Relatório de horas"
+
+**Pedido do usuário**: reformular a aba Relatórios com base no sistema
+antigo da equipe ("tentando melhorar"). Foi mostrada uma captura de
+tela do relatório de lançamentos de horas do sistema antigo: uma
+barra lateral com 5 tipos de relatório (Conclusão, Custos, Comissões,
+Horas, Importar planilha) + Cadastro/Sistema, e uma tela principal com
+filtro avançado (Projeto/Etapa/Cliente/Técnico/Data inicial/Data
+final) e tabela (# | Data | Técnico | Cliente | Projeto | Etapa |
+Tarefa/Comentário | Início | Fim | Tempo).
+
+**Decisões de escopo (via perguntas de esclarecimento)**:
+1. Prioridade: aperfeiçoar primeiro o Relatório de Horas (não os
+   outros 4 tipos).
+2. Arquitetura: reconsiderar telas fixas por tipo de relatório, ao
+   invés de manter só o motor genérico (Nível/Filtro/Colunas/Agrupar/
+   Visões) que já existia — mas **sem apagar** esse motor.
+3. Resposta final do usuário: "1) Guarde-a; 2) Mantenha Executor; 3)
+   decidiremos depois" — ou seja: (1) o motor genérico antigo continua
+   existindo por inteiro, só virou mais um item da barra lateral
+   ("Relatório personalizado"), deixando de ser a tela padrão; (2) usa
+   o termo "Executor" (já usado no resto do sistema), não "Técnico"
+   como no sistema antigo; (3) os outros 4 tipos (Conclusão, Custos,
+   Comissões, Importar planilha) ficam como itens desabilitados
+   ("Ainda não implementado") — escopo deles fica pra decidir depois.
+
+**Mudanças (`index.html`):**
+- `#panel-relatorios` virou um layout de 2 colunas (`flex-direction:
+  row`): nova barra lateral `#rel-sidebar-tipos` (mesma classe visual
+  `.rel-sidebar`, inspirada na barra lateral escura do sistema
+  principal) com os 6 itens (Horas ativo por padrão, 4 desabilitados,
+  separador, Personalizado).
+- O conteúdo antigo (barra de visões, filtro, colunas, agrupar,
+  resultado — tudo do motor genérico) foi todo envolvido, sem nenhuma
+  alteração de conteúdo, num novo `#rel-conteudo-personalizado`
+  (`display:none` por padrão).
+- Novo `#rel-conteudo-horas` (visível por padrão): filtro avançado
+  fixo (Projeto/Etapa/Cliente/Executor/Data inicial/Data final,
+  botões Limpar filtros/Exibir/Imprimir) + área de resultado própria
+  (`#rel-horas-area-resultado`), com cabeçalho dinâmico mostrando a
+  contagem de lançamentos.
+
+**Mudanças (`estilos.css`):**
+- Novas classes `.rel-sidebar`/`.rel-tipo-item`/`.rel-tipo-item.ativo`/
+  `.rel-tipo-item.desabilitado`/`.rel-sidebar-separador` (visual dark,
+  mesma paleta do sidebar principal do app).
+- Regra de impressão (`@media print`) passou a esconder também
+  `.rel-sidebar`, igual já escondia `.painel-filtro` etc.
+
+**Mudanças (`js/relatorios.js`):**
+- Todas as funções novas são aditivas — nenhuma função do motor
+  genérico pré-existente foi alterada em comportamento, só
+  `coletarLinhasSessaoTrabalho()` ganhou 2 campos novos por sessão
+  (`horaInicio`/`horaFim`, HH:MM em horário local) que o motor
+  genérico simplesmente ignora (ele só lê os campos do seu próprio
+  catálogo `NIVEIS_RELATORIO`).
+- `alternarTipoRelatorio(tipo)`: troca ativo/oculto entre as duas
+  telas e chama `carregarRelatorioHoras()` ao entrar em 'horas'.
+- `carregarRelatorioHoras()` → `renderizarOpcoesFiltroRelatorioHoras()`
+  (popula os 4 selects só com valores que existem de verdade nas
+  sessões) + `exibirRelatorioHoras()`.
+- `exibirRelatorioHoras()`: reaproveita a função pura
+  `aplicarFiltrosRelatorio()` já existente do motor genérico (mesmos
+  filtros, campo de data = `'data'`), ordena mais recente primeiro, e
+  chama `renderizarTabelaRelatorioHoras()` — tabela fixa (#, Data,
+  Executor, Cliente, Projeto, Etapa, Tarefa, Início, Fim, Tempo) com
+  rodapé de Total.
+- `carregarPainelRelatorios()` ganhou uma linha final chamando
+  `alternarTipoRelatorio('horas')` — pedido do usuário de a tela
+  sempre abrir no Relatório de Horas (mesmo padrão de "sempre volta
+  pro estado inicial" já usado em outras telas, ex.
+  `alternarModulo('arvore')`).
+
+**Verificação**: `node --check js/relatorios.js` limpo. Testado no
+navegador local (servidor `precisao-estrutural`, porta 5601) — a tela
+carrega com "Relatório de horas" ativo por padrão, mostrando as 19
+sessões reais de trabalho do banco (incluindo as 17 sessões da Luiza
+recompostas na parte anterior desta sessão — conferido item a item que
+batem exatamente: 3 em `LC_Blocos`, 13 em `DT_Blocos`, 1 em
+`DT_Pilares` de 08/07 14:00–18:00/4h). Filtro por Executor="Luiza"
+reduz corretamente pra essas 17 linhas; "Limpar filtros" volta pras
+19; o painel de filtro colapsa/expande; trocar pra "Relatório
+personalizado" esconde a tela de Horas e mostra o motor genérico
+antigo 100% intacto (colunas, níveis, visões salvas todas
+funcionando); voltar pra "Relatório de horas" funciona. Os 4 tipos
+desabilitados aparecem cinza, sem clique, com tooltip "Ainda não
+implementado" — nenhuma funcionalidade construída pra eles ainda
+(escopo em aberto, "decidiremos depois").
+
+**Nota sobre o teste**: o servidor de desenvolvimento local
+(`python -m http.server`, sem cabeçalhos de cache) fica servindo uma
+cópia em cache do `js/relatorios.js` antigo pro navegador mesmo depois
+de editado — confirmado comparando o texto de uma função já carregada
+com o texto de um `fetch(..., {cache:'no-store'})` do mesmo arquivo, e
+confirmado que uma aba totalmente nova reproduz o mesmo cache
+obsoleto (então não é reaproveitamento de aba — é cache HTTP raso do
+próprio servidor Python). A verificação funcional acima foi feita
+injetando só as funções novas/alteradas extraídas do arquivo fresco
+(mesma técnica de extração por chaves balanceadas já documentada na
+parte 15), o que evita o erro de redeclaração de `const`/`let` de
+nível superior do arquivo. Isso não afeta o comportamento em produção
+(Netlify serve o conteúdo publicado normalmente) — é uma
+característica só do servidor local de desenvolvimento.

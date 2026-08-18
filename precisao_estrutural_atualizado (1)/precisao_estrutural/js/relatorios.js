@@ -96,7 +96,15 @@ function coletarLinhasSessaoTrabalho() {
                     horas: horas,
                     valorHora: valorHora,
                     custo: horas * valorHora,
-                    manual: !!sessao.manual
+                    manual: !!sessao.manual,
+                    // Pedido do usuário (Relatório de Horas, baseado no
+                    // sistema antigo): mostrar Início/Fim como horário
+                    // exato, não só a duração — campos NOVOS, aditivos,
+                    // não usados pelo motor genérico (Nível/Colunas)
+                    // acima, que ignora qualquer propriedade que não
+                    // esteja no seu próprio catálogo.
+                    horaInicio: formatarHoraMinutoRelatorio(sessao.inicio),
+                    horaFim: formatarHoraMinutoRelatorio(sessao.fim)
                 });
             });
         }
@@ -389,6 +397,11 @@ function carregarPainelRelatorios() {
     document.getElementById('rel-seletor-visao').value = '';
     document.getElementById('rel-btn-apagar-visao').style.display = 'none';
     mudarNivelRelatorio('sessao');
+    // Pedido do usuário: a tela sempre abre no "Relatório de horas"
+    // (tela dedicada, baseada no sistema antigo) — mesma lógica de
+    // "sempre volta pro estado inicial" que outras telas já usam
+    // (ex: alternarModulo('arvore')).
+    alternarTipoRelatorio('horas');
 }
 
 function renderizarSeletorVisoesRelatorio() {
@@ -578,4 +591,144 @@ function apagarVisaoSelecionadaRelatorio() {
     renderizarSeletorVisoesRelatorio();
     document.getElementById('rel-seletor-visao').value = '';
     document.getElementById('rel-btn-apagar-visao').style.display = 'none';
+}
+
+// =========================================================================
+// "RELATÓRIO DE HORAS" — tela dedicada (reforma de 2026-08-17, pedido do
+// usuário: reformular a aba Relatórios com base no sistema antigo da
+// equipe, tentando melhorar). Ao contrário do motor genérico acima
+// (Nível/Filtro/Colunas/Agrupar/Visões), esta é uma tela FIXA, com
+// colunas fixas — mais parecida com o relatório de lançamentos de horas
+// que a equipe já conhecia. Reaproveita as funções PURAS de dados já
+// existentes (coletarLinhasSessaoTrabalho, aplicarFiltrosRelatorio,
+// nomeParaExibicao, formatarValorColuna) — só a camada de tela é nova.
+// O motor genérico continua 100% intacto (virou "Relatório
+// personalizado", mais uma opção na lista à esquerda) — nada foi
+// apagado, só deixou de ser a tela padrão.
+// =========================================================================
+
+// Troca qual "tipo" de relatório aparece — chamado pelos itens da lista
+// à esquerda (#rel-sidebar-tipos). Itens "desabilitado" (Conclusão,
+// Custos, Comissões, Importar planilha) não têm onclick — ficam de
+// fora de propósito, decisão de escopo em aberto ("decidiremos
+// depois").
+function alternarTipoRelatorio(tipo) {
+    document.getElementById('rel-tipo-item-horas').classList.toggle('ativo', tipo === 'horas');
+    document.getElementById('rel-tipo-item-personalizado').classList.toggle('ativo', tipo === 'personalizado');
+    document.getElementById('rel-conteudo-horas').style.display = tipo === 'horas' ? 'block' : 'none';
+    document.getElementById('rel-conteudo-personalizado').style.display = tipo === 'personalizado' ? 'block' : 'none';
+    if (tipo === 'horas') carregarRelatorioHoras();
+}
+
+function carregarRelatorioHoras() {
+    renderizarOpcoesFiltroRelatorioHoras();
+    exibirRelatorioHoras();
+}
+
+// Popula Projeto/Etapa/Cliente/Executor só com os valores que aparecem
+// de verdade nas sessões de trabalho existentes — mesmo padrão de
+// renderizarOpcoesFiltroRelatorio() (motor genérico), só que fixo no
+// nível Sessão (é a única fonte de dado que faz sentido pra um
+// relatório de HORAS).
+function renderizarOpcoesFiltroRelatorioHoras() {
+    const linhas = coletarLinhasSessaoTrabalho();
+    const distintos = (campo) => Array.from(new Set(linhas.map(l => l[campo]).filter(Boolean))).sort();
+
+    ['projeto', 'etapa', 'cliente', 'executor'].forEach(campo => {
+        const sel = document.getElementById('rel-horas-filtro-' + campo);
+        if (!sel) return;
+        const valorAtual = sel.value;
+        const rotulo = (v) => campo === 'executor' ? nomeParaExibicao(v) : v;
+        sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + v + '">' + rotulo(v) + '</option>').join('');
+        sel.value = valorAtual;
+    });
+}
+
+function lerFiltrosRelatorioHoras() {
+    return {
+        projeto: document.getElementById('rel-horas-filtro-projeto').value || null,
+        etapa: document.getElementById('rel-horas-filtro-etapa').value || null,
+        cliente: document.getElementById('rel-horas-filtro-cliente').value || null,
+        executor: document.getElementById('rel-horas-filtro-executor').value || null,
+        dataDe: document.getElementById('rel-horas-filtro-data-de').value || null,
+        dataAte: document.getElementById('rel-horas-filtro-data-ate').value || null,
+        campoData: 'data'
+    };
+}
+
+function limparFiltrosRelatorioHoras() {
+    ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
+        const el = document.getElementById('rel-horas-filtro-' + c);
+        if (el) el.value = '';
+    });
+    document.getElementById('rel-horas-filtro-data-de').value = '';
+    document.getElementById('rel-horas-filtro-data-ate').value = '';
+    exibirRelatorioHoras();
+}
+
+function alternarPainelFiltroRelatorioHoras() {
+    document.getElementById('rel-horas-corpo-filtro').classList.toggle('aberto');
+    document.getElementById('rel-horas-seta-filtro').classList.toggle('aberto');
+}
+
+// Botão "Exibir" (pedido do usuário, igual ao sistema antigo — a
+// tabela só atualiza quando a pessoa manda, não a cada tecla digitada
+// no filtro).
+function exibirRelatorioHoras() {
+    const linhas = coletarLinhasSessaoTrabalho();
+    const filtradas = aplicarFiltrosRelatorio(linhas, lerFiltrosRelatorioHoras());
+    // Lançamento mais recente primeiro — mesma ordem do sistema antigo.
+    filtradas.sort((a, b) => (b.data + b.horaInicio).localeCompare(a.data + a.horaInicio));
+    renderizarTabelaRelatorioHoras(filtradas);
+}
+
+function renderizarTabelaRelatorioHoras(linhas) {
+    const area = document.getElementById('rel-horas-area-resultado');
+    document.getElementById('rel-horas-cabecalho-resultado').innerText = 'Relatório de lançamentos de horas (' + linhas.length + ')';
+
+    if (linhas.length === 0) {
+        area.innerHTML = '<div class="aviso-selecione">Nenhum lançamento de horas encontrado com esses filtros.</div>';
+        return;
+    }
+
+    const totalHoras = linhas.reduce((soma, l) => soma + (parseFloat(l.horas) || 0), 0);
+    // "#" não é um ID de banco de verdade (as sessões não têm um) — é
+    // só a posição no relatório, decrescente, pra dar a mesma
+    // sensação do sistema antigo (lançamento mais novo com o número
+    // mais alto) sem fingir uma precisão que não existe.
+    const corpo = linhas.map((l, i) => {
+        return '<tr>' +
+            '<td style="color:#94a3b8;">' + (linhas.length - i) + '</td>' +
+            '<td>' + formatarValorColuna('data', l.data) + '</td>' +
+            '<td>' + nomeParaExibicao(l.executor) + '</td>' +
+            '<td>' + (l.cliente || '—') + '</td>' +
+            '<td>' + l.projeto + '</td>' +
+            '<td>' + l.etapa + '</td>' +
+            '<td>' + l.tarefa + '</td>' +
+            '<td class="col-centralizada">' + (l.horaInicio || '—') + '</td>' +
+            '<td class="col-centralizada">' + (l.horaFim || '—') + '</td>' +
+            '<td style="text-align:right; font-weight:600; color:#166534;">' + formatarValorColuna('horas', l.horas) + '</td>' +
+            '</tr>';
+    }).join('');
+
+    area.innerHTML =
+        '<div class="table-wrapper"><table class="tabela-compacta">' +
+        '<thead><tr>' +
+            '<th>#</th><th>Data</th><th>Executor</th><th>Cliente</th><th>Projeto</th><th>Etapa</th><th>Tarefa</th>' +
+            '<th class="col-centralizada">Início</th><th class="col-centralizada">Fim</th><th style="text-align:right;">Tempo</th>' +
+        '</tr></thead>' +
+        '<tbody>' + corpo + '</tbody>' +
+        '<tfoot><tr class="linha-total"><td colspan="9" style="text-align:right;">Total</td><td style="text-align:right;">' + formatarValorColuna('horas', totalHoras) + '</td></tr></tfoot>' +
+        '</table></div>';
+}
+
+// Extrai HH:MM de um ISO de sessão (sessao.inicio/fim), em horário
+// LOCAL — mesmo padrão já usado em outras telas do sistema
+// (atribuicao-tarefas.js, via Date.getHours()/getMinutes()), não a
+// hora crua do ISO (que está em UTC).
+function formatarHoraMinutoRelatorio(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
