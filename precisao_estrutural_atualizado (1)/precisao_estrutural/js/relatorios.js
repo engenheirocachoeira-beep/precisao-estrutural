@@ -557,15 +557,26 @@ function alternarAgruparRelatorio(id) {
     renderizarTabelaRelatorio();
 }
 
+// Mesma lista/ordem já usada no filtro de Status do Kanban
+// (index.html, #kb-filtro-status) — repetida aqui porque não existia
+// uma constante compartilhada; se um status novo for criado no
+// sistema, precisa atualizar os dois lugares.
+const STATUS_TAREFA_OPCOES = ['Apontada', 'Em Desenvolvimento', 'Aguardando Verificação', 'Para revisão', 'Finalizada'];
+
 // Popula Projeto/Etapa/Cliente/Executor com os valores DISTINTOS que
 // aparecem de verdade nos dados do nível atual — não lista o cadastro
 // inteiro, só o que tem dado nesse nível, pra não oferecer uma opção
-// que sempre daria uma tabela vazia.
+// que sempre daria uma tabela vazia. Status é diferente: usa a lista
+// FIXA de todos os status possíveis (pedido do usuário — "coloque as
+// alternativas de status apontada, em execução, finalizada, etc"), não
+// só os que aparecem nos dados já carregados — senão um status raro
+// (ex: nenhuma tarefa "Para revisão" no momento) simplesmente some do
+// filtro.
 function renderizarOpcoesFiltroRelatorio() {
     const linhas = NIVEIS_RELATORIO[relNivelAtivo].coletor();
     const distintos = (campo) => Array.from(new Set(linhas.map(l => l[campo]).filter(Boolean))).sort();
 
-    ['projeto', 'etapa', 'cliente', 'executor', 'status'].forEach(campo => {
+    ['projeto', 'etapa', 'cliente', 'executor'].forEach(campo => {
         const sel = document.getElementById('rel-filtro-' + campo);
         if (!sel) return;
         const valorAtual = sel.value;
@@ -573,6 +584,13 @@ function renderizarOpcoesFiltroRelatorio() {
         sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + v + '">' + rotulo(v) + '</option>').join('');
         sel.value = valorAtual;
     });
+
+    const selStatus = document.getElementById('rel-filtro-status');
+    if (selStatus) {
+        const valorAtual = selStatus.value;
+        selStatus.innerHTML = '<option value="">-- Todos --</option>' + STATUS_TAREFA_OPCOES.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+        selStatus.value = valorAtual;
+    }
 }
 
 function alternarPainelFiltroRelatorio() {

@@ -236,7 +236,10 @@
         .nivel-opcao.ativo { border-color:#00b4d8; background:#e0f7fb; color:#0a192f; }
         .nivel-opcao small { display:block; font-weight:400; text-transform:none; font-size:11px; color:#94a3b8; margin-top:2px; }
 
-        .grid-filtros { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:10px; }
+        /* 4 colunas (não 3) pra pedido do usuário — Relatório de Custos
+           (6 filtros) e Relatório Personalizado (7, com Status) caberem
+           em só 2 linhas cada, em vez de 2 ou 3 linhas desalinhadas. */
+        .grid-filtros { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:10px; }
         .grid-filtros .campo select, .grid-filtros .campo input { width:100%; }
 
         .secao-titulo { font-size:11px; font-weight:700; color:#0a192f; text-transform:uppercase; margin-bottom:6px; }

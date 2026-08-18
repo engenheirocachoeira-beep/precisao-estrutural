@@ -8035,3 +8035,41 @@ continua funcionando sem regressão depois da mudança de layout do
 painel. Mesma ressalva da parte 18: não foi possível confirmar por
 clique de mouse real (aba de preview sem screenshot/click por
 coordenada nesta sessão) — verificação só funcional/DOM.
+
+## Retomada em 2026-08-17 (parte 20) — Grid de filtros em 4 colunas + lista fixa de Status
+
+**2 ajustes pedidos pelo usuário na tela de Relatórios:**
+
+1. **"Redimensione o tamanho dos filtros de maneira a que caibam em 2
+   linhas."** `.grid-filtros` (compartilhada pelas telas "Relatório de
+   Custos", 6 filtros, e "Relatório Personalizado", 7 com o Status da
+   parte 19) tinha `grid-template-columns: repeat(3, 1fr)` — 6 filtros
+   em 3 colunas já dava 2 linhas certinho, mas 7 (Personalizado) virava
+   3 linhas desalinhadas (2+2+3). Trocado pra `repeat(4, 1fr)`: agora
+   os 6 da tela de Custos ficam 4+2, e os 7 do Personalizado ficam
+   4+3 — as duas telas cabem em exatamente 2 linhas.
+
+2. **"Coloque as alternativas de filtro de status (apontada, em
+   execução, finalizada, etc)."** O filtro de Status do Personalizado
+   (criado na parte 19) populava as opções dinamicamente a partir dos
+   dados já carregados (`distintos('status')`) — se nenhuma tarefa
+   estivesse, por exemplo, "Para revisão" no momento, essa opção
+   simplesmente não aparecia no filtro. Trocado por uma lista FIXA,
+   `STATUS_TAREFA_OPCOES = ['Apontada', 'Em Desenvolvimento',
+   'Aguardando Verificação', 'Para revisão', 'Finalizada']` — mesma
+   lista/ordem já usada no filtro de Status do Kanban
+   (`index.html#kb-filtro-status`). Não existia uma constante
+   compartilhada entre os dois lugares antes disso; ficou duplicada
+   (registrado no comentário do código, caso um status novo seja
+   criado no futuro — precisa atualizar os dois lugares).
+
+**Arquivos tocados**: `estilos.css` (`.grid-filtros`),
+`js/relatorios.js` (`renderizarOpcoesFiltroRelatorio()` +
+nova constante `STATUS_TAREFA_OPCOES`).
+
+**Verificação**: `node --check js/relatorios.js` limpo. Testado no
+navegador (aba nova, sem cache): grid de ambas as telas confirmado em
+4 colunas via `getComputedStyle` (`grid-template-columns` com 4
+valores); Personalizado com 7 campos e Custos com 6, ambos cabendo em
+2 linhas; select de Status mostra as 5 opções fixas + "-- Todos --"
+independente do que está carregado no momento. Sem erros no console.
