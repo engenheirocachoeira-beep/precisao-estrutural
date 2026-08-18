@@ -198,6 +198,18 @@
         #rel-area-resultado .table-wrapper { max-height: none; }
         #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { max-height: none; }
 
+        /* Árvore de Custos com par de coluna Tempo/Custo por nível
+           (pedido do usuário) — borda fina no INÍCIO de cada par de
+           coluna, pra ficar claro onde um nível termina e o próximo
+           começa. A 1ª linha do cabeçalho tem células com colspan="2"
+           (1 por nível) — nth-child conta CADA célula como 1 filho,
+           não 1 por coluna visual, então ali a regra é simplesmente
+           "toda célula depois da 1ª"; na 2ª linha (Tempo/Custo) e no
+           corpo, cada coluna é uma célula própria, então o início de
+           cada par cai num índice par (2, 4, 6, 8, 10). */
+        .tabela-arvore-custos thead tr:first-child th:not(:first-child) { border-left: 1px solid #e2e8f0; text-align: center; }
+        .tabela-arvore-custos thead tr:last-child th:nth-child(2n), .tabela-arvore-custos tbody td:nth-child(2n), .tabela-arvore-custos tfoot td:nth-child(2n) { border-left: 1px solid #e2e8f0; }
+
         /* Pedido do usuário: reformulação da aba Relatórios — tela
            dedicada de "Relatório de Custos" (baseada no sistema
            antigo, renomeada de "Relatório de horas" na parte 18). A

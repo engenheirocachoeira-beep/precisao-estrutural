@@ -875,6 +875,12 @@ function formatarHorasHHMM(horasDecimal) {
 // '—', quando a Tarefa está direto na Etapa, ex: Etapa Única) é
 // pulado — mesmo espírito de "níveis puláveis" que a Árvore Genérica
 // Recursiva já usa no resto do sistema (ver arvore.js).
+// Ordem fixa dos 5 níveis — usada tanto pra montar a árvore quanto
+// pra desenhar o cabeçalho de 2 linhas e decidir em qual par de
+// coluna (Tempo/Custo) cada linha da tabela cai.
+const NIVEIS_ARVORE_CUSTO = ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa'];
+const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', setor: 'Setor', pavimento: 'Pavimento', tarefa: 'Tarefa' };
+
 function agruparArvoreCustoRelatorio(linhas) {
     const porProjeto = {};
     const ordemProjetos = [];
@@ -882,10 +888,17 @@ function agruparArvoreCustoRelatorio(linhas) {
         if (!porProjeto[l.projeto]) { porProjeto[l.projeto] = []; ordemProjetos.push(l.projeto); }
         porProjeto[l.projeto].push(l);
     });
-    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'setor', 'pavimento', 'tarefa']));
+    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'setor', 'pavimento', 'tarefa'], 'projeto'));
 }
 
-function construirNoArvoreCustoRelatorio(nome, linhasDoNo, niveisRestantes) {
+// `nivelDesteNo` é o nível CONCEITUAL do nó ('projeto'/'etapa'/
+// 'setor'/'pavimento'/'tarefa') — não confundir com a profundidade
+// real na árvore renderizada, que pode ser menor quando um nível é
+// pulado (ex: Etapa → Pavimento direto, sem Setor). É esse nível
+// conceitual que diz em qual PAR DE COLUNA (Tempo/Custo) a soma deste
+// nó deve entrar (pedido do usuário: colunas de Tempo/Custo separadas
+// por nível, mantendo a coluna de nome como já era).
+function construirNoArvoreCustoRelatorio(nome, linhasDoNo, niveisRestantes, nivelDesteNo) {
     const horas = linhasDoNo.reduce((s, l) => s + (parseFloat(l.horas) || 0), 0);
     const custo = linhasDoNo.reduce((s, l) => s + (parseFloat(l.custo) || 0), 0);
     let filhos = [];
@@ -900,18 +913,18 @@ function construirNoArvoreCustoRelatorio(nome, linhasDoNo, niveisRestantes) {
             if (!grupos[valor]) { grupos[valor] = []; ordem.push(valor); }
             grupos[valor].push(l);
         });
-        filhos = ordem.map(valor => construirNoArvoreCustoRelatorio(valor, grupos[valor], resto));
+        filhos = ordem.map(valor => construirNoArvoreCustoRelatorio(valor, grupos[valor], resto, campo));
 
         // Linhas que pularam ESTE nível (sem valor) continuam a
         // recursão direto pro próximo nível, sem virar um filho aqui —
         // os netos delas "sobem" e viram filhos deste mesmo nó.
         const linhasPuladas = linhasDoNo.filter(l => !l[campo] || l[campo] === '—');
         if (linhasPuladas.length > 0 && resto.length > 0) {
-            filhos = filhos.concat(construirNoArvoreCustoRelatorio(nome, linhasPuladas, resto).filhos);
+            filhos = filhos.concat(construirNoArvoreCustoRelatorio(nome, linhasPuladas, resto, nivelDesteNo).filhos);
         }
     }
 
-    return { nome: nome, horas: horas, custo: custo, filhos: filhos };
+    return { nome: nome, horas: horas, custo: custo, filhos: filhos, nivel: nivelDesteNo };
 }
 
 let relCustoUidContador = 0;
@@ -931,11 +944,27 @@ function renderizarArvoreRelatorioCustos(linhasFiltradas) {
     const totalCusto = arvore.reduce((s, n) => s + n.custo, 0);
     const corpo = arvore.map(no => renderizarLinhaArvoreCustoRelatorio(no, 0, null)).join('');
 
+    // Cabeçalho de 2 linhas: nível (colspan 2) em cima, Tempo/Custo
+    // embaixo — um par de coluna por nível (pedido do usuário).
+    const cabecalhoNiveis = NIVEIS_ARVORE_CUSTO.map(n => '<th colspan="2">' + ROTULOS_NIVEL_ARVORE_CUSTO[n] + '</th>').join('');
+    const cabecalhoSub = NIVEIS_ARVORE_CUSTO.map(() => '<th class="col-centralizada">Tempo</th><th style="text-align:right;">Custo</th>').join('');
+
+    // Rodapé "Total": só o par do nível mais alto (Projeto) é
+    // preenchido — repetir a mesma soma nos pares de Etapa/Pavimento/
+    // Tarefa contaria o mesmo valor várias vezes (cada nível é
+    // subconjunto do de cima).
+    const totalCelulas = NIVEIS_ARVORE_CUSTO.map(nivel =>
+        nivel === 'projeto'
+            ? '<td class="col-centralizada">' + formatarHorasHHMM(totalHoras) + '</td><td style="text-align:right;">' + formatarValorColuna('moeda', totalCusto) + '</td>'
+            : '<td></td><td></td>'
+    ).join('');
+
     area.innerHTML =
-        '<div class="table-wrapper"><table class="tabela-compacta">' +
-        '<thead><tr><th>Projeto / Etapa / Setor / Pavimento / Tarefa</th><th class="col-centralizada">Tempo</th><th style="text-align:right;">Custo</th></tr></thead>' +
+        '<div class="table-wrapper"><table class="tabela-compacta tabela-arvore-custos">' +
+        '<thead><tr><th rowspan="2">Projeto / Etapa / Setor / Pavimento / Tarefa</th>' + cabecalhoNiveis + '</tr>' +
+        '<tr>' + cabecalhoSub + '</tr></thead>' +
         '<tbody>' + corpo + '</tbody>' +
-        '<tfoot><tr class="linha-total"><td>Total</td><td class="col-centralizada">' + formatarHorasHHMM(totalHoras) + '</td><td style="text-align:right;">' + formatarValorColuna('moeda', totalCusto) + '</td></tr></tfoot>' +
+        '<tfoot><tr class="linha-total"><td>Total</td>' + totalCelulas + '</tr></tfoot>' +
         '</table></div>';
 }
 
@@ -953,23 +982,31 @@ function renderizarArvoreRelatorioCustos(linhasFiltradas) {
 // a MESMA classe `.tree-toggle-icon` e os MESMOS glifos (► recolhido,
 // ▼ expandido, • sem filhos) que `js/arvore.js` já usa, em vez de um
 // estilo próprio.
-function renderizarLinhaArvoreCustoRelatorio(no, nivel, uidPai) {
+function renderizarLinhaArvoreCustoRelatorio(no, nivelIndent, uidPai) {
     const uid = 'n' + (relCustoUidContador++);
     const temFilhos = no.filhos && no.filhos.length > 0;
-    const indent = 10 + nivel * 20;
+    const indent = 10 + nivelIndent * 20;
     const seta = temFilhos ? '►' : '•';
 
+    // Tempo/Custo só aparecem no par de coluna do nível DESTE nó
+    // (`no.nivel`, conceitual — não confundir com `nivelIndent`, que
+    // é só profundidade visual/indentação); os outros 4 pares ficam
+    // em branco nesta linha (pedido do usuário).
+    const celulasNiveis = NIVEIS_ARVORE_CUSTO.map(nivel =>
+        nivel === no.nivel
+            ? '<td class="col-centralizada">' + formatarHorasHHMM(no.horas) + '</td><td style="text-align:right;">' + formatarValorColuna('moeda', no.custo) + '</td>'
+            : '<td class="col-centralizada"></td><td></td>'
+    ).join('');
+
     let html = '<tr id="rc-' + uid + '"' + (uidPai ? ' data-pai-custo="' + uidPai + '"' : '') +
-        (nivel === 0 ? '' : ' style="display:none;"') + '>' +
+        (nivelIndent === 0 ? '' : ' style="display:none;"') + '>' +
         '<td style="padding-left:' + indent + 'px;' + (temFilhos ? ' cursor:pointer;' : '') + '"' + (temFilhos ? ' onclick="alternarGrupoCustoRelatorio(\'' + uid + '\')"' : '') + '>' +
         '<span class="tree-toggle-icon"' + (temFilhos ? '' : ' style="color:#cbd5e1;"') + '>' + seta + '</span> ' + no.nome +
-        '</td>' +
-        '<td class="col-centralizada">' + formatarHorasHHMM(no.horas) + '</td>' +
-        '<td style="text-align:right;">' + formatarValorColuna('moeda', no.custo) + '</td>' +
+        '</td>' + celulasNiveis +
         '</tr>';
 
     if (temFilhos) {
-        html += no.filhos.map(filho => renderizarLinhaArvoreCustoRelatorio(filho, nivel + 1, uid)).join('');
+        html += no.filhos.map(filho => renderizarLinhaArvoreCustoRelatorio(filho, nivelIndent + 1, uid)).join('');
     }
     return html;
 }

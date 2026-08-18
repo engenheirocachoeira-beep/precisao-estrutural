@@ -8190,3 +8190,72 @@ ID). Fica registrado como decisão pendente do usuário: é uma limpeza
 de dados em produção (renomear os nós divergentes pra bater com o
 catálogo atual), não uma correção de código — não mexi em nada disso
 ainda, só documentei o que achei.
+
+## Retomada em 2026-08-17 (parte 23) — Árvore de Custos: par de coluna Tempo/Custo por nível
+
+**Contexto**: entre a parte 22 e esta, 2 rodadas de limpeza de dados em
+produção (Firebase, sem código): (1) 5 nós de Etapa/Pavimento
+renomeados pra bater com o Catálogo (Detalhamento/Análise/Lançamento/
+TÉRREO em vários projetos), incluindo a correção em cascata de
+`banco_distribuicao_custos_analista` (as % salvas da aba 2 de
+Distribuição de Custos são guardadas por NOME da Etapa, não por ID —
+renomear a árvore sem corrigir essas chaves teria zerado os % já
+configurados); (2) "PRÉ- LANÇAMENTO" (grafia estranha do catálogo, com
+espaço solto) virou "PRÉ-LANÇAMENTO" em todos os 9 projetos que usam
+essa Etapa, mesma correção em cascata; (3) "Cargas" (Etapa que só o
+AP Praia tinha, fora do catálogo) foi acrescentada ao catálogo como
+"CARGAS", com o mesmo tratamento em cascata.
+
+**Pedido do usuário nesta parte**: "Crie colunas separadas para cada
+nível (Projeto, Etapa, Setor, Pavimento, Tarefa) e coloque nelas a
+soma respetiva". Depois de uma amostra visual (Artifact) mostrando 2
+interpretações diferentes, o usuário escolheu a segunda: a coluna de
+nome (árvore com seta, indentação) continua exatamente como era —
+só Tempo e Custo viram 5 PARES de coluna, um por nível. Cada linha da
+árvore preenche só o par do seu próprio nível; os outros 4 pares ficam
+em branco naquela linha.
+
+**Mudanças (`js/relatorios.js`):**
+- Novo `NIVEIS_ARVORE_CUSTO` (array fixo `['projeto','etapa','setor','pavimento','tarefa']`)
+  e `ROTULOS_NIVEL_ARVORE_CUSTO` — fonte única de verdade pra montar
+  tanto o cabeçalho de 2 linhas quanto a posição de cada par de coluna.
+- `construirNoArvoreCustoRelatorio()` ganhou um 4º parâmetro,
+  `nivelDesteNo` — o nível CONCEITUAL do nó ('projeto'/'etapa'/
+  'setor'/'pavimento'/'tarefa'), diferente da profundidade real na
+  árvore renderizada (que pode ser menor quando um nível é pulado, ex:
+  Etapa → Pavimento direto sem Setor). É esse nível conceitual — não a
+  profundidade — que decide em qual par de coluna a soma do nó entra;
+  sem essa distinção, um projeto que pula o Setor colocaria a soma do
+  Pavimento no par errado.
+- `renderizarArvoreRelatorioCustos()`: cabeçalho agora é 2 `<tr>` —
+  a 1ª com "Projeto/Etapa/.../Tarefa" (`rowspan="2"`) + 5 `<th colspan="2">`
+  (um por nível), a 2ª com "Tempo"/"Custo" repetido 5x. Rodapé "Total"
+  preenche só o par Projeto (repetir a mesma soma nos outros pares
+  contaria o mesmo valor várias vezes, já que cada nível é subconjunto
+  do de cima).
+- `renderizarLinhaArvoreCustoRelatorio()`: monta os 10 `<td>` de
+  nível via um `.map()` sobre `NIVEIS_ARVORE_CUSTO` comparando com
+  `no.nivel` — só o par que bate fica preenchido, os outros 8 `<td>`
+  ficam vazios. Indentação/seta da 1ª coluna não mudaram em nada.
+
+**Mudanças (`estilos.css`):** nova classe `.tabela-arvore-custos` com
+borda fina no início de cada par de coluna (separador visual entre
+níveis) — regra em duas partes porque a 1ª linha do cabeçalho usa
+`colspan="2"` (cada `<th>` conta como 1 filho só pro `nth-child`, não
+1 por coluna visual) enquanto a 2ª linha e o corpo têm uma célula por
+coluna (índice par = início de cada par).
+
+**Verificação**: `node --check` limpo. Testado no navegador (aba
+nova): cabeçalho de 2 linhas confirmado certo (11 células no total: 1
+nome + 5 pares); AP Praia colapsado mostra 69:30/R$ 2.347,01 só no par
+Projeto; expandir até Detalhamento → soma idêntica aparece só no par
+Etapa; até SUBSOLO → só no par Pavimento; até as 3 Tarefas-folha
+(LC_Blocos 12:00/R$405,24, DT_Blocos 53:30/R$1.806,70, DT_Pilares
+4:00/R$135,08) → só no par Tarefa, somando de volta o total da Etapa/
+Pavimento acima. Rodapé "Total" confirmado só no par Projeto (69:32/
+R$ 2.348,35, mesmo total de sempre). Bordas dos pares de coluna
+confirmadas alinhadas nas 2 linhas do cabeçalho e no corpo/rodapé
+(`getComputedStyle` em cada célula). Sem erros no console. De
+brinde, a expansão também confirmou visualmente as correções de dados
+da parte anterior: projeto "D" mostra "PRÉ-LANÇAMENTO" e AP Praia
+mostra "DETALHAMENTO" em maiúsculas, batendo com o catálogo.
