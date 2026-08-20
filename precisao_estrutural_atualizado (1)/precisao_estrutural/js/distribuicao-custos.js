@@ -44,7 +44,10 @@ function distribuicaoCustosSomenteLeitura() {
 }
 
 // Desabilita TODO input/select do painel (exceto o seletor de projeto
-// #dc-projeto, que continua livre pra escolher o que visualizar) e os
+// #dc-projeto — não porque ele deva continuar livre pra quem é
+// somente-leitura, mas porque `escolherProjetoDistribuicaoInicial()` já
+// o desabilita pra TODO MUNDO assim que um projeto é escolhido, então
+// essa exceção aqui só evita reafirmar algo redundante) e os
 // botões que gravam dado (salvar/recalcular/aplicar). Chamada no final
 // de alternarAbaDistribuicao() — que é o gargalo por onde passa tanto a
 // carga inicial (aba "Orçamento Global") quanto toda troca de aba
@@ -88,9 +91,13 @@ function carregarPainelDistribuicaoCustos() {
     // virou lista clicável com busca (mesmo padrão da tela "Escolha o
     // Projeto" da Árvore, `renderizerProjetosParaSelecaoArvore`), no
     // lugar do dropdown antigo (`dc-portal-projeto-select`, removido).
-    // `#dc-projeto` (dropdown usado DENTRO da aba Orçamento Global, pra
-    // trocar de projeto sem sair da tela) continua como select — fora
-    // do escopo dessa melhoria.
+    // `#dc-projeto` (dropdown usado DENTRO da aba Orçamento Global)
+    // continua como select — fora do escopo dessa melhoria. Pedido do
+    // usuário (mais recente): depois que o projeto já foi escolhido
+    // (pelo portal ou pela orelha), esse campo fica desabilitado — só
+    // mostra qual projeto está ativo, não dá mais pra trocar por ele
+    // (ver escolherProjetoDistribuicaoInicial()). Trocar de projeto de
+    // verdade é só pelo botão "🔁 Trocar Projeto".
     dcPortalProjetosCache = projetos;
     renderizarPortalProjetosDistribuicao(projetos);
     document.getElementById('dc-portal-busca-projeto').value = '';
@@ -152,6 +159,7 @@ function voltarParaPortalSelecaoProjeto() {
     document.getElementById('dc-portal-busca-projeto').value = '';
     filtrarTabelaProjetosDistribuicao();
     document.getElementById('dc-projeto').value = '';
+    document.getElementById('dc-projeto').disabled = false; // reabilita pro próximo projeto escolhido pelo portal
     // Sem projeto escolhido, some a barra de orelhas e o título volta a
     // ser o genérico da tela.
     document.getElementById('page-context-title').innerText = "Distribuição de Custos";
@@ -165,6 +173,13 @@ function voltarParaPortalSelecaoProjeto() {
 function escolherProjetoDistribuicaoInicial(nomeProjeto) {
     if (!nomeProjeto) return;
     document.getElementById('dc-projeto').value = nomeProjeto;
+    // Pedido do usuário: uma vez que o projeto já foi escolhido (pelo
+    // portal, ou direto pela orelha "Custos" vindo da Árvore), o campo
+    // Projeto vira só uma exibição — não faz sentido trocar de projeto
+    // por ele no meio da tela. Trocar de projeto de verdade é só pelo
+    // botão "🔁 Trocar Projeto" (volta pro portal via
+    // voltarParaPortalSelecaoProjeto(), que reabilita este campo).
+    document.getElementById('dc-projeto').disabled = true;
     document.getElementById('dc-portal-selecao-projeto').style.display = 'none';
     document.getElementById('dc-conteudo-principal').style.display = 'block';
     // Pedido do usuário: título principal + orelhas (Estrutura de

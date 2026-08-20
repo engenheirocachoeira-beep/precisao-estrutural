@@ -8295,3 +8295,39 @@ não cair na mesma pegadinha de novo.
 do Executor `rgb(10,25,47)`/branco — as 3 batem com o pedido. Dados
 da tabela conferidos de novo, inalterados (só CSS mudou). Sem erros no
 console.
+
+## Retomada em 2026-08-20 (parte 25) — Distribuição de Custos: campo Projeto trava depois de escolhido
+
+**Pedido do usuário**: "Quando se entra na aba custos de um
+determinado projeto, o campo projeto aparece como um campo onde se
+pode selecionar qualquer um dos projetos existentes, mas não muda nada
+além do nome. Penso que, nesta aba a possibilidade de selecionar outro
+projeto a partir do campo projeto não faz sentido." — o `<select>`
+`#dc-projeto` (Aba "Orçamento Global") ficava sempre habilitado,
+deixando parecer que dava pra trocar de projeto por ali; na prática
+só o rótulo mudava, nada recalculava.
+
+**Mudança (`js/distribuicao-custos.js`)**: `escolherProjetoDistribuicaoInicial()`
+desabilita `#dc-projeto` (`.disabled = true`) logo depois de setar o
+`.value` — usada tanto pela entrada via orelha "Custos" (a partir da
+Árvore, `irParaDistribuicaoCustosDoProjetoAtivo()` em `js/core.js`)
+quanto pela entrada via portal do menu lateral, já que as duas
+convergem nessa mesma função. `voltarParaPortalSelecaoProjeto()`
+reabilita o campo (`.disabled = false`) ao voltar pro portal, pronto
+pra próxima escolha. Trocar de projeto de verdade continua só pelo
+botão "🔁 Trocar Projeto". Dois comentários antigos que ainda
+descreviam o campo como "livre pra escolher" foram atualizados pra
+refletir o comportamento novo.
+
+**Verificação**: `node --check` limpo. Testado no navegador em 3
+cenários — entrada pela orelha "Custos" do projeto ativo, clique em
+"🔁 Trocar Projeto" (reabilita e permite escolher outro), e entrada
+direta pelo portal do menu lateral — nos 3 o campo Projeto ficou
+travado assim que um projeto foi selecionado, e reabilitou
+corretamente ao voltar pro portal. Sem erros no console.
+
+**Pendente conhecida**: `modulos_isolados/distribuicao-custos/js/distribuicao-custos.js`
+e `modulos_isolados/atribuicao-tarefas/js/distribuicao-custos.js` já
+tinham drift pré-existente em relação ao arquivo principal antes desta
+mudança — não foram espelhados, mesmo precedente já registrado outras
+vezes nesta sessão.
