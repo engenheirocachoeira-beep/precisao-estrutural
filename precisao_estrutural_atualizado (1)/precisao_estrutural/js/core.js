@@ -645,8 +645,10 @@ function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
     document.getElementById('page-context-title').innerText = nomeProjeto;
     const orelhaEstrutura = document.getElementById('orelha-estrutura-projeto');
     const orelhaCustos = document.getElementById('orelha-custos-projeto');
+    const orelhaDesempenho = document.getElementById('orelha-desempenho-projeto');
     if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
     if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
+    if (orelhaDesempenho) orelhaDesempenho.classList.toggle('active', abaAtiva === 'desempenho');
 }
 
 function alternarModulo(modulo) {
@@ -745,6 +747,28 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     carregarPainelDistribuicaoCustos();
     escolherProjetoDistribuicaoInicial(nome);
+}
+
+// Pedido do usuário: 3ª orelha do Hub "📁 Projetos", ao lado de
+// Estrutura de Projeto/Custos — mostra horas previstas×realizadas,
+// custo real, % de conclusão e o saldo (verba − custo) do projeto
+// (ver js/desempenho-projeto.js pelos cálculos). Mesmo padrão de
+// irParaDistribuicaoCustosDoProjetoAtivo() acima, mas com a mesma
+// cautela de irParaEstruturaProjetoDoProjetoAtivo() quanto à origem do
+// nome do projeto: `projetoSelecionadoAtivo` cobre quem vem da
+// Estrutura de Projeto, mas quem abriu o projeto direto pelo portal da
+// Distribuição de Custos nunca passou por ali — nesse caso o nome só
+// existe no select `#dc-projeto`.
+function irParaDesempenhoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-desempenho-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {

@@ -60,9 +60,10 @@
 // sincronização. Aqui só ficam as constantes que são parte da LÓGICA, não
 // configuração da equipe:
 
-// Os 15 arquivos do app, NA MESMA ORDEM em que estavam como <script src>
-// fixo no index.html antes desta mudança — a ordem importa (dependências
-// entre arquivos), por isso são carregados um de cada vez, em sequência,
+// Os arquivos do app (eram 15, na mesma ordem em que estavam como
+// <script src> fixo no index.html antes desta mudança; `desempenho-projeto.js`
+// entrou depois, por último — a ordem importa (dependências entre
+// arquivos), por isso são carregados um de cada vez, em sequência,
 // nunca em paralelo.
 const SYNC_PROVISORIO_SCRIPTS_APP = [
     'js/core.js',
@@ -79,7 +80,8 @@ const SYNC_PROVISORIO_SCRIPTS_APP = [
     'js/atribuicao-tarefas.js',
     'js/kanban.js',
     'js/aprovacoes-calendario.js',
-    'js/relatorios.js'
+    'js/relatorios.js',
+    'js/desempenho-projeto.js'
 ];
 
 // ======= 2) ESTADO INTERNO =======

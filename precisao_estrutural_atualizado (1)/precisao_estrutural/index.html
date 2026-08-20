@@ -58,6 +58,7 @@
                 <div id="orelhas-projeto-ativo" class="tab-bar" style="display:none; margin-top:-6px; margin-bottom:12px;">
                     <div id="orelha-estrutura-projeto" class="tab-selector" onclick="irParaEstruturaProjetoDoProjetoAtivo()">🏗️ Estrutura de Projeto</div>
                     <div id="orelha-custos-projeto" class="tab-selector" onclick="irParaDistribuicaoCustosDoProjetoAtivo()">📊 Custos</div>
+                    <div id="orelha-desempenho-projeto" class="tab-selector" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Desempenho</div>
                 </div>
 
                 <div id="panel-blank-state" class="workspace-blank active">
@@ -541,6 +542,10 @@
                         </div>
                     </div>
                     </div>
+                </div>
+
+                <div id="panel-desempenho-projeto" class="content-panel" style="overflow-y:auto;">
+                    <div id="desemp-conteudo"></div>
                 </div>
 
                 <div id="panel-atribuicao-tarefas" class="content-panel">

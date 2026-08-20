@@ -8331,3 +8331,95 @@ e `modulos_isolados/atribuicao-tarefas/js/distribuicao-custos.js` já
 tinham drift pré-existente em relação ao arquivo principal antes desta
 mudança — não foram espelhados, mesmo precedente já registrado outras
 vezes nesta sessão.
+
+## Retomada em 2026-08-20 (parte 26) — Nova orelha "Desempenho" do projeto
+
+**Pedido do usuário**: "Estou pensando em fazer uma outra aba para
+apresentar desempenho do projeto... horas previstas x horas
+realizadas, ou custo previsto x custo real e/ou % de conclusão e Saldo
+da verba" — desenhado e validado com o usuário em 8 rodadas de
+protótipo (Artifact, com os números reais do projeto Home Garden -
+Setor C) antes desta implementação. Ao longo dessas rodadas o usuário
+também pediu, e eu corrigi: horas apontadas do lado do nome do
+Pavimento; resumo financeiro completo (contrato → impostos → parcelas
+→ etapas → Detalhamento → Fundo de Lucros); contexto de % Concluído +
+Previsão de Conclusão; desempenho por Executor (Pontos, Horas/Ponto,
+Pontos/Mês); e, na última rodada, "Nas tarefas onde as horas não estão
+apontadas considere que o custo seja igual à verba" — regra que corrigiu
+um erro meu (eu estava comparando a verba de TODAS as etapas com o
+custo real de só uma, presumindo lucro onde não havia dado nenhum).
+
+**Novo arquivo (`js/desempenho-projeto.js`)**: módulo com 2 camadas.
+Camada de cálculo (`calcularHorasCustoProjeto`, `calcularConclusaoProjeto`,
+`calcularHorasPorPavimentoProjeto`, `calcularDesempenhoExecutoresProjeto`,
+`calcularSaldoPorTarefaProjeto`, `calcularResumoFinanceiroProjeto`,
+`calcularDesempenhoProjeto` como orquestrador) é JS puro, sem DOM —
+`module.exports` condicional no final deixa ela rodar em Node isolado
+pra teste (regra da sessão: "testar em Node isolado antes de mexer nos
+arquivos reais"). Camada de renderização (`carregarPainelDesempenho`,
+`renderizarDesempenhoProjeto` + helpers) só roda no navegador.
+
+**Reaproveitamento** (nada de fórmula nova, tudo lendo funções que já
+existiam e já eram a fonte de verdade): `calcularVerbaPorEtapaSalvo` e
+`calcularListaPavimentosComVerbaSalva`/`obterPctFundoLucrosPavimento`
+(`distribuicao-custos.js`) pra verba por Etapa e cascata
+Detalhamento→Pavimento→Tarefa; `calcularCustoRealTarefa`/`valorHoraVigente`
+(`apontamento.js`/`feriados.js`) pro custo real; `calcularProgressoSubarvore`
+(`painel-progresso.js`) pra % de conclusão dentro de cada Etapa — só a
+agregação final (ponderar cada Etapa pela sua verba, em vez do campo
+manual `.verba` do nó, que fica "0" em Etapas Única sem preenchimento
+manual) é lógica nova, escrita porque `calcularProgressoProjeto()` já
+existente devolve % por Etapa, não um único número pro projeto inteiro.
+
+**Regra do Saldo por Tarefa** (verba − custo real): só a Etapa
+"Detalhamento" tem granularidade de Pavimento/Tarefa com verba própria
+(mesma regra de negócio de `listarPavimentosDoProjeto` — só ela
+alimenta Pavimento); as demais Etapas entram como bloco único (verba
+da própria Etapa vs soma do custo real de TODAS as tarefas-folha nela —
+`coletarNosFolhaDaArvore([etapa])`). Sem nenhuma hora apontada em
+lugar nenhum do bloco, custo = verba (saldo 0) — a regra do usuário.
+Dentro do Detalhamento, a mesma checagem roda por TAREFA individual
+(não só por Etapa inteira), pra não estourar a regra numa tarefa
+específica sem sessão de trabalho ainda.
+
+**UI**: 3ª orelha (`#orelha-desempenho-projeto`, ao lado de Estrutura
+de Projeto/Custos) + painel novo `#panel-desempenho-projeto` (`index.html`).
+`atualizarOrelhasProjetoAtivo()` e `irParaDesempenhoDoProjetoAtivo()`
+(`js/core.js`) seguem o mesmo padrão de `irParaDistribuicaoCustosDoProjetoAtivo()`
+— inclusive a mesma cautela de `irParaEstruturaProjetoDoProjetoAtivo()`
+quanto à origem do nome do projeto (`projetoSelecionadoAtivo` cobre
+quem vem da Estrutura; quem entrou direto pelo portal da Distribuição
+de Custos só tem o nome no `#dc-projeto`). CSS novo, todo escopado sob
+`#panel-desempenho-projeto` (mesmo padrão de `#rel-custos-area-resultado`).
+Cada Pavimento em "Saldo por Tarefa" vem colapsado por padrão (só o
+subtotal aparece, clique abre a lista de tarefas) — projetos com muitas
+Pavimentos (AP Praia tem 20) ficavam uma parede de texto com tudo
+aberto de uma vez.
+
+**Registrado no `js/sync-provisorio.js`**: `js/desempenho-projeto.js`
+entrou no fim de `SYNC_PROVISORIO_SCRIPTS_APP` (depois de todo mundo
+que ele depende — `distribuicao-custos.js`, `apontamento.js`,
+`painel-progresso.js`, `feriados.js` já carregados antes).
+
+**Verificação**: `node --check` limpo nos 3 `.js` tocados. Lógica de
+cálculo testada em Node isolado (`vm` + `localStorage` fake + os 6
+arquivos-fonte reais carregados nele) contra os dados reais do Home
+Garden buscados do Firebase nesta sessão — todos os números batem com
+os já validados manualmente/Python antes (Horas 294,6×400,0; Custo
+Real R$ 11.694,42; Resultado do Projeto ≈ −R$ 1.293,9 com 17% de
+imposto). Depois, testado no navegador (servidor local) com dados reais
+de produção: Home Garden (100% concluído, com Detalhamento) e AP Praia
+(4% concluído, 20 Pavimentos, projeto real em andamento) — sem erro no
+console, sem `NaN`/`undefined` na tela, navegação Estrutura↔Custos↔Desempenho
+testada nos dois sentidos, entrada direta pelo portal da Distribuição
+de Custos (sem passar pela Árvore antes) testada e funcionando, projeto
+sem Distribuição de Custos configurada degradou pra R$ 0,00 em vez de
+quebrar, e o colapsa/expande de cada Pavimento testado (fecha→abre→fecha,
+seta muda ▶/▼).
+
+**Nota**: o Home Garden ainda está salvo com Impostos = 23% na
+Distribuição de Custos (`banco_distribuicao_custos`) — o usuário
+confirmou que o valor real é 17% (bate com os números originais da
+planilha), mas essa % ainda não foi salva na tela do sistema; a aba
+Desempenho está lendo certo o que está salvo, só precisa que a % correta
+seja salva na Distribuição de Custos pra refletir aqui também.
