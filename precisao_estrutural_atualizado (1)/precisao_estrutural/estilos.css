@@ -474,10 +474,15 @@
         /* Nova orelha "Desempenho" do Hub "📁 Projetos" (js/desempenho-projeto.js)
            — mockup validado com o usuário em várias rodadas de protótipo
            (Artifact) antes desta implementação. Escopado só a
-           #panel-desempenho-projeto — cores good/warn/bad reaproveitam o
-           verde/laranja/vermelho já usados no resto do sistema (Painel
-           de Progresso, badges de menu), não são uma paleta nova. */
-        #panel-desempenho-projeto { --desemp-good: #10b981; --desemp-warn: #f59e0b; --desemp-bad: #ef4444; }
+           #panel-desempenho-projeto. Reforma de 2026-08-20: o usuário
+           trouxe de outra conversa um modelo de tabela (prompt colado
+           no chat) + uma planilha de referência
+           ("HOME_GARDEN_SETOR_C_com_Desempenho.xlsx", aba "Desempenho")
+           pra usar "principalmente cores e formas de apresentação" —
+           as cores abaixo (cabeçalho #0A192F, linha TOTAL cinza, verde-
+           azulado/vermelho-terracota pro Desvio) foram lidas direto das
+           células dessa planilha (openpyxl), não inventadas. */
+        #panel-desempenho-projeto { --desemp-good: #0e8f6f; --desemp-warn: #f59e0b; --desemp-bad: #c1432a; --desemp-total-bg: #f0f0f0; }
 
         #panel-desempenho-projeto .desemp-grid-kpi { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px; }
         #panel-desempenho-projeto .desemp-kpi { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; }
@@ -485,59 +490,55 @@
         #panel-desempenho-projeto .desemp-kpi-numero { font-size:22px; font-weight:700; color:#0f172a; line-height:1.1; }
         #panel-desempenho-projeto .desemp-kpi-comparativo { font-size:12px; color:#64748b; margin-top:2px; }
         #panel-desempenho-projeto .desemp-selo { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-top:8px; }
-        #panel-desempenho-projeto .desemp-selo-good { background:#ecfdf5; color:#166534; }
+        #panel-desempenho-projeto .desemp-selo-good { background:#e8f8f4; color:#0e8f6f; }
         #panel-desempenho-projeto .desemp-selo-warn { background:#fffbeb; color:#92400e; }
-        #panel-desempenho-projeto .desemp-selo-bad { background:#fef2f2; color:#b91c1c; }
+        #panel-desempenho-projeto .desemp-selo-bad { background:#fdedea; color:#c1432a; }
 
         #panel-desempenho-projeto .desemp-painel { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px 18px; margin-bottom:16px; }
         #panel-desempenho-projeto .desemp-painel-titulo { font-size:13px; font-weight:700; color:#0f172a; margin:0 0 4px; }
         #panel-desempenho-projeto .desemp-tag { font-size:10px; font-weight:400; color:#94a3b8; margin-left:4px; text-transform:none; }
         #panel-desempenho-projeto .desemp-painel-legenda { font-size:12px; color:#94a3b8; margin:0 0 16px; }
         #panel-desempenho-projeto .desemp-bloco-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:#94a3b8; margin:0 0 10px; }
+        #panel-desempenho-projeto .desemp-subtitulo-bloco { font-size:11.5px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:0.02em; margin:18px 0 6px; }
+        #panel-desempenho-projeto .desemp-subtitulo-bloco:first-of-type { margin-top:2px; }
 
-        #panel-desempenho-projeto .desemp-linha-pav { display:grid; grid-template-columns:190px 1fr 60px; align-items:center; gap:10px; margin-bottom:12px; font-size:12px; }
-        #panel-desempenho-projeto .desemp-linha-pav:last-child { margin-bottom:0; }
-        #panel-desempenho-projeto .desemp-nome-pav { color:#0f172a; font-weight:600; }
-        #panel-desempenho-projeto .desemp-horas-real { font-weight:400; color:#94a3b8; }
-        #panel-desempenho-projeto .desemp-barras { position:relative; height:18px; background:#e2e8f0; border-radius:4px; }
-        #panel-desempenho-projeto .desemp-barra-realizado { position:absolute; top:0; left:0; bottom:0; border-radius:4px; }
-        #panel-desempenho-projeto .desemp-marca-previsto { position:absolute; top:-3px; bottom:-3px; width:2px; background:#0f172a; }
-        #panel-desempenho-projeto .desemp-marca-previsto::after { content:attr(data-label); position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; color:#64748b; white-space:nowrap; }
-        #panel-desempenho-projeto .desemp-pct-pav { text-align:right; font-weight:700; }
-
+        /* Tabelas "Por Etapa/Pavimento/Tarefa/Executor": cabeçalho no
+           mesmo azul-marinho/branco do cabeçalho da Árvore de Custos
+           (Relatórios), moldura "medium" (2px) no contorno externo da
+           tabela e "thin" (1px) entre células — mesmo padrão da
+           planilha de referência (borda mais forte só nas
+           extremidades). Linha TOTAL com fundo cinza claro. */
         #panel-desempenho-projeto .desemp-tabela { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
-        #panel-desempenho-projeto .desemp-tabela th { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:#94a3b8; padding:0 8px 6px 0; border-bottom:1px solid #e2e8f0; background:none; position:static; }
-        #panel-desempenho-projeto .desemp-tabela th:not(:first-child), #panel-desempenho-projeto .desemp-tabela td:not(:first-child) { text-align:right; }
-        #panel-desempenho-projeto .desemp-tabela td { padding:6px 8px 6px 0; border-bottom:1px solid #f1f5f9; color:#475569; }
-        #panel-desempenho-projeto .desemp-tabela tr:last-child td { border-bottom:none; }
+        #panel-desempenho-projeto .desemp-tabela-moldura { border:2px solid #0a192f; }
+        #panel-desempenho-projeto .desemp-tabela thead th { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:#ffffff; background:#0a192f; padding:8px; position:static; }
+        #panel-desempenho-projeto .desemp-tabela thead th:not(:first-child) { text-align:right; border-left:1px solid rgba(255,255,255,0.18); }
+        #panel-desempenho-projeto .desemp-tabela td { padding:6px 8px; border-bottom:1px solid #e2e8f0; color:#475569; }
+        #panel-desempenho-projeto .desemp-tabela td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
+        #panel-desempenho-projeto .desemp-tabela tbody tr:last-child td { border-bottom:none; }
         #panel-desempenho-projeto .desemp-tabela tr.desemp-destaque td { color:#0f172a; font-weight:700; }
-        #panel-desempenho-projeto .desemp-tabela tfoot td { padding-top:8px; border-top:2px solid #e2e8f0; border-bottom:none; font-weight:700; color:#0f172a; }
-        #panel-desempenho-projeto .desemp-saldo-good { color:#166534; font-weight:700; }
-        #panel-desempenho-projeto .desemp-saldo-bad { color:#b91c1c; font-weight:700; }
-
-        /* Cabeçalho clicável de cada Pavimento em "Saldo por Tarefa" —
-           some pra abrir/fechar a tabela de tarefas (projetos com
-           muitos Pavimentos, ex. 20, ficariam uma parede de texto se
-           tudo viesse aberto de uma vez). */
-        #panel-desempenho-projeto .desemp-linha-pav-saldo { display:flex; align-items:center; gap:10px; padding:8px 4px; margin-top:10px; border-top:1px solid #e2e8f0; cursor:pointer; font-size:12px; }
-        #panel-desempenho-projeto .desemp-linha-pav-saldo:hover { background:#f8fafc; }
-        #panel-desempenho-projeto .desemp-seta-toggle { font-size:9px; color:#94a3b8; width:12px; }
-        #panel-desempenho-projeto .desemp-nome-pav-saldo { flex:1; font-weight:600; color:#0f172a; }
+        #panel-desempenho-projeto .desemp-tabela tfoot td { padding:7px 8px; border-top:1px solid #e2e8f0; border-bottom:none; font-weight:700; color:#0f172a; background:var(--desemp-total-bg); }
+        #panel-desempenho-projeto .desemp-tabela tfoot td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
+        #panel-desempenho-projeto .desemp-desvio-bom { color:#0e8f6f; font-weight:600; }
+        #panel-desempenho-projeto .desemp-desvio-ruim { color:#c1432a; font-weight:600; }
 
         #panel-desempenho-projeto .desemp-grid-financeiro { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
         #panel-desempenho-projeto .desemp-linha-fin { display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; font-size:12.5px; border-bottom:1px solid #f1f5f9; color:#475569; }
         #panel-desempenho-projeto .desemp-linha-fin:last-child { border-bottom:none; }
         #panel-desempenho-projeto .desemp-linha-fin span:last-child { font-weight:600; color:#0f172a; }
-        #panel-desempenho-projeto .desemp-linha-fin.desemp-deducao span:last-child { color:#b91c1c; }
+        #panel-desempenho-projeto .desemp-linha-fin.desemp-deducao span:last-child { color:#c1432a; }
         #panel-desempenho-projeto .desemp-linha-fin.desemp-subtotal { font-weight:700; }
         #panel-desempenho-projeto .desemp-linha-fin.desemp-subtotal span { color:#0f172a; }
-        #panel-desempenho-projeto .desemp-linha-resultado { display:flex; justify-content:space-between; align-items:baseline; margin-top:12px; padding:10px 12px; border-radius:6px; font-weight:700; font-size:13px; }
-        #panel-desempenho-projeto .desemp-linha-resultado span:last-child { font-size:16px; }
-        #panel-desempenho-projeto .desemp-linha-resultado.desemp-good { background:#ecfdf5; border:1px solid #10b981; color:#166534; }
-        #panel-desempenho-projeto .desemp-linha-resultado.desemp-bad { background:#fef2f2; border:1px solid #ef4444; color:#b91c1c; }
+
+        /* 4ª orelha "Diagnóstico" — cards de leitura automática em cima
+           das mesmas 4 tabelas acima (js/desempenho-projeto.js,
+           calcularDiagnosticoProjeto()). */
+        #panel-diagnostico-projeto .diag-card { display:flex; gap:10px; align-items:flex-start; border-radius:6px; padding:10px 12px; font-size:12px; margin-bottom:10px; border:1px solid; }
+        #panel-diagnostico-projeto .diag-ruim { background:#fdedea; border-color:#c1432a; color:#c1432a; }
+        #panel-diagnostico-projeto .diag-bom { background:#e8f8f4; border-color:#0e8f6f; color:#0e8f6f; }
+        #panel-diagnostico-projeto .diag-info { background:#f8fafc; border-color:#e2e8f0; color:#475569; }
 
         @media (max-width: 1100px) {
             #panel-desempenho-projeto .desemp-grid-kpi { grid-template-columns:repeat(2, 1fr); }
             #panel-desempenho-projeto .desemp-grid-financeiro { grid-template-columns:1fr; }
         }
-        
+

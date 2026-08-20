@@ -8423,3 +8423,98 @@ confirmou que o valor real é 17% (bate com os números originais da
 planilha), mas essa % ainda não foi salva na tela do sistema; a aba
 Desempenho está lendo certo o que está salvo, só precisa que a % correta
 seja salva na Distribuição de Custos pra refletir aqui também.
+
+## Retomada em 2026-08-20 (parte 27) — Desempenho: tabelas unificadas + 4ª orelha "Diagnóstico"
+
+**Contexto**: depois da parte 26, o usuário passou por várias rodadas
+de protótipo (Artifact) pedindo mudanças na aba Desempenho — índices
+Previsto×Realizado×Desvio por Etapa/Pavimento/Tarefa/Executor, não
+listar quem não tem hora registrada, % consumida no rodapé de cada
+tabela, cabeçalho no padrão dos Relatórios com bordas verticais. Numa
+rodada seguinte, colou um prompt de "outra conversa" descrevendo um
+modelo de tabela pronto (7 colunas: Dimensão/Horas Previsto/Horas
+Realizado/Índice/Desvio/Verba/Custo Real, Verba na penúltima coluna) e
+trouxe uma planilha de referência
+(`HOME_GARDEN_SETOR_C_com_Desempenho.xlsx`, aba "Desempenho") pedindo
+"principalmente cores e formas de apresentação" — e por fim pediu uma
+4ª orelha "Diagnóstico" com as análises feitas naquela outra conversa
+(sem acesso ao texto literal de lá, montada com leituras automáticas
+em cima dos mesmos dados). Depois de validar tudo em mockup (mesmo
+Artifact, repuclicado ~8× nessa rodada), pediu "implemente e push".
+
+**Mudança principal (`js/desempenho-projeto.js`, reescrito)**: as 4
+tabelas antigas (barra de horas por Pavimento + "Saldo por Tarefa"
+separado) viraram UMA função única,
+`calcularLinhasFolhaComVerba(nomeProjeto)` — percorre a árvore inteira
+uma vez só e devolve 1 registro por folha (`{nome, executor, pontos,
+horas, verba, custo, etapaNome, pavimentoNome}`), com Verba já
+ponderada por Pontos dentro do "pai com verba própria" (Pavimento pra
+quem está na Etapa "Detalhamento" — mesma cascata de
+`listarPavimentosDoProjeto`; a própria Etapa, generalizado, pras
+demais). `agruparLinhasDesempenho()` agrupa essas folhas por
+Etapa/Pavimento/Tarefa(nome da atividade, não mais por instância
+Pavimento×Tarefa)/Executor, soma tudo, e tira quem não tem hora
+realizada — as 4 tabelas (`calcularTabelasDesempenho()`) são só 4
+chamadas dessa mesma função com uma chave de agrupamento diferente, o
+que garante que a linha TOTAL bate igual nas 4 (é o mesmo total de
+folhas, só reagrupado).
+
+**Bug pego no teste em Node antes de ir pro navegador**: a 1ª versão
+calculava `custo` de cada folha só como `calcularCustoRealTarefa()`
+(zero se não tem hora) mas `verba` sempre cheia — nos TOTAIS (que
+somam TODAS as folhas, não só as que aparecem nas linhas visíveis)
+isso reintroduzia o mesmo bug da parte 25/rodada do Artifact (Resultado
+do Projeto artificialmente positivo, contando a verba das Etapas sem
+apontamento como "sobra" sem contar o custo presumido delas). Corrigido
+aplicando a regra "sem hora, custo = verba" direto na origem
+(`calcularLinhasFolhaComVerba`), não só na hora de renderizar — depois
+disso os TOTAIS batem certo mesmo somando folhas que não aparecem em
+nenhuma tabela.
+
+**Linha TOTAL**: célula "Horas Previsto" mostra `Índice% + " consumido"`
+(não a soma), célula "Custo Real" mostra `%custo/verba + " da verba"`
+(não a soma) — as demais células somam normal. Formato copiado
+literalmente das células B14/G14 da planilha de referência (lidas via
+`openpyxl`: `'0.0%" consumido"'` / `'0.0%" da verba"'`).
+
+**Cores/CSS (`estilos.css`)**: lidas direto da planilha de referência
+(`openpyxl`, não estimadas) — cabeçalho `#0A192F`/branco, linha TOTAL
+com fundo `#F0F0F0`, Desvio positivo em verde-azulado `#0E8F6F` e
+negativo em vermelho-terracota `#C1432A` (troquei as cores good/bad
+antigas do painel inteiro por essas, pra ficar consistente), moldura
+`2px` no contorno externo da tabela (`.desemp-tabela-moldura`) e `1px`
+entre células — mesma distinção "medium"/"thin" que a planilha usa.
+Removido CSS morto das versões anteriores (barra de horas por
+Pavimento, cabeçalho colapsável de "Saldo por Tarefa") — não é mais
+usado pelo novo `renderizarDesempenhoProjeto()`.
+
+**Nova 4ª orelha "Diagnóstico"** (`index.html`, `js/core.js`,
+`js/desempenho-projeto.js::calcularDiagnosticoProjeto()`): mesmo padrão
+de `irParaDesempenhoDoProjetoAtivo()` — `irParaDiagnosticoDoProjetoAtivo()`
++ `#panel-diagnostico-projeto` + `#orelha-diagnostico-projeto`,
+`atualizarOrelhasProjetoAtivo()` ganhou o 4º caso. Leituras automáticas
+(cards coloridos, sem nada hardcoded pro Home Garden): atividades com
+Índice ≥150%/≤60% (por nome, ordenadas), Pavimento com maior desvio
+absoluto, disparidade de Índice entre executores (≥50 pontos
+percentuais), Etapa que gastou mais que a verba, e uma nota estrutural
+quando a tabela "Por Etapa" mostra menos linhas que o total de Etapas
+cadastradas (explica a razão, já que pode acontecer por dois motivos
+diferentes — Etapa e Pavimento serem a mesma divisão, como no exemplo
+do outro prompt, ou simplesmente falta de apontamento, como aconteceu
+aqui).
+
+**Verificação**: `node --check` limpo em `js/core.js` e
+`js/desempenho-projeto.js`. Lógica testada em Node isolado (mesmo
+harness `vm` da parte 26, atualizado) contra os dados reais do Home
+Garden — todas as 4 tabelas + Diagnóstico batendo com os números já
+validados no Artifact (Por Tarefa agregado por atividade: DT_Escada
+364,6%, DT_Vigas 184,4%, DT_Blocos 22,9% etc; Resultado do Projeto
+≈ −R$ 1.293,9 com o bug de totais corrigido). Testado no navegador
+(servidor local) no Home Garden: as 4 orelhas (Estrutura de
+Projeto/Custos/Desempenho/Diagnóstico) navegam corretamente, as 4
+tabelas + o painel de produtividade + o resumo financeiro renderizam
+com os números batendo com o mockup, e a aba Diagnóstico mostra os 6
+cards esperados com as cores certas. Sem erro no console. Projeto ainda
+está com Impostos=23% salvo (não 17% como o usuário confirmou ser o
+valor real) — números da tela batem com o que está salvo, mesma nota
+da parte 26.

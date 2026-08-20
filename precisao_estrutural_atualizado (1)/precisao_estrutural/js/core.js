@@ -646,9 +646,11 @@ function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
     const orelhaEstrutura = document.getElementById('orelha-estrutura-projeto');
     const orelhaCustos = document.getElementById('orelha-custos-projeto');
     const orelhaDesempenho = document.getElementById('orelha-desempenho-projeto');
+    const orelhaDiagnostico = document.getElementById('orelha-diagnostico-projeto');
     if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
     if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
     if (orelhaDesempenho) orelhaDesempenho.classList.toggle('active', abaAtiva === 'desempenho');
+    if (orelhaDiagnostico) orelhaDiagnostico.classList.toggle('active', abaAtiva === 'diagnostico');
 }
 
 function alternarModulo(modulo) {
@@ -769,6 +771,22 @@ function irParaDesempenhoDoProjetoAtivo() {
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome);
+}
+
+// 4ª orelha do Hub "📁 Projetos" — leituras automáticas (Diagnóstico)
+// em cima dos mesmos dados de Desempenho, ver
+// js/desempenho-projeto.js::calcularDiagnosticoProjeto(). Mesmo padrão
+// de origem do nome do projeto que irParaDesempenhoDoProjetoAtivo().
+function irParaDiagnosticoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-diagnostico-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'diagnostico');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDiagnostico === 'function') carregarPainelDiagnostico(nome);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {

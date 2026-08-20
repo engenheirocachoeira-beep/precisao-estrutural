@@ -59,6 +59,7 @@
                     <div id="orelha-estrutura-projeto" class="tab-selector" onclick="irParaEstruturaProjetoDoProjetoAtivo()">🏗️ Estrutura de Projeto</div>
                     <div id="orelha-custos-projeto" class="tab-selector" onclick="irParaDistribuicaoCustosDoProjetoAtivo()">📊 Custos</div>
                     <div id="orelha-desempenho-projeto" class="tab-selector" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Desempenho</div>
+                    <div id="orelha-diagnostico-projeto" class="tab-selector" onclick="irParaDiagnosticoDoProjetoAtivo()">🩺 Diagnóstico</div>
                 </div>
 
                 <div id="panel-blank-state" class="workspace-blank active">
@@ -546,6 +547,11 @@
 
                 <div id="panel-desempenho-projeto" class="content-panel" style="overflow-y:auto;">
                     <div id="desemp-conteudo"></div>
+                </div>
+
+                <div id="panel-diagnostico-projeto" class="content-panel" style="overflow-y:auto;">
+                    <p style="font-size:12px; color:#64748b; margin:0 0 16px;">Leituras automáticas em cima dos mesmos dados da aba Desempenho — atividades fora do previsto, disparidades entre executores, etapas estouradas.</p>
+                    <div id="diagnostico-conteudo"></div>
                 </div>
 
                 <div id="panel-atribuicao-tarefas" class="content-panel">

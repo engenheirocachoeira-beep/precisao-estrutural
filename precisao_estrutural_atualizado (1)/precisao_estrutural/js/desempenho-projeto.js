@@ -1,29 +1,40 @@
 // =========================================================================
 // MÓDULO: ORELHA "DESEMPENHO" DO PROJETO — 3ª orelha, ao lado de
-// "Estrutura de Projeto" e "Custos" (pedido do usuário: "uma nova
-// orelha da aba projetos... horas previstas x horas realizadas, custo
-// previsto x custo real, % de conclusão e Saldo da verba"). Desenho
-// validado com o usuário em várias rodadas de protótipo (Artifact)
-// antes desta implementação — ver prompt_gemini.md pela changelog.
+// "Estrutura de Projeto" e "Custos" (pedido original do usuário: "uma
+// nova orelha da aba projetos... horas previstas x horas realizadas,
+// custo previsto x custo real, % de conclusão e Saldo da verba").
+//
+// Reforma de 2026-08-20: modelo de tabela trazido pelo usuário de outra
+// conversa (prompt colado no chat + planilha de referência
+// "HOME_GARDEN_SETOR_C_com_Desempenho.xlsx", aba "Desempenho") —
+// 4 tabelas (Por Etapa/Pavimento/Tarefa/Executor), todas com as MESMAS
+// 7 colunas: [Dimensão] | Horas Previsto | Horas Realizado | Índice
+// (Real/Prev) | Desvio (h) | Verba (R$) | Custo Real (R$). Regras:
+// linha sem hora realizada não aparece; na linha TOTAL, a célula
+// "Horas Previsto" mostra o % de horas já consumidas (Realizado ÷
+// Previsto) e a célula "Custo Real" mostra o % da verba já consumida
+// (Custo ÷ Verba) — as demais células do TOTAL somam normalmente.
+// Cores/bordas replicam a planilha de referência (cabeçalho
+// #0A192F/branco, linha TOTAL com fundo cinza, moldura "medium" no
+// contorno da tabela, "thin" entre células, desvio positivo em
+// verde-azulado e negativo em vermelho-terracota).
 //
 // Convenção "Horas Previstas = Pontos" (mesma do Relatório de Custos,
-// relatorios.js): a soma dos Pontos do Cadastro de Tarefas nas tarefas
-// de um Pavimento/Projeto É o valor de "horas previstas" — não existe
-// campo de estimativa de horas separado.
+// relatorios.js) — mantida; a planilha de referência usa uma fórmula
+// diferente (área do pavimento × produtividade por atividade), mas o
+// usuário pediu só pra copiar cores/apresentação, não a fonte do dado.
 //
-// Regra do usuário pro "Saldo por Tarefa" (verba − custo real): "Nas
-// tarefas onde as horas não estão apontadas considere que o custo seja
-// igual à verba" — sem apontamento, saldo = 0 (não presume lucro nem
-// prejuízo). Só a Etapa "Detalhamento" tem granularidade de
-// Pavimento/Tarefa com verba própria calculada (listarPavimentosDoProjeto,
-// distribuicao-custos.js — regra de negócio já existente: só ela
-// alimenta Pavimento); as demais Etapas entram como um bloco só (verba
-// da própria Etapa vs soma do custo real de todas as tarefas-folha
-// dentro dela — se nenhuma hora foi apontada em toda a Etapa,
-// custo = verba).
+// Regra "custo = verba onde não há apontamento" (pedido anterior do
+// usuário) agora vive dentro de calcularLinhasFolhaComVerba(): toda
+// folha da árvore recebe uma fatia de Verba (ponderada pelos Pontos
+// dela dentro do pai que tem Verba própria — Pavimento pra quem está
+// na Etapa "Detalhamento", a própria Etapa pras demais), e uma
+// folha sem hora nenhuma simplesmente não aparece em nenhuma das 4
+// tabelas (filtro "sem horas, não lista"), então o caso "custo=verba"
+// não precisa mais de tratamento especial — a linha só some.
 // =========================================================================
 
-// --- 1) HORAS / CUSTO REAL DO PROJETO INTEIRO ---
+// --- 1) HORAS / CUSTO REAL DO PROJETO INTEIRO (KPIs do topo) ---
 function calcularHorasCustoProjeto(nomeProjeto) {
     const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = todas[nomeProjeto];
@@ -77,22 +88,107 @@ function calcularConclusaoProjeto(nomeProjeto) {
     return pesoTotal > 0 ? (pesoConcluido / pesoTotal) * 100 : 0;
 }
 
-// --- 3) HORAS PREVISTO x REALIZADO POR PAVIMENTO (só Detalhamento tem
-// essa granularidade — mesma regra de negócio de listarPavimentosDoProjeto) ---
-function calcularHorasPorPavimentoProjeto(nomeProjeto) {
-    if (typeof calcularListaPavimentosComVerbaSalva !== 'function') return [];
-    const pavimentos = calcularListaPavimentosComVerbaSalva(nomeProjeto).pavimentos;
-    return pavimentos.map(p => {
-        const previsto = (p.tarefas || []).reduce((soma, t) => soma + (parseFloat(t.pontos) || 0), 0);
-        const realizado = (p.tarefas || []).reduce((soma, t) => {
-            const sessoes = Array.isArray(t.sessoes_trabalho) ? t.sessoes_trabalho : [];
-            return soma + sessoes.reduce((s2, s) => s2 + (parseFloat(s.duracao) || 0), 0);
-        }, 0);
-        return { nome: p.nome, previsto: previsto, realizado: realizado };
+// --- 3) LINHAS-FOLHA COM VERBA/CUSTO — base única das 4 tabelas ---
+// Cada folha da árvore vira 1 registro {nome, executor, pontos, horas,
+// verba, custo, etapaNome, pavimentoNome}. Verba de cada folha é a
+// fatia dela (ponderada por Pontos) dentro do "pai com verba própria":
+// Pavimento, pra quem está dentro da Etapa "Detalhamento" (mesma
+// cascata que listarPavimentosDoProjeto/distribuicao-custos.js já usa
+// pra Distribuição de Custos e Distribuição de Lucro — só ela tem essa
+// granularidade, regra de negócio já existente); a própria Etapa, pras
+// demais (generalização do mesmo princípio — ponderação por Pontos
+// entre as folhas de uma Etapa sem Pavimento).
+//
+// Regra do usuário (pedido anterior): "nas tarefas onde as horas não
+// estão apontadas considere que o custo seja igual à verba" — sem
+// horas, `custo` já sai igual a `verba` aqui na origem (não só na
+// tabela renderizada), pra que TOTAIS somados a partir de `linhas`
+// (ex: Resultado do Projeto) não fiquem inconsistentes contando a
+// verba de uma folha sem contar o "custo presumido" dela.
+function calcularLinhasFolhaComVerba(nomeProjeto) {
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    if (!arv || !Array.isArray(arv.etapas)) return [];
+
+    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
+    const etapaDetalhamento = arv.etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
+    const linhas = [];
+
+    if (etapaDetalhamento && typeof calcularListaPavimentosComVerbaSalva === 'function') {
+        const pavimentos = calcularListaPavimentosComVerbaSalva(nomeProjeto).pavimentos;
+        pavimentos.forEach(p => {
+            const totalPontosPav = (p.tarefas || []).reduce((s, t) => s + (parseFloat(t.pontos) || 0), 0);
+            (p.tarefas || []).forEach(t => {
+                const pontos = parseFloat(t.pontos) || 0;
+                const verba = totalPontosPav > 0 ? (pontos / totalPontosPav) * p.valorVerba : 0;
+                const sessoes = Array.isArray(t.sessoes_trabalho) ? t.sessoes_trabalho : [];
+                const horas = sessoes.reduce((s2, s) => s2 + (parseFloat(s.duracao) || 0), 0);
+                const custo = horas > 0 ? ((typeof calcularCustoRealTarefa === 'function') ? calcularCustoRealTarefa(t, t.executor) : 0) : verba;
+                linhas.push({ nome: t.nome, executor: t.executor, pontos: pontos, horas: horas, verba: verba, custo: custo, etapaNome: etapaDetalhamento.nome, pavimentoNome: p.nome });
+            });
+        });
+    }
+
+    arv.etapas.forEach(etapa => {
+        if (etapa === etapaDetalhamento) return;
+        const infoVerba = verbasPorEtapa.find(v => v.nome === etapa.nome);
+        const verbaEtapa = infoVerba ? infoVerba.verbaLiquida : 0;
+        const folhas = coletarNosFolhaDaArvore([etapa]);
+        const totalPontosEtapa = folhas.reduce((s, f) => s + (parseFloat(f.no.pontos) || 0), 0);
+        folhas.forEach(f => {
+            const pontos = parseFloat(f.no.pontos) || 0;
+            const verba = totalPontosEtapa > 0 ? (pontos / totalPontosEtapa) * verbaEtapa : (folhas.length === 1 ? verbaEtapa : 0);
+            const sessoes = Array.isArray(f.no.sessoes_trabalho) ? f.no.sessoes_trabalho : [];
+            const horas = sessoes.reduce((s2, s) => s2 + (parseFloat(s.duracao) || 0), 0);
+            const custo = horas > 0 ? ((typeof calcularCustoRealTarefa === 'function') ? calcularCustoRealTarefa(f.no, f.no.executor) : 0) : verba;
+            linhas.push({ nome: f.no.nome, executor: f.no.executor, pontos: pontos, horas: horas, verba: verba, custo: custo, etapaNome: etapa.nome, pavimentoNome: null });
+        });
     });
+
+    return linhas;
 }
 
-// --- 4) DESEMPENHO POR EXECUTOR (só quem tem alguma hora apontada) ---
+// Agrupa as linhas-folha por uma chave (nome da Etapa/Pavimento/Tarefa/
+// Executor), soma Previsto/Realizado/Verba/Custo, e tira quem não tem
+// nenhuma hora realizada (pedido do usuário: "não listar" essas).
+function agruparLinhasDesempenho(linhas, chaveFn) {
+    const grupos = {};
+    const ordem = [];
+    linhas.forEach(l => {
+        const chave = chaveFn(l);
+        if (!chave) return;
+        if (!grupos[chave]) { grupos[chave] = { nome: chave, previsto: 0, realizado: 0, verba: 0, custo: 0 }; ordem.push(chave); }
+        grupos[chave].previsto += l.pontos;
+        grupos[chave].realizado += l.horas;
+        grupos[chave].verba += l.verba;
+        grupos[chave].custo += l.custo;
+    });
+    return ordem.map(c => grupos[c]).filter(g => g.realizado > 0);
+}
+
+// --- 4) MONTAGEM DAS 4 TABELAS + TOTAL (mesmo pro todas as 4 — é o
+// mesmo conjunto de folhas, só agrupado diferente) ---
+function calcularTabelasDesempenho(nomeProjeto) {
+    const linhas = calcularLinhasFolhaComVerba(nomeProjeto);
+    const totais = linhas.reduce((t, l) => ({
+        previsto: t.previsto + l.pontos, realizado: t.realizado + l.horas,
+        verba: t.verba + l.verba, custo: t.custo + l.custo
+    }), { previsto: 0, realizado: 0, verba: 0, custo: 0 });
+
+    return {
+        porEtapa: agruparLinhasDesempenho(linhas, l => l.etapaNome),
+        porPavimento: agruparLinhasDesempenho(linhas, l => l.pavimentoNome),
+        porTarefa: agruparLinhasDesempenho(linhas, l => l.nome).sort((a, b) => {
+            const ia = a.previsto > 0 ? a.realizado / a.previsto : 0, ib = b.previsto > 0 ? b.realizado / b.previsto : 0;
+            return ib - ia;
+        }),
+        porExecutor: agruparLinhasDesempenho(linhas, l => l.executor),
+        totais: totais
+    };
+}
+
+// --- 5) DESEMPENHO POR EXECUTOR (produtividade — Pontos/Horas/Ponto,
+// tabela separada da de cima; pedido em rodada anterior, mantida) ---
 function calcularDesempenhoExecutoresProjeto(nomeProjeto) {
     const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = todas[nomeProjeto];
@@ -126,65 +222,6 @@ function calcularDesempenhoExecutoresProjeto(nomeProjeto) {
             pontosPorMes: meses > 0 ? d.pontos / meses : d.pontos
         };
     }).sort((a, b) => b.horas - a.horas);
-}
-
-// --- 5) SALDO POR TAREFA (verba − custo real) ---
-// Regra do usuário: sem apontamento de horas, custo = verba (saldo 0).
-function calcularSaldoPorTarefaProjeto(nomeProjeto) {
-    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = todas[nomeProjeto];
-    const resultado = { etapasSemDetalhe: [], pavimentosDetalhamento: [], totalVerba: 0, totalCusto: 0, totalSaldo: 0 };
-    if (!arv || !Array.isArray(arv.etapas)) return resultado;
-
-    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-    const etapaDetalhamento = arv.etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
-
-    // Etapa "Detalhamento" — granularidade Pavimento > Tarefa, via a
-    // mesma cascata (verba por Pontos dentro do Pavimento) já usada
-    // pela Distribuição de Custos e pela Distribuição de Lucro.
-    if (etapaDetalhamento && typeof calcularListaPavimentosComVerbaSalva === 'function') {
-        const pavimentos = calcularListaPavimentosComVerbaSalva(nomeProjeto).pavimentos;
-        pavimentos.forEach(p => {
-            const totalPontosPav = (p.tarefas || []).reduce((soma, t) => soma + (parseFloat(t.pontos) || 0), 0);
-            const tarefasCalc = (p.tarefas || []).map(t => {
-                const pontos = parseFloat(t.pontos) || 0;
-                const verbaTarefa = totalPontosPav > 0 ? (pontos / totalPontosPav) * p.valorVerba : 0;
-                const sessoes = Array.isArray(t.sessoes_trabalho) ? t.sessoes_trabalho : [];
-                const temHoras = sessoes.some(s => (parseFloat(s.duracao) || 0) > 0);
-                const custoTarefa = temHoras ? calcularCustoRealTarefa(t, t.executor) : verbaTarefa;
-                return { nome: t.nome, executor: t.executor, pontos: pontos,
-                    horas: sessoes.reduce((s2, s) => s2 + (parseFloat(s.duracao) || 0), 0),
-                    verba: verbaTarefa, custo: custoTarefa, saldo: verbaTarefa - custoTarefa };
-            });
-            const verbaPav = tarefasCalc.reduce((s, t) => s + t.verba, 0);
-            const custoPav = tarefasCalc.reduce((s, t) => s + t.custo, 0);
-            resultado.pavimentosDetalhamento.push({ nome: p.nome, verba: verbaPav, custo: custoPav, saldo: verbaPav - custoPav, tarefas: tarefasCalc });
-            resultado.totalVerba += verbaPav;
-            resultado.totalCusto += custoPav;
-        });
-    }
-
-    // Demais Etapas — sem granularidade de Pavimento própria: entram
-    // como um bloco só (verba da Etapa vs soma do custo real de TODAS
-    // as tarefas-folha dentro dela; sem apontamento em lugar nenhum
-    // dela, custo = verba).
-    arv.etapas.forEach(etapa => {
-        if (etapa === etapaDetalhamento) return;
-        const infoVerba = verbasPorEtapa.find(v => v.nome === etapa.nome);
-        const verbaEtapa = infoVerba ? infoVerba.verbaLiquida : 0;
-        const folhas = coletarNosFolhaDaArvore([etapa]);
-        let custoEtapa = 0;
-        folhas.forEach(f => {
-            custoEtapa += (typeof calcularCustoRealTarefa === 'function') ? calcularCustoRealTarefa(f.no, f.no.executor) : 0;
-        });
-        const custoFinal = custoEtapa > 0 ? custoEtapa : verbaEtapa;
-        resultado.etapasSemDetalhe.push({ nome: etapa.nome, verba: verbaEtapa, custo: custoFinal, saldo: verbaEtapa - custoFinal });
-        resultado.totalVerba += verbaEtapa;
-        resultado.totalCusto += custoFinal;
-    });
-
-    resultado.totalSaldo = resultado.totalVerba - resultado.totalCusto;
-    return resultado;
 }
 
 // --- 6) RESUMO FINANCEIRO (do Contrato até a Verba por Etapa) ---
@@ -233,17 +270,79 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
     };
 }
 
-// --- ORQUESTRADOR: junta tudo pra renderizarDesempenhoProjeto() ---
+// --- ORQUESTRADOR ---
 function calcularDesempenhoProjeto(nomeProjeto) {
     return {
         nomeProjeto: nomeProjeto,
         horasCusto: calcularHorasCustoProjeto(nomeProjeto),
         pctConcluido: calcularConclusaoProjeto(nomeProjeto),
-        pavimentos: calcularHorasPorPavimentoProjeto(nomeProjeto),
+        tabelas: calcularTabelasDesempenho(nomeProjeto),
         executores: calcularDesempenhoExecutoresProjeto(nomeProjeto),
-        saldoPorTarefa: calcularSaldoPorTarefaProjeto(nomeProjeto),
         financeiro: calcularResumoFinanceiroProjeto(nomeProjeto)
     };
+}
+
+// --- 7) DIAGNÓSTICO — leituras automáticas em cima das mesmas 4
+// tabelas (4ª orelha, painel próprio). Limiares (150%/60%/etc.) são só
+// pontos de corte pra destacar o que já está calculado acima — não
+// inventam nenhum dado novo.
+function calcularDiagnosticoProjeto(nomeProjeto) {
+    const t = calcularTabelasDesempenho(nomeProjeto);
+    const achados = [];
+
+    const comIndice = arr => arr.map(g => Object.assign({}, g, { indice: g.previsto > 0 ? g.realizado / g.previsto * 100 : 0 }));
+    const tarefas = comIndice(t.porTarefa);
+    const pavimentos = comIndice(t.porPavimento);
+    const executores = comIndice(t.porExecutor);
+    const etapas = comIndice(t.porEtapa);
+
+    const subestimadas = tarefas.filter(x => x.indice >= 150).sort((a, b) => b.indice - a.indice);
+    if (subestimadas.length > 0) {
+        achados.push({ severidade: 'ruim', icone: '🔴', texto: 'Atividades sistematicamente subestimadas (Índice ≥ 150%): ' +
+            subestimadas.slice(0, 5).map(x => x.nome + ' (' + x.indice.toFixed(1).replace('.', ',') + '%)').join(', ') +
+            '. Vale revisar os Pontos dessas atividades no Cadastro de Tarefas.' });
+    }
+
+    const superestimadas = tarefas.filter(x => x.indice > 0 && x.indice <= 60).sort((a, b) => a.indice - b.indice);
+    if (superestimadas.length > 0) {
+        achados.push({ severidade: 'bom', icone: '🟢', texto: 'Atividades superestimadas (Índice ≤ 60%): ' +
+            superestimadas.slice(0, 5).map(x => x.nome + ' (' + x.indice.toFixed(1).replace('.', ',') + '%)').join(', ') +
+            '. Os Pontos cadastrados pra elas estão bem acima do que a execução real vem consumindo.' });
+    }
+
+    if (pavimentos.length > 0) {
+        const piorPav = pavimentos.slice().sort((a, b) => Math.abs(b.realizado - b.previsto) - Math.abs(a.realizado - a.previsto))[0];
+        if (Math.abs(piorPav.realizado - piorPav.previsto) > 0) {
+            const desvio = piorPav.realizado - piorPav.previsto;
+            achados.push({ severidade: desvio >= 0 ? 'ruim' : 'bom', icone: desvio >= 0 ? '🔴' : '🟢',
+                texto: piorPav.nome + ' é o Pavimento com o maior desvio absoluto (' + (desvio >= 0 ? '+' : '') + desvio.toFixed(2).replace('.', ',') + 'h, Índice de ' + piorPav.indice.toFixed(1).replace('.', ',') + '%).' });
+        }
+    }
+
+    if (executores.length >= 2) {
+        const ordenados = executores.slice().sort((a, b) => b.indice - a.indice);
+        const maior = ordenados[0], menor = ordenados[ordenados.length - 1];
+        if (maior.indice - menor.indice >= 50) {
+            achados.push({ severidade: 'info', icone: '🔵', texto: 'Grande disparidade de aderência ao previsto entre os executores: ' +
+                maior.nome + ' tem Índice de ' + maior.indice.toFixed(1).replace('.', ',') + '% contra ' + menor.indice.toFixed(1).replace('.', ',') + '% de ' + menor.nome + '.' });
+        }
+    }
+
+    etapas.filter(e => e.verba > 0 && e.custo / e.verba > 1).forEach(e => {
+        const pct = e.custo / e.verba * 100;
+        achados.push({ severidade: 'ruim', icone: '🔴', texto: 'A Etapa ' + e.nome + ' já gastou ' + pct.toFixed(1).replace('.', ',') + '% da verba disponível (Custo Real ' +
+            formatarMoeda(e.custo) + ' contra Verba ' + formatarMoeda(e.verba) + ') — ' + formatarMoeda(e.custo - e.verba) + ' de estouro.' });
+    });
+
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    const totalEtapasArvore = (arv && Array.isArray(arv.etapas)) ? arv.etapas.length : 0;
+    if (totalEtapasArvore > 0 && t.porEtapa.length > 0 && t.porEtapa.length < totalEtapasArvore) {
+        achados.push({ severidade: 'info', icone: '🔵', texto: 'A tabela "Por Etapa" mostra ' + t.porEtapa.length + ' de ' + totalEtapasArvore +
+            ' Etapas cadastradas — as demais nunca tiveram hora apontada, então somem pela regra "sem hora, não lista".' });
+    }
+
+    return achados;
 }
 
 // Exporta pra Node (teste isolado, sem DOM) sem afetar o navegador —
@@ -252,9 +351,9 @@ function calcularDesempenhoProjeto(nomeProjeto) {
 // de mexer nos arquivos reais").
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        calcularHorasCustoProjeto, calcularConclusaoProjeto, calcularHorasPorPavimentoProjeto,
-        calcularDesempenhoExecutoresProjeto, calcularSaldoPorTarefaProjeto, calcularResumoFinanceiroProjeto,
-        calcularDesempenhoProjeto
+        calcularHorasCustoProjeto, calcularConclusaoProjeto, calcularLinhasFolhaComVerba,
+        agruparLinhasDesempenho, calcularTabelasDesempenho, calcularDesempenhoExecutoresProjeto,
+        calcularResumoFinanceiroProjeto, calcularDesempenhoProjeto, calcularDiagnosticoProjeto
     };
 }
 
@@ -278,15 +377,32 @@ function carregarPainelDesempenho(nomeProjeto) {
     area.innerHTML = renderizarDesempenhoProjeto(dados);
 }
 
+function carregarPainelDiagnostico(nomeProjeto) {
+    const area = document.getElementById('diagnostico-conteudo');
+    if (!area) return;
+    if (!nomeProjeto) { area.innerHTML = ''; return; }
+
+    const achados = calcularDiagnosticoProjeto(nomeProjeto);
+    if (achados.length === 0) {
+        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Nenhum ponto fora do esperado encontrado ainda — ou o projeto não tem hora apontada o suficiente pra gerar leituras.</div>';
+        return;
+    }
+    area.innerHTML = achados.map(a => diagnosticoCard(a)).join('');
+}
+
+function diagnosticoCard(a) {
+    return '<div class="diag-card diag-' + a.severidade + '"><span>' + a.icone + '</span><div>' + escapeHtml(a.texto) + '</div></div>';
+}
+
 function renderizarDesempenhoProjeto(d) {
     const hc = d.horasCusto;
     const pctHoras = hc.horasPrevistas > 0 ? (hc.horasRealizadas / hc.horasPrevistas * 100) : 0;
-    const seloHoras = pctHoras <= 110 ? 'good' : (pctHoras <= 200 ? 'warn' : 'bad');
 
     const fin = d.financeiro;
     const pctCustoVsVerba = fin.totalVerbaEtapas > 0 ? ((hc.custoRealTotal - fin.totalVerbaEtapas) / fin.totalVerbaEtapas * 100) : 0;
 
-    const saldoProjeto = d.saldoPorTarefa.totalSaldo;
+    const tab = d.tabelas;
+    const saldoProjeto = tab.totais.verba - tab.totais.custo;
     const corSaldo = saldoProjeto >= 0 ? 'good' : 'bad';
 
     let html = '';
@@ -296,31 +412,21 @@ function renderizarDesempenhoProjeto(d) {
     html += kpiCard('Horas', hc.horasRealizadas.toFixed(1) + 'h', 'previsto: ' + hc.horasPrevistas.toFixed(1) + 'h', pctHoras <= 110 ? 'good' : (pctHoras <= 200 ? 'warn' : 'bad'), (pctHoras >= 100 ? '+' : '') + (pctHoras - 100).toFixed(0) + '% do previsto');
     html += kpiCard('Custo Real', formatarMoeda(hc.custoRealTotal), 'verba das etapas: ' + formatarMoeda(fin.totalVerbaEtapas), pctCustoVsVerba <= 0 ? 'good' : 'bad', (pctCustoVsVerba >= 0 ? '+' : '') + pctCustoVsVerba.toFixed(0) + '% vs verba');
     html += kpiCard('Conclusão', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
-    html += kpiCard('Saldo (verba − custo)', (saldoProjeto >= 0 ? '+' : '−') + ' ' + formatarMoeda(Math.abs(saldoProjeto)), 'saldo tarefa a tarefa (ver painel abaixo)', corSaldo, saldoProjeto >= 0 ? 'positivo' : 'negativo');
+    html += kpiCard('Resultado do Projeto', (saldoProjeto >= 0 ? '+' : '−') + ' ' + formatarMoeda(Math.abs(saldoProjeto)), 'verba − custo real, tarefa a tarefa', corSaldo, saldoProjeto >= 0 ? 'positivo' : 'negativo');
     html += '</div>';
 
-    // --- Horas previsto x realizado por Pavimento ---
-    if (d.pavimentos.length > 0) {
-        const maiorValor = Math.max.apply(null, d.pavimentos.map(p => Math.max(p.previsto, p.realizado)).concat([1])) * 1.05;
-        html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Horas previstas × realizadas, por Pavimento</p>';
-        html += '<p class="desemp-painel-legenda">A marca vertical é o previsto (soma dos Pontos do Cadastro de Tarefas); a barra colorida é o realizado.</p>';
-        d.pavimentos.forEach(p => {
-            const pct = p.previsto > 0 ? (p.realizado / p.previsto * 100) : 0;
-            const cor = pct <= 110 ? 'var(--desemp-good)' : (pct <= 200 ? 'var(--desemp-warn)' : 'var(--desemp-bad)');
-            const widthPrevisto = Math.min(100, p.previsto / maiorValor * 100);
-            const widthRealizado = Math.min(100, p.realizado / maiorValor * 100);
-            html += '<div class="desemp-linha-pav">' +
-                '<div class="desemp-nome-pav">' + escapeHtml(p.nome) + ' <span class="desemp-horas-real">(' + formatarNumero(p.realizado) + 'h)</span></div>' +
-                '<div class="desemp-barras"><div class="desemp-marca-previsto" style="left:' + widthPrevisto.toFixed(1) + '%;" data-label="' + formatarNumero(p.previsto) + 'h"></div><div class="desemp-barra-realizado" style="width:' + widthRealizado.toFixed(1) + '%; background:' + cor + ';"></div></div>' +
-                '<div class="desemp-pct-pav" style="color:' + cor + ';">' + pct.toFixed(0) + '%</div>' +
-                '</div>';
-        });
-        html += '</div>';
-    }
+    // --- Tabelas unificadas Por Etapa / Pavimento / Tarefa / Executor ---
+    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho <span class="desemp-tag">previsto &times; realizado &times; índice &times; desvio &times; verba &times; custo real</span></p>';
+    html += '<p class="desemp-painel-legenda">Previsto = soma dos Pontos do Cadastro de Tarefas. Índice = Realizado &divide; Previsto. Linhas sem nenhuma hora realizada não entram na lista. Na linha TOTAL, "Horas Previsto" mostra o % de horas já consumidas e "Custo Real" mostra o % da verba já consumida.</p>';
+    html += tabelaDesempenho('Por Etapa', 'porEtapa', tab.porEtapa, tab.totais);
+    html += tabelaDesempenho('Por Pavimento', 'porPavimento', tab.porPavimento, tab.totais, 'só Detalhamento tem essa granularidade');
+    html += tabelaDesempenho('Por Tarefa', 'porTarefa', tab.porTarefa, tab.totais, 'atividade do Cadastro, somada em todos os pavimentos');
+    html += tabelaDesempenho('Por Executor', 'porExecutor', tab.porExecutor, tab.totais);
+    html += '</div>';
 
-    // --- Desempenho por Executor ---
+    // --- Desempenho por Executor (produtividade) ---
     if (d.executores.length > 0) {
-        html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho por Executor</p>';
+        html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho por Executor <span class="desemp-tag">produtividade</span></p>';
         html += '<p class="desemp-painel-legenda">Pontos = soma do Cadastro de Tarefas nas tarefas que cada um executou. Horas/Ponto mais baixo = mais eficiente; Pontos/Mês = ritmo de produção, do primeiro ao último lançamento de cada um.</p>';
         html += '<table class="desemp-tabela"><thead><tr><th>Executor</th><th>Pontos</th><th>Horas</th><th>Horas / Ponto</th><th>Pontos / Mês</th></tr></thead><tbody>';
         d.executores.forEach(e => {
@@ -332,43 +438,6 @@ function renderizarDesempenhoProjeto(d) {
         });
         html += '</tbody></table></div>';
     }
-
-    // --- Saldo por Tarefa ---
-    const sp = d.saldoPorTarefa;
-    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Saldo por Tarefa <span class="desemp-tag">verba − custo real</span></p>';
-    html += '<p class="desemp-painel-legenda">Regra: onde não há horas apontadas, custo = verba (saldo = 0) — não presume lucro nem prejuízo sem dado real de execução.</p>';
-    if (sp.etapasSemDetalhe.length > 0) {
-        html += '<table class="desemp-tabela"><thead><tr><th>Etapa</th><th>Verba</th><th>Custo</th><th>Saldo</th></tr></thead><tbody>';
-        sp.etapasSemDetalhe.forEach(e => {
-            html += '<tr><td>' + escapeHtml(e.nome) + '</td><td class="num">' + formatarMoeda(e.verba) + '</td><td class="num">' + formatarMoeda(e.custo) + '</td>' + saldoCell(e.saldo) + '</tr>';
-        });
-        html += '</tbody></table>';
-    }
-    // Cada Pavimento vem colapsado por padrão (só o subtotal aparece) —
-    // pedido implícito pela realidade de projetos grandes (ex: AP
-    // Praia tem 20 Pavimentos): uma tabela de tarefa a tarefa por
-    // Pavimento, todas abertas ao mesmo tempo, vira uma parede de texto
-    // difícil de escanear. Clique no cabeçalho abre/fecha.
-    sp.pavimentosDetalhamento.forEach((p, idx) => {
-        const idBloco = 'desemp-pav-tarefas-' + idx;
-        html += '<div class="desemp-linha-pav-saldo" onclick="alternarBlocoDesempenho(\'' + idBloco + '\')">' +
-            '<span class="desemp-seta-toggle" id="' + idBloco + '-seta">&#9654;</span>' +
-            '<span class="desemp-nome-pav-saldo">Detalhamento &middot; ' + escapeHtml(p.nome) + ' <span class="desemp-tag">(' + p.tarefas.length + ' tarefas)</span></span>' +
-            '<span class="num" style="min-width:110px;">' + formatarMoeda(p.verba) + '</span>' +
-            '<span class="num" style="min-width:110px;">' + formatarMoeda(p.custo) + '</span>' +
-            '<span class="num ' + (p.saldo >= 0 ? 'desemp-saldo-good' : 'desemp-saldo-bad') + '" style="min-width:120px;">' + (p.saldo >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(p.saldo)) + '</span>' +
-            '</div>';
-        html += '<div id="' + idBloco + '" style="display:none;">';
-        html += '<table class="desemp-tabela"><thead><tr><th>Tarefa</th><th>Executor</th><th>Pontos</th><th>Horas</th><th>Verba</th><th>Custo</th><th>Saldo</th></tr></thead><tbody>';
-        p.tarefas.slice().sort((a, b) => a.saldo - b.saldo).forEach(t => {
-            html += '<tr><td>' + escapeHtml(t.nome) + '</td><td>' + escapeHtml(typeof nomeParaExibicao === 'function' ? nomeParaExibicao(t.executor) : (t.executor || '')) + '</td>' +
-                '<td class="num">' + formatarNumero(t.pontos) + '</td><td class="num">' + formatarNumero(t.horas) + 'h</td>' +
-                '<td class="num">' + formatarMoeda(t.verba) + '</td><td class="num">' + formatarMoeda(t.custo) + '</td>' + saldoCell(t.saldo) + '</tr>';
-        });
-        html += '</tbody></table></div>';
-    });
-    html += '<div class="desemp-linha-resultado desemp-' + corSaldo + '"><span>Resultado do Projeto (soma do saldo de todas as etapas/tarefas)</span><span>' + (saldoProjeto >= 0 ? '+ ' : '− ') + formatarMoeda(Math.abs(saldoProjeto)) + '</span></div>';
-    html += '</div>';
 
     // --- Resumo financeiro ---
     html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Resumo financeiro</p>';
@@ -403,13 +472,37 @@ function renderizarDesempenhoProjeto(d) {
     return html;
 }
 
-function alternarBlocoDesempenho(idBloco) {
-    const bloco = document.getElementById(idBloco);
-    const seta = document.getElementById(idBloco + '-seta');
-    if (!bloco) return;
-    const abrindo = bloco.style.display === 'none';
-    bloco.style.display = abrindo ? 'block' : 'none';
-    if (seta) seta.innerHTML = abrindo ? '&#9660;' : '&#9654;';
+// Uma das 4 tabelas (Por Etapa/Pavimento/Tarefa/Executor) — mesmo
+// formato pras 4, só muda o rótulo da 1ª coluna e as linhas.
+function tabelaDesempenho(titulo, chave, linhas, totais, tag) {
+    if (linhas.length === 0) return '';
+    const indiceTotal = totais.previsto > 0 ? (totais.realizado / totais.previsto * 100) : 0;
+    const pctVerbaTotal = totais.verba > 0 ? (totais.custo / totais.verba * 100) : 0;
+    const desvioTotal = totais.realizado - totais.previsto;
+
+    let html = '<p class="desemp-subtitulo-bloco">' + escapeHtml(titulo) + (tag ? ' <span class="desemp-tag">' + escapeHtml(tag) + '</span>' : '') + '</p>';
+    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th><th>Verba (R$)</th><th>Custo Real (R$)</th></tr></thead><tbody>';
+    linhas.forEach(l => {
+        const indice = l.previsto > 0 ? (l.realizado / l.previsto * 100) : 0;
+        const desvio = l.realizado - l.previsto;
+        const nomeExibicao = (chave === 'porExecutor' && typeof nomeParaExibicao === 'function') ? nomeParaExibicao(l.nome) : l.nome;
+        html += '<tr><td>' + escapeHtml(nomeExibicao) + '</td>' +
+            '<td class="num">' + formatarNumero(l.previsto) + ' h</td>' +
+            '<td class="num">' + formatarNumero(l.realizado) + ' h</td>' +
+            '<td class="num">' + indice.toFixed(1).replace('.', ',') + '%</td>' +
+            '<td class="num ' + (desvio >= 0 ? 'desemp-desvio-ruim' : 'desemp-desvio-bom') + '">' + (desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvio)) + ' h</td>' +
+            '<td class="num">' + formatarMoeda(l.verba) + '</td>' +
+            '<td class="num">' + formatarMoeda(l.custo) + '</td></tr>';
+    });
+    html += '</tbody><tfoot><tr><td>TOTAL</td>' +
+        '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '% consumido</td>' +
+        '<td class="num">' + formatarNumero(totais.realizado) + ' h</td>' +
+        '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '%</td>' +
+        '<td class="num">' + (desvioTotal >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvioTotal)) + ' h</td>' +
+        '<td class="num">' + formatarMoeda(totais.verba) + '</td>' +
+        '<td class="num">' + pctVerbaTotal.toFixed(1).replace('.', ',') + '% da verba</td></tr></tfoot>';
+    html += '</table>';
+    return html;
 }
 
 function kpiCard(rotulo, numero, comparativo, cor, selo) {
@@ -423,13 +516,8 @@ function finLinha(rotulo, valor, classe) {
     return '<div class="desemp-linha-fin' + (classe ? ' desemp-' + classe : '') + '"><span>' + rotulo + '</span><span>' + valor + '</span></div>';
 }
 
-function saldoCell(saldo) {
-    const cor = saldo >= 0 ? 'good' : 'bad';
-    return '<td class="num desemp-saldo-' + cor + '">' + (saldo >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldo)) + '</td>';
-}
-
 function formatarNumero(v) {
-    return (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function escapeHtml(s) {
