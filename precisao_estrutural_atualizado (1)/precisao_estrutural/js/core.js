@@ -648,11 +648,13 @@ function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
     const orelhaDesempenho = document.getElementById('orelha-desempenho-projeto');
     const orelhaDiagnostico = document.getElementById('orelha-diagnostico-projeto');
     const orelhaBonificacao = document.getElementById('orelha-bonificacao-projeto');
+    const orelhaDistribuicoes = document.getElementById('orelha-distribuicoes-projeto');
     if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
     if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
     if (orelhaDesempenho) orelhaDesempenho.classList.toggle('active', abaAtiva === 'desempenho');
     if (orelhaDiagnostico) orelhaDiagnostico.classList.toggle('active', abaAtiva === 'diagnostico');
     if (orelhaBonificacao) orelhaBonificacao.classList.toggle('active', abaAtiva === 'bonificacao');
+    if (orelhaDistribuicoes) orelhaDistribuicoes.classList.toggle('active', abaAtiva === 'distribuicoes');
 }
 
 function alternarModulo(modulo) {
@@ -805,6 +807,22 @@ function irParaBonificacaoDoProjetoAtivo() {
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     if (typeof carregarPainelBonificacao === 'function') carregarPainelBonificacao(nome);
+}
+
+// 6ª orelha do Hub "📁 Projetos" — Distribuições (relatório editorial
+// de bonificação, formato trazido pelo usuário de um Artifact de
+// referência), ver js/desempenho-projeto.js::calcularDistribuicoesProjeto().
+// Mesmo padrão de origem do nome do projeto das outras orelhas.
+function irParaDistribuicoesDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-distribuicoes-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'distribuicoes');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDistribuicoes === 'function') carregarPainelDistribuicoes(nome);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {

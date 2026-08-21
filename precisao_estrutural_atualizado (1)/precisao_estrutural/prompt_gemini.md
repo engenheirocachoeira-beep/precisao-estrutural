@@ -8599,3 +8599,73 @@ Bonificação, o campo "% Bonificação" edita e recalcula ao vivo
 (testado 100%→50%→100%, conferido no Firebase que voltou limpo em
 100% depois), e a tela de Bonificação mostra os 3 blocos + tabela por
 executor com Igor/Daniel/Andrey. Sem erro no console.
+
+## Retomada em 2026-08-21 (parte 29) — Nova 6ª orelha "Distribuições" (relatório editorial)
+
+**Pedido do usuário**: "crie nova aba DISTRIBUIÇÕES com esse formato",
+colando o link de um Artifact de referência ("Bonificação Daniel") —
+um relatório editorial completo (masthead com barra de destaque
+lateral, tira de 5 KPIs, barra segmentada dos 3 blocos da comissão
+com legenda, gráficos de barra divergente vermelho/verde por técnico/
+pavimento/atividade, cartão do "bloco fixo", callout de diagnóstico, e
+nota de dados no rodapé). Fui buscar o HTML/CSS completo do Artifact
+via WebFetch (o texto por navegador estava sendo cortado ao rolar —
+o WebFetch trouxe o documento inteiro de uma vez, incluindo todos os
+valores CSS exatos) e portei o design literalmente.
+
+**Nenhum cálculo novo** — `calcularDistribuicoesProjeto()`
+(`js/desempenho-projeto.js`) só reorganiza dados que já existiam
+(`calcularBonificacaoProjeto()`, `calcularTabelasDesempenho()`,
+`calcularResumoFinanceiroProjeto()`, `calcularConclusaoProjeto()`)
+pro layout novo. Duas coisas novas de fato:
+- `calcularMetaDistribuicoes()`: cliente/área/pavimentos (direto do
+  Cadastro de Projetos) + período (min/max das datas de sessão de
+  trabalho de toda a árvore, formatado "MM/AAAA" ou "MM/AAAA–AAAA" se
+  cruzar ano).
+- Diagnóstico por atividade adaptativo: se exatamente 1 executor do
+  Pool fechou negativo, o título vira "por que {nome} fechou negativo"
+  e a lista de atividades é só dele (mesmo espírito do relatório de
+  referência, que era focado no Daniel); com 0 ou 2+ negativos, título
+  genérico "Diagnóstico por atividade" com o Pool inteiro agregado.
+
+**2 bugs achados e corrigidos no teste em navegador** (não apareceram
+no `node --check`, só visualmente):
+1. **Entidades HTML duplamente escapadas**: passei rótulos já escritos
+   com entidade (`Or&ccedil;amento`, `&middot;` em textos de meta) por
+   dentro de `escapeHtml()` (em `distKpi()` e no campo `meta` de
+   `distDivChart()`), que escapa o `&` de novo — o navegador mostrava
+   `OR&CCEDIL;AMENTO` literal em vez de "Orçamento". Corrigido: essas
+   funções não escapam mais texto que É gerado por nós (com entidade
+   de propósito); só dado dinâmico (nome de projeto/executor/
+   atividade) continua passando por `escapeHtml()`, no ponto onde é
+   interpolado.
+2. **Placeholder "(sem executor)" mostrado quebrado**: no AP Praia
+   (projeto com uma Etapa fixa sem ninguém atribuído), o fallback de
+   `nomeParaExibicao()` (primeiro token do nome) cortava o placeholder
+   pra "(sem". Criada `nomeExecutorExibicao()`, que trata esse
+   placeholder à parte ("Sem executor") antes de cair no
+   `nomeParaExibicao()` normal — usada nos ~13 pontos do arquivo que
+   mostram nome de executor (troca em massa via regex Python, não
+   manual, pra não perder nenhum).
+
+**Nova orelha**: `#orelha-distribuicoes-projeto` +
+`#panel-distribuicoes-projeto` + `irParaDistribuicoesDoProjetoAtivo()`
+(mesmo padrão das outras 5), `atualizarOrelhasProjetoAtivo()` ganhou o
+6º caso.
+
+**`estilos.css`**: paleta e tipografia novas (`--dist-*`), portadas
+literalmente do CSS do Artifact de referência — deliberadamente
+diferente do resto do sistema (fundo pontilhado, tipografia
+condensada tipo "Arial Narrow", números em monoespaçada tabular) por
+ser um "relatório", não uma tela de trabalho. Escopado só a
+`#panel-distribuicoes-projeto`, não muda nada fora dali.
+
+**Verificação**: `node --check` limpo nos 3 arquivos tocados. Testado
+no navegador local em 2 projetos reais bem diferentes — Home Garden
+(100% concluído, 2 executores no Pool, ambos negativos → diagnóstico
+genérico "por atividade") e AP Praia (4% concluído, 44 pavimentos, só
+1 pavimento com hora até agora, 1 executor negativo → diagnóstico
+focado "por que Luiza fechou negativo", e o caso do executor
+sem-nome no Bloco Fixo). As 6 orelhas navegam nos dois projetos, sem
+erro no console em nenhum dos dois, depois dos 2 bugs acima
+corrigidos.

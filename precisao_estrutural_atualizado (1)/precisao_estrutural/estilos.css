@@ -542,3 +542,110 @@
             :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-grid-financeiro { grid-template-columns:1fr; }
         }
 
+        /* 6ª orelha "Distribuições" — pedido do usuário: "crie nova aba
+           DISTRIBUIÇÕES com esse formato", trazendo um Artifact de
+           referência (relatório editorial de bonificação: masthead,
+           tira de KPIs, barra segmentada dos 3 blocos da comissão,
+           gráficos de barra divergente por técnico/pavimento/
+           atividade, nota de dados no rodapé). Cores/tipografia
+           portadas literalmente do CSS daquele Artifact — paleta nova
+           e deliberadamente diferente do resto do sistema (é um
+           "relatório", não uma tela de trabalho), escopada só a
+           #panel-distribuicoes-projeto. Os NÚMEROS vêm dos mesmos
+           cálculos de Bonificação/Desempenho já existentes — nada
+           recalculado aqui, só reorganizado no layout novo. */
+        #panel-distribuicoes-projeto {
+            --dist-bg: #F2F4EF; --dist-surface: #FFFFFF; --dist-surface-2: #E8ECE4;
+            --dist-ink: #1B2420; --dist-ink-2: #4B5750; --dist-ink-muted: #7C8880;
+            --dist-border: #D7DED4; --dist-border-strong: #B9C4B3;
+            --dist-accent: #C9531C; --dist-accent-soft: #F4DFCE;
+            --dist-cat-1: #00839C; --dist-cat-2: #C9531C; --dist-cat-3: #7A4499;
+            --dist-good: #0E8F6F; --dist-good-soft: #DCEEE6;
+            --dist-critical: #C1432A; --dist-critical-soft: #F6DED7;
+            background: var(--dist-bg);
+            background-image: linear-gradient(var(--dist-border) 1px, transparent 1px), linear-gradient(90deg, var(--dist-border) 1px, transparent 1px);
+            background-size: 28px 28px;
+            padding: 20px; border-radius: 8px; color: var(--dist-ink);
+            font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        }
+        #panel-distribuicoes-projeto .dist-page { max-width: 980px; margin: 0 auto; }
+        #panel-distribuicoes-projeto .dist-num { font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+        #panel-distribuicoes-projeto .dist-eyebrow { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; font-size: 11.5px; color: var(--dist-ink-muted); }
+
+        #panel-distribuicoes-projeto .dist-masthead { background: var(--dist-surface); border: 1px solid var(--dist-border-strong); border-radius: 3px; padding: 28px 30px 24px; position: relative; overflow: hidden; }
+        #panel-distribuicoes-projeto .dist-masthead::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--dist-accent); }
+        #panel-distribuicoes-projeto .dist-masthead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-masthead h1 { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.01em; margin: 6px 0 4px; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-masthead .dist-sub { color: var(--dist-ink-2); font-size: 14px; max-width: 60ch; }
+        #panel-distribuicoes-projeto .dist-masthead .dist-sub b { color: var(--dist-ink); font-weight: 600; }
+        #panel-distribuicoes-projeto .dist-meta-block { text-align: right; border-left: 1px solid var(--dist-border); padding-left: 20px; min-width: 150px; }
+        #panel-distribuicoes-projeto .dist-meta-row { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; padding: 3px 0; }
+        #panel-distribuicoes-projeto .dist-meta-row .k { color: var(--dist-ink-muted); }
+        #panel-distribuicoes-projeto .dist-meta-row .v { color: var(--dist-ink); font-weight: 600; }
+        #panel-distribuicoes-projeto .dist-headline { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--dist-border-strong); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-headline .dist-figure { font-size: clamp(26px, 4.5vw, 38px); font-weight: 700; letter-spacing: -0.01em; }
+        #panel-distribuicoes-projeto .dist-headline .dist-figure.good { color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-headline .dist-figure.critical { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-headline .dist-caption { color: var(--dist-ink-2); font-size: 13.5px; max-width: 46ch; }
+
+        #panel-distribuicoes-projeto .dist-section { margin-top: 28px; }
+        #panel-distribuicoes-projeto .dist-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-section-head h2 { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-size: 19px; font-weight: 700; margin: 0; }
+        #panel-distribuicoes-projeto .dist-section-head .dist-note { font-size: 12px; color: var(--dist-ink-muted); }
+        #panel-distribuicoes-projeto .dist-panel { background: var(--dist-surface); border: 1px solid var(--dist-border); border-radius: 3px; padding: 20px 22px; }
+
+        #panel-distribuicoes-projeto .dist-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--dist-border); border: 1px solid var(--dist-border); border-radius: 3px; overflow: hidden; }
+        #panel-distribuicoes-projeto .dist-kpi { background: var(--dist-surface); padding: 14px 14px; min-width: 0; }
+        #panel-distribuicoes-projeto .dist-kpi .dist-val { font-size: clamp(15px, 1.8vw, 19px); font-weight: 700; margin-top: 6px; letter-spacing: -0.01em; }
+        #panel-distribuicoes-projeto .dist-kpi .dist-val.critical { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-kpi .dist-sub2 { font-size: 11px; color: var(--dist-ink-muted); margin-top: 2px; }
+        @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+        #panel-distribuicoes-projeto .dist-segbar { display: flex; height: 38px; border-radius: 2px; overflow: hidden; border: 1px solid var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-seg { display: flex; align-items: center; justify-content: center; }
+        #panel-distribuicoes-projeto .dist-seg span { color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.25); padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #panel-distribuicoes-projeto .dist-seg.dist-seg-margem { background: var(--dist-surface-2); border-left: 1px solid var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-seg.dist-seg-margem span { color: var(--dist-ink-2); text-shadow: none; }
+        #panel-distribuicoes-projeto .dist-seg-legend { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; font-size: 12px; color: var(--dist-ink-2); }
+        #panel-distribuicoes-projeto .dist-seg-legend .item { display: flex; align-items: center; gap: 7px; }
+        #panel-distribuicoes-projeto .dist-seg-legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+        #panel-distribuicoes-projeto .dist-tolerance { margin-top: 14px; font-size: 12px; color: var(--dist-ink-2); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-tolerance .tag { font-size: 10.5px; font-weight: 700; color: var(--dist-critical); background: var(--dist-critical-soft); border-radius: 2px; padding: 1px 6px; letter-spacing: 0.04em; }
+        #panel-distribuicoes-projeto .dist-tolerance .tag.ok { color: var(--dist-good); background: var(--dist-good-soft); }
+
+        #panel-distribuicoes-projeto .dist-divchart { display: flex; flex-direction: column; gap: 9px; }
+        #panel-distribuicoes-projeto .dist-divrow { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; }
+        #panel-distribuicoes-projeto .dist-divrow .dist-label { font-size: 12.5px; color: var(--dist-ink-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #panel-distribuicoes-projeto .dist-divrow.emph .dist-label { color: var(--dist-ink); font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-track { position: relative; height: 20px; background: var(--dist-surface-2); border-radius: 2px; }
+        #panel-distribuicoes-projeto .dist-track .zero { position: absolute; top: -3px; bottom: -3px; left: 50%; width: 1px; background: var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-track .bar { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+        #panel-distribuicoes-projeto .dist-track .bar.pos { left: 50%; background: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-track .bar.neg { right: 50%; background: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-divrow .dist-value { font-size: 12px; text-align: right; }
+        #panel-distribuicoes-projeto .dist-divrow .dist-value.pos { color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-divrow .dist-value.neg { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-subrow-meta { grid-column: 1; font-size: 10.5px; color: var(--dist-ink-muted); text-align: right; }
+
+        #panel-distribuicoes-projeto .dist-tech-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: stretch; }
+        @media (max-width: 720px) { #panel-distribuicoes-projeto .dist-tech-row { grid-template-columns: 1fr; } }
+        #panel-distribuicoes-projeto .dist-fixo-card { background: var(--dist-surface-2); border: 1px solid var(--dist-border); border-radius: 3px; padding: 16px 18px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+        #panel-distribuicoes-projeto .dist-fixo-card + .dist-fixo-card { margin-top: 12px; }
+        #panel-distribuicoes-projeto .dist-fixo-card .dist-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        #panel-distribuicoes-projeto .dist-swatch-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+        #panel-distribuicoes-projeto .dist-fixo-card .dist-amount { font-size: 20px; font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-fixo-card .dist-desc { font-size: 12px; color: var(--dist-ink-muted); }
+
+        #panel-distribuicoes-projeto .dist-callout { margin-top: 14px; background: var(--dist-critical-soft); border: 1px solid var(--dist-critical); border-radius: 3px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+        #panel-distribuicoes-projeto .dist-callout.good { background: var(--dist-good-soft); border-color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-callout .dist-mark { font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 15px; color: var(--dist-critical); flex: none; }
+        #panel-distribuicoes-projeto .dist-callout.good .dist-mark { color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-callout p { margin: 0; font-size: 13px; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-callout b { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-callout.good b { color: var(--dist-good); }
+
+        #panel-distribuicoes-projeto .dist-datanote { margin-top: 30px; border-top: 1px solid var(--dist-border); padding-top: 16px; display: flex; gap: 16px; align-items: flex-start; font-size: 12px; color: var(--dist-ink-muted); }
+        #panel-distribuicoes-projeto .dist-datanote .tag { flex: none; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: var(--dist-accent); background: var(--dist-accent-soft); border-radius: 2px; padding: 2px 7px; text-transform: uppercase; }
+        #panel-distribuicoes-projeto .dist-datanote p { margin: 0 0 6px; }
+        #panel-distribuicoes-projeto .dist-datanote code { font-family: ui-monospace, "SF Mono", Consolas, monospace; background: var(--dist-surface-2); padding: 1px 5px; border-radius: 2px; font-size: 11px; }
+

@@ -376,6 +376,57 @@ function calcularBonificacaoProjeto(nomeProjeto) {
     };
 }
 
+// --- 8) DISTRIBUIÇÕES — 6ª orelha, pedido do usuário: "crie nova aba
+// DISTRIBUIÇÕES com esse formato" (Artifact de referência, um
+// relatório editorial de bonificação — masthead, tira de KPIs, barra
+// segmentada dos 3 blocos da comissão, gráficos de barra divergente
+// por técnico/pavimento/atividade, e nota de dados no rodapé). É o
+// MESMO dado já calculado em calcularBonificacaoProjeto()/
+// calcularTabelasDesempenho() — esta função só organiza pro layout
+// novo, não recalcula nada.
+function calcularMetaDistribuicoes(nomeProjeto) {
+    const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    const projeto = projetos.find(p => p.nome === nomeProjeto) || {};
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    const folhas = (arv && Array.isArray(arv.etapas)) ? coletarNosFolhaDaArvore(arv.etapas) : [];
+    const datas = [];
+    folhas.forEach(f => (f.no.sessoes_trabalho || []).forEach(s => { if (s.inicio) datas.push(s.inicio.slice(0, 10)); }));
+    datas.sort();
+    let periodo = '';
+    if (datas.length > 0) {
+        const inicio = datas[0], fim = datas[datas.length - 1];
+        periodo = inicio.slice(0, 7).split('-').reverse().join('/') + (fim.slice(0, 4) !== inicio.slice(0, 4) ? '–' + fim.slice(0, 4) : '');
+    }
+    return { cliente: projeto.cliente || '', area: parseFloat(projeto.area) || 0, pavimentos: projeto.pavimentos || '', periodo: periodo };
+}
+
+function calcularDistribuicoesProjeto(nomeProjeto) {
+    const meta = calcularMetaDistribuicoes(nomeProjeto);
+    const bonif = calcularBonificacaoProjeto(nomeProjeto);
+    const tab = calcularTabelasDesempenho(nomeProjeto);
+    const pctConcluido = calcularConclusaoProjeto(nomeProjeto);
+    const horasCusto = calcularHorasCustoProjeto(nomeProjeto);
+
+    const poolExecutores = bonif.executores.filter(e => !e.fixo);
+    const fixoExecutores = bonif.executores.filter(e => e.fixo);
+
+    // Diagnóstico por atividade: se exatamente 1 executor do Pool
+    // fechou negativo, foca só nas atividades DELE (mesmo espírito do
+    // relatório de referência, "por que Daniel fechou negativo");
+    // senão, agrega por atividade o Pool inteiro (mais de 1 negativo,
+    // ou nenhum) — sempre pior primeiro.
+    const negativos = poolExecutores.filter(e => e.lucro < 0);
+    const diagExecutorNome = negativos.length === 1 ? negativos[0].nome : null;
+    const linhasDetalhamento = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome && l.horas > 0);
+    const linhasDiag = diagExecutorNome ? linhasDetalhamento.filter(l => l.executor === diagExecutorNome) : linhasDetalhamento;
+    const diagPorAtividade = agruparLinhasDesempenho(linhasDiag, l => l.nome).sort((a, b) => a.lucro - b.lucro);
+
+    const financeiro = calcularResumoFinanceiroProjeto(nomeProjeto);
+
+    return { meta, bonif, tab, pctConcluido, horasCusto, poolExecutores, fixoExecutores, diagExecutorNome, diagPorAtividade, financeiro };
+}
+
 // --- ORQUESTRADOR ---
 function calcularDesempenhoProjeto(nomeProjeto) {
     return {
@@ -470,7 +521,7 @@ function calcularDiagnosticoProjeto(nomeProjeto) {
         const pior = linhasEx.slice().sort((a, b) => (a.verba - a.custo) - (b.verba - b.custo))[0];
         const lucroPior = pior.verba - pior.custo;
         if (lucroPior < 0 && Math.abs(lucroPior) >= Math.abs(lucroTotalEx)) {
-            const nomeEx = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(ex) : ex;
+            const nomeEx = nomeExecutorExibicao(ex);
             achados.push({ severidade: 'ruim', icone: '🔴', texto: pior.pavimentoNome + ' · ' + pior.nome + ' (' + nomeEx + ') concentra sozinha o déficit de ' + nomeEx +
                 ': ' + formatarMoeda(Math.abs(lucroPior)) + ' de prejuízo nessa única tarefa, contra ' + formatarMoeda(Math.abs(lucroTotalEx)) + ' de déficit total dele — não é um padrão espalhado, é essa tarefa específica.' });
         }
@@ -488,7 +539,8 @@ if (typeof module !== 'undefined' && module.exports) {
         calcularHorasCustoProjeto, calcularConclusaoProjeto, calcularLinhasFolhaComVerba,
         agruparLinhasDesempenho, calcularTabelasDesempenho, calcularDesempenhoExecutoresProjeto,
         calcularResumoFinanceiroProjeto, calcularDesempenhoProjeto, calcularDiagnosticoProjeto,
-        obterPctBonificacao, salvarPctBonificacao, calcularBonificacaoProjeto
+        obterPctBonificacao, salvarPctBonificacao, calcularBonificacaoProjeto,
+        calcularMetaDistribuicoes, calcularDistribuicoesProjeto
     };
 }
 
@@ -574,7 +626,7 @@ function renderizarBonificacaoProjeto(b) {
     html += '<p class="desemp-painel-legenda">Quem só tem Bloco Fixo (fases sem apontamento) recebe o valor cheio, sem risco. Quem trabalha no Pool de Detalhamento tem Bonificação = Lucro/Sobra × % acima — pode ficar negativa.</p>';
     html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>Executor</th><th>Origem</th><th>Custo Real (R$)</th><th>Lucro/Sobra (R$)</th><th>Bonificação (R$)</th></tr></thead><tbody>';
     b.executores.forEach(e => {
-        const nomeExibicao = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(e.nome) : e.nome;
+        const nomeExibicao = nomeExecutorExibicao(e.nome);
         html += '<tr><td>' + escapeHtml(nomeExibicao) + '</td>' +
             '<td>' + (e.fixo ? 'Bloco Fixo' : 'Pool de Detalhamento') + '</td>' +
             '<td class="num">' + formatarMoeda(e.custo) + '</td>' +
@@ -590,6 +642,174 @@ function renderizarBonificacaoProjeto(b) {
 
 function obterFormatoPct(v) {
     return (v || 0).toFixed(v % 1 === 0 ? 0 : 1).replace('.', ',');
+}
+
+// =========================================================================
+// 6ª ORELHA "DISTRIBUIÇÕES" — relatório editorial (ver calcularDistribuicoesProjeto)
+// =========================================================================
+
+function carregarPainelDistribuicoes(nomeProjeto) {
+    const area = document.getElementById('distribuicoes-conteudo');
+    if (!area) return;
+    if (!nomeProjeto) { area.innerHTML = ''; return; }
+
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) {
+        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Este projeto ainda não tem Etapas cadastradas na Árvore — sem estrutura, não há distribuição pra mostrar.</div>';
+        return;
+    }
+
+    const dados = calcularDistribuicoesProjeto(nomeProjeto);
+    area.innerHTML = renderizarDistribuicoesProjeto(nomeProjeto, dados);
+}
+
+// Barra divergente genérica: `linhas` = [{label, valor, meta?, emph?}].
+// Larguras escaladas pelo maior |valor| do grupo (mesma régua pra
+// todas as linhas do MESMO gráfico) — barra do maior vira 50% (toca a
+// extremidade), as outras proporcionais. Cada linha pode ter uma
+// `meta` (texto pequeno embaixo do rótulo, ex: "6 lançamentos · 166h").
+function distDivChart(linhas) {
+    const maxAbs = Math.max.apply(null, linhas.map(l => Math.abs(l.valor)).concat([0.01]));
+    let html = '<div class="dist-divchart">';
+    linhas.forEach(l => {
+        const pct = Math.min(50, Math.abs(l.valor) / maxAbs * 50);
+        const pos = l.valor >= 0;
+        html += '<div class="dist-divrow' + (l.emph ? ' emph' : '') + '">' +
+            '<div class="dist-label">' + escapeHtml(l.label) + '</div>' +
+            '<div class="dist-track"><div class="zero"></div><div class="bar ' + (pos ? 'pos' : 'neg') + '" style="width:' + pct.toFixed(2) + '%;"></div></div>' +
+            '<div class="dist-value ' + (pos ? 'pos' : 'neg') + ' dist-num">' + (pos ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(l.valor)) + '</div>' +
+            '</div>';
+        if (l.meta) html += '<div class="dist-divrow"><div class="dist-subrow-meta">' + l.meta + '</div><div></div><div></div></div>';
+    });
+    html += '</div>';
+    return html;
+}
+
+// `rotulo`/`sub2` são textos fixos (com entidades HTML tipo &ccedil;
+// já embutidas) escritos por nós, nunca dado do usuário — por isso
+// NÃO passam por escapeHtml() aqui (escapar transformaria "&ccedil;"
+// em "&amp;ccedil;", que o navegador mostra como texto literal em vez
+// de "ç"). Dado dinâmico (nome de projeto/executor/atividade) é
+// escapado no ponto onde é interpolado, antes de chegar aqui.
+function distKpi(rotulo, valor, sub2, critical) {
+    return '<div class="dist-kpi"><div class="dist-eyebrow">' + rotulo + '</div>' +
+        '<div class="dist-val dist-num' + (critical ? ' critical' : '') + '">' + valor + '</div>' +
+        '<div class="dist-sub2">' + sub2 + '</div></div>';
+}
+
+function renderizarDistribuicoesProjeto(nomeProjeto, d) {
+    const meta = d.meta, bonif = d.bonif, fin = d.financeiro;
+    const paletaCores = ['var(--dist-cat-1)', 'var(--dist-cat-2)', 'var(--dist-cat-3)'];
+
+    const poolLucroTotal = bonif.poolLucro;
+    const pctDesvioPool = bonif.poolVerba > 0 ? (bonif.poolCusto / bonif.poolVerba * 100 - 100) : 0;
+    const foraTolerancia = Math.abs(pctDesvioPool) > 0.5;
+
+    let html = '<div class="dist-page">';
+
+    // --- Masthead ---
+    html += '<div class="dist-masthead"><div class="dist-masthead-top"><div>';
+    html += '<div class="dist-eyebrow">Relat&oacute;rio de Distribui&ccedil;&otilde;es &middot; Detalhamento Estrutural</div>';
+    html += '<h1>' + escapeHtml(nomeProjeto) + '</h1>';
+    html += '<div class="dist-sub">' + (meta.cliente ? 'Cliente <b>' + escapeHtml(meta.cliente) + '</b> &middot; ' : '') +
+        (meta.pavimentos ? escapeHtml(meta.pavimentos) + ' pavimentos, ' : '') + (meta.area ? formatarNumero(meta.area) + ' m&sup2;' : '') +
+        ' &middot; Vers&atilde;o de fechamento <b>' + d.pctConcluido.toFixed(0) + '%</b></div>';
+    html += '</div><div class="dist-meta-block">';
+    html += '<div class="dist-meta-row"><span class="k">Horas apuradas</span><span class="v dist-num">' + formatarNumero(d.horasCusto.horasRealizadas) + ' h</span></div>';
+    html += '<div class="dist-meta-row"><span class="k">Per&iacute;odo</span><span class="v dist-num">' + (meta.periodo ? escapeHtml(meta.periodo) : '&mdash;') + '</span></div>';
+    html += '<div class="dist-meta-row"><span class="k">Detalhistas</span><span class="v">' + d.poolExecutores.map(e => escapeHtml(nomeExecutorExibicao(e.nome))).join(' &middot; ') + '</span></div>';
+    html += '</div></div>';
+    html += '<div class="dist-headline"><div class="dist-figure ' + (poolLucroTotal >= 0 ? 'good' : 'critical') + ' dist-num">' + (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)) + '</div>';
+    html += '<div class="dist-caption">O custo real das ' + formatarNumero(d.horasCusto.horasRealizadas) + 'h de detalhamento (<b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b>) ficou <b>' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '% ' + (pctDesvioPool >= 0 ? 'acima' : 'abaixo') + '</b> do or&ccedil;amento (<b class="dist-num">' + formatarMoeda(bonif.poolVerba) + '</b>).</div></div>';
+    html += '</div>';
+
+    // --- Números do contrato ---
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>N&uacute;meros do contrato</h2></div>';
+    html += '<div class="dist-kpis">';
+    html += distKpi('Valor contratado (bruto)', formatarMoeda(fin.valorContrato), (meta.area ? formatarNumero(fin.valorContrato / meta.area) + ' /m&sup2;' : ''));
+    html += distKpi('Verba Global p/ Produ&ccedil;&atilde;o', formatarMoeda(bonif.valorGlobalProducao), fin.pctAnalista.toFixed(0) + '% do valor l&iacute;quido');
+    html += distKpi('Or&ccedil;amento Detalhamento', formatarMoeda(bonif.poolVerba), 'pool de horas de ' + d.poolExecutores.map(e => (nomeExecutorExibicao(e.nome)).split(' ')[0]).join(' + '));
+    html += distKpi('Custo Real do Detalhamento', formatarMoeda(bonif.poolCusto), formatarNumero(d.horasCusto.horasRealizadas) + ' h executadas');
+    html += distKpi('Desvio contra o or&ccedil;ado', (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)), (pctDesvioPool >= 0 ? 'estouro' : 'sobra') + ' de ' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '%', poolLucroTotal < 0);
+    html += '</div></div>';
+
+    // --- Como a comissão é dividida ---
+    const pctFixo = bonif.valorGlobalProducao > 0 ? bonif.totalFixo / bonif.valorGlobalProducao * 100 : 0;
+    const pctPool = bonif.valorGlobalProducao > 0 ? bonif.poolVerba / bonif.valorGlobalProducao * 100 : 0;
+    const pctMargem = bonif.valorGlobalProducao > 0 ? bonif.margemEscritorio / bonif.valorGlobalProducao * 100 : 0;
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>Como a Verba Global &eacute; dividida</h2><div class="dist-note">' + formatarMoeda(bonif.valorGlobalProducao) + ' em tr&ecirc;s blocos</div></div>';
+    html += '<div class="dist-panel"><div class="dist-segbar">' +
+        '<div class="dist-seg" style="width:' + pctFixo.toFixed(1) + '%; background:var(--dist-cat-1);"><span>Bloco Fixo &middot; ' + pctFixo.toFixed(0) + '%</span></div>' +
+        '<div class="dist-seg" style="width:' + pctPool.toFixed(1) + '%; background:var(--dist-accent);"><span>Detalhamento &middot; ' + pctPool.toFixed(0) + '%</span></div>' +
+        '<div class="dist-seg dist-seg-margem" style="width:' + pctMargem.toFixed(1) + '%;"><span>Margem &middot; ' + pctMargem.toFixed(0) + '%</span></div>' +
+        '</div>';
+    html += '<div class="dist-seg-legend">' +
+        '<div class="item"><span class="swatch" style="background:var(--dist-cat-1);"></span>' + d.fixoExecutores.map(e => (nomeExecutorExibicao(e.nome))).join(', ') + ' (fases sem apontamento) &mdash; <span class="dist-num">' + formatarMoeda(bonif.totalFixo) + '</span> fixo</div>' +
+        '<div class="item"><span class="swatch" style="background:var(--dist-accent);"></span>Pool de horas de ' + d.poolExecutores.map(e => (nomeExecutorExibicao(e.nome))).join(' + ') + ' &mdash; or&ccedil;ado <span class="dist-num">' + formatarMoeda(bonif.poolVerba) + '</span></div>' +
+        '<div class="item"><span class="swatch" style="background:var(--dist-surface-2); border:1px solid var(--dist-border-strong);"></span>Margem do escrit&oacute;rio &mdash; <span class="dist-num">' + formatarMoeda(bonif.margemEscritorio) + '</span></div>' +
+        '</div>';
+    html += '<div class="dist-tolerance"><span class="tag' + (foraTolerancia ? '' : ' ok') + '">' + (foraTolerancia ? 'Fora da toler&acirc;ncia' : 'Dentro da toler&acirc;ncia') + '</span> o pool de detalhamento foi executado por <b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b> &mdash; ' + formatarMoeda(Math.abs(poolLucroTotal)) + (poolLucroTotal >= 0 ? ' abaixo' : ' acima') + ' do que este bloco or&ccedil;ava.</div>';
+    html += '</div></div>';
+
+    // --- Resultado por técnico ---
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>Resultado por t&eacute;cnico</h2><div class="dist-note">custo executado &times; resultado (lucro/sobra)</div></div>';
+    html += '<div class="dist-tech-row"><div class="dist-panel">';
+    html += distDivChart(d.poolExecutores.map(e => ({
+        label: nomeExecutorExibicao(e.nome),
+        valor: e.lucro, emph: true,
+        meta: 'custo ' + formatarMoeda(e.custo)
+    })));
+    html += '</div><div>';
+    d.fixoExecutores.forEach((e, i) => {
+        const nomeExibicao = nomeExecutorExibicao(e.nome);
+        html += '<div class="dist-fixo-card"><div class="dist-name"><span class="dist-swatch-dot" style="background:' + paletaCores[i % paletaCores.length] + ';"></span>' + escapeHtml(nomeExibicao) + '</div>' +
+            '<div class="dist-amount dist-num">' + formatarMoeda(e.custo) + '</div>' +
+            '<div class="dist-desc">N&atilde;o entra nesta compara&ccedil;&atilde;o &mdash; recebe integralmente o valor das fases sem apontamento de horas, sem exposi&ccedil;&atilde;o a estouro ou sobra.</div></div>';
+    });
+    html += '</div></div>';
+    if (d.poolExecutores.length > 1) {
+        const pior = d.poolExecutores.slice().sort((a, b) => a.lucro - b.lucro)[0];
+        html += '<div class="dist-callout' + (poolLucroTotal >= 0 ? ' good' : '') + '"><div class="dist-mark">&Delta;</div><p>Juntos, ' + d.poolExecutores.map(e => nomeExecutorExibicao(e.nome)).join(' e ') + ' fecham em <b>' + (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)) + '</b> &mdash; exatamente o ' + (poolLucroTotal >= 0 ? 'saldo' : 'estouro') + ' do pool de detalhamento.' +
+            (pior.lucro < 0 ? ' A maior parte da perda do per&iacute;odo est&aacute; concentrada em ' + (nomeExecutorExibicao(pior.nome)) + '.' : '') + '</p></div>';
+    }
+    html += '</div>';
+
+    // --- Resultado por pavimento ---
+    if (d.tab.porPavimento.length > 0) {
+        html += '<div class="dist-section"><div class="dist-section-head"><h2>Resultado por pavimento</h2><div class="dist-note">' + d.poolExecutores.map(e => nomeExecutorExibicao(e.nome)).join(' + ') + ' combinados</div></div>';
+        html += '<div class="dist-panel">' + distDivChart(d.tab.porPavimento.map(p => ({ label: p.nome, valor: p.lucro }))) + '</div></div>';
+    }
+
+    // --- Diagnóstico por atividade ---
+    if (d.diagPorAtividade.length > 0) {
+        const nomeDiagExibicao = d.diagExecutorNome ? (nomeExecutorExibicao(d.diagExecutorNome)) : null;
+        html += '<div class="dist-section"><div class="dist-section-head"><h2>Diagn&oacute;stico' + (nomeDiagExibicao ? ' &mdash; por que ' + escapeHtml(nomeDiagExibicao) + ' fechou negativo' : ' por atividade') + '</h2><div class="dist-note">resultado por atividade' + (nomeDiagExibicao ? '' : ', todos os pavimentos') + '</div></div>';
+        html += '<div class="dist-panel">';
+        const linhasFolha = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome && l.horas > 0 && (!d.diagExecutorNome || l.executor === d.diagExecutorNome));
+        html += distDivChart(d.diagPorAtividade.map(a => {
+            const instancias = linhasFolha.filter(l => l.nome === a.nome);
+            const totalHoras = instancias.reduce((s, l) => s + l.horas, 0);
+            const emph = a === d.diagPorAtividade[0] || a === d.diagPorAtividade[d.diagPorAtividade.length - 1];
+            return { label: a.nome, valor: a.lucro, emph: emph, meta: instancias.length + ' lan&ccedil;amento' + (instancias.length === 1 ? '' : 's') + ' &middot; ' + formatarNumero(totalHoras) + ' h' };
+        }));
+        const pior = d.diagPorAtividade[0];
+        if (pior && pior.lucro < 0) {
+            const somaNegativos = d.diagPorAtividade.filter(a => a.lucro < 0).reduce((s, a) => s + a.lucro, 0);
+            const dominante = somaNegativos < 0 && Math.abs(pior.lucro) >= Math.abs(somaNegativos) * 0.6;
+            html += '<div class="dist-callout"><div class="dist-mark">!</div><p><b>' + escapeHtml(pior.nome) + ' sozinho (' + formatarMoeda(pior.lucro) + ')</b>' + (dominante ? ' concentra a maior parte do resultado negativo' + (nomeDiagExibicao ? ' de ' + escapeHtml(nomeDiagExibicao) : '') + '.' : ' &eacute; a atividade com o pior resultado' + (nomeDiagExibicao ? ' de ' + escapeHtml(nomeDiagExibicao) : '') + '.') +
+                ' Vale revisar se os Pontos dessa atividade est&atilde;o bem dimensionados no Cadastro de Tarefas, ou se o ritmo de execu&ccedil;&atilde;o nela est&aacute; abaixo da meta.</p></div>';
+        }
+        html += '</div></div>';
+    }
+
+    // --- Nota de dados ---
+    html += '<div class="dist-datanote"><span class="tag">Nota de dados</span><div>' +
+        '<p>Todos os valores acima vêm dos mesmos c&aacute;lculos j&aacute; usados nas orelhas Desempenho e Bonifica&ccedil;&atilde;o deste projeto &mdash; "Horas Previsto" segue a conven&ccedil;&atilde;o de Pontos do Cadastro de Tarefas (n&atilde;o &aacute;rea &times; produtividade).</p>' +
+        '</div></div>';
+
+    html += '</div>';
+    return html;
 }
 
 function renderizarDesempenhoProjeto(d) {
@@ -629,7 +849,7 @@ function renderizarDesempenhoProjeto(d) {
         html += '<p class="desemp-painel-legenda">Pontos = soma do Cadastro de Tarefas nas tarefas que cada um executou. Horas/Ponto mais baixo = mais eficiente; Pontos/Mês = ritmo de produção, do primeiro ao último lançamento de cada um.</p>';
         html += '<table class="desemp-tabela"><thead><tr><th>Executor</th><th>Pontos</th><th>Horas</th><th>Horas / Ponto</th><th>Pontos / Mês</th></tr></thead><tbody>';
         d.executores.forEach(e => {
-            html += '<tr><td>' + escapeHtml(typeof nomeParaExibicao === 'function' ? nomeParaExibicao(e.nome) : e.nome) + '</td>' +
+            html += '<tr><td>' + escapeHtml(nomeExecutorExibicao(e.nome)) + '</td>' +
                 '<td class="num">' + formatarNumero(e.pontos) + '</td>' +
                 '<td class="num">' + formatarNumero(e.horas) + 'h</td>' +
                 '<td class="num">' + e.horasPorPonto.toFixed(2) + '</td>' +
@@ -727,6 +947,16 @@ function finLinha(rotulo, valor, classe) {
 
 function formatarNumero(v) {
     return (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Mesma ideia de nomeParaExibicao() (core.js), mas blindada contra o
+// placeholder "(sem executor)" que calcularBonificacaoProjeto() usa
+// pra folhas fora do Detalhamento sem ninguém atribuído — passar esse
+// placeholder pro fallback de nomeParaExibicao (primeiro token do
+// nome, separado por espaço) cortava ele pra "(sem", que é confuso.
+function nomeExecutorExibicao(nome) {
+    if (!nome || nome === '(sem executor)') return 'Sem executor';
+    return typeof nomeParaExibicao === 'function' ? nomeParaExibicao(nome) : nome;
 }
 
 function escapeHtml(s) {
