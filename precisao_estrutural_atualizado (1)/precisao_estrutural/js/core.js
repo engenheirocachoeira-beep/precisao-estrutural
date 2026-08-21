@@ -647,10 +647,12 @@ function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
     const orelhaCustos = document.getElementById('orelha-custos-projeto');
     const orelhaDesempenho = document.getElementById('orelha-desempenho-projeto');
     const orelhaDiagnostico = document.getElementById('orelha-diagnostico-projeto');
+    const orelhaBonificacao = document.getElementById('orelha-bonificacao-projeto');
     if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
     if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
     if (orelhaDesempenho) orelhaDesempenho.classList.toggle('active', abaAtiva === 'desempenho');
     if (orelhaDiagnostico) orelhaDiagnostico.classList.toggle('active', abaAtiva === 'diagnostico');
+    if (orelhaBonificacao) orelhaBonificacao.classList.toggle('active', abaAtiva === 'bonificacao');
 }
 
 function alternarModulo(modulo) {
@@ -787,6 +789,22 @@ function irParaDiagnosticoDoProjetoAtivo() {
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     if (typeof carregarPainelDiagnostico === 'function') carregarPainelDiagnostico(nome);
+}
+
+// 5ª orelha do Hub "📁 Projetos" — Bonificação (Lucro/Sobra e
+// Bonificação por Executor, rateio da Verba Global em 3 blocos), ver
+// js/desempenho-projeto.js::calcularBonificacaoProjeto(). Mesmo padrão
+// de origem do nome do projeto das outras orelhas.
+function irParaBonificacaoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-bonificacao-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'bonificacao');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelBonificacao === 'function') carregarPainelBonificacao(nome);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {

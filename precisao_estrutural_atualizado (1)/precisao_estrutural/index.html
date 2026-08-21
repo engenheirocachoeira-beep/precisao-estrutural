@@ -60,6 +60,7 @@
                     <div id="orelha-custos-projeto" class="tab-selector" onclick="irParaDistribuicaoCustosDoProjetoAtivo()">📊 Custos</div>
                     <div id="orelha-desempenho-projeto" class="tab-selector" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Desempenho</div>
                     <div id="orelha-diagnostico-projeto" class="tab-selector" onclick="irParaDiagnosticoDoProjetoAtivo()">🩺 Diagnóstico</div>
+                    <div id="orelha-bonificacao-projeto" class="tab-selector" onclick="irParaBonificacaoDoProjetoAtivo()">🏆 Bonificação</div>
                 </div>
 
                 <div id="panel-blank-state" class="workspace-blank active">
@@ -552,6 +553,11 @@
                 <div id="panel-diagnostico-projeto" class="content-panel" style="overflow-y:auto;">
                     <p style="font-size:12px; color:#64748b; margin:0 0 16px;">Leituras automáticas em cima dos mesmos dados da aba Desempenho — atividades fora do previsto, disparidades entre executores, etapas estouradas.</p>
                     <div id="diagnostico-conteudo"></div>
+                </div>
+
+                <div id="panel-bonificacao-projeto" class="content-panel" style="overflow-y:auto;">
+                    <p style="font-size:12px; color:#64748b; margin:0 0 16px;">Lucro/Sobra (Verba − Custo Real) e Bonificação por Executor, com o rateio da Verba Global para Produção em 3 blocos: Fixo, Pool de Horas de Detalhamento e Margem do Escritório.</p>
+                    <div id="bonificacao-conteudo"></div>
                 </div>
 
                 <div id="panel-atribuicao-tarefas" class="content-panel">

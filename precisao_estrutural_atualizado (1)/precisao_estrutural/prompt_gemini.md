@@ -8518,3 +8518,84 @@ cards esperados com as cores certas. Sem erro no console. Projeto ainda
 está com Impostos=23% salvo (não 17% como o usuário confirmou ser o
 valor real) — números da tela batem com o que está salvo, mesma nota
 da parte 26.
+
+## Retomada em 2026-08-20 (parte 28) — Nova 5ª orelha "Bonificação"
+
+**Pedido do usuário**: trouxe de outra conversa uma planilha
+(`HOME_GARDEN_SETOR_C_com_Desempenho_v4.xlsx`) + um documento em
+markdown descrevendo um modelo de bonificação de detalhamento
+estrutural, com números "verificados/reconciliados" de um projeto
+real, pedindo pra "construir as abas" com base nessas referências.
+Antes de implementar, perguntei 2 coisas por AskUserQuestion (o
+documento trazia uma metodologia de "Horas Previsto" diferente da
+nossa — área×produtividade em vez de Pontos — e não estava claro se
+Bonificação era coluna nova nas tabelas existentes ou tela própria):
+usuário respondeu manter Pontos (não migrar a metodologia) e "ambos"
+(colunas novas + orelha nova).
+
+**Conceito novo**: Bonificação ≠ "Distribuição de Lucro (Estagiários)"
+(`js/distribuicao-lucro.js`, já existia — reparte por Pontos entre
+estagiários o Fundo de 5%). Bonificação é por Etapa/Pavimento/
+Executor: Lucro/Sobra = Verba − Custo Real, Bonificação = Lucro/Sobra
+× % Bonificação (pode dar negativo).
+
+**`js/desempenho-projeto.js`**:
+- `agruparLinhasDesempenho()` passou a anexar `.lucro` (verba−custo) em
+  cada grupo — usado tanto pela coluna nova quanto pelo cálculo de
+  Bonificação.
+- `tabelaDesempenho()` ganhou um parâmetro opcional `pctBonificacao`
+  que acrescenta uma 8ª coluna "Bonificação (R$)" no fim — só passado
+  na chamada da tabela "Por Executor" (as outras 3 continuam com 7
+  colunas, como no documento de referência).
+- `obterPctBonificacao()`/`salvarPctBonificacao()` — novo banco
+  `banco_pct_bonificacao` (`{projeto: {pct}}`, default 100 se nunca
+  salvo), mesmo padrão de `banco_fundo_lucros_pavimento`.
+- `calcularBonificacaoProjeto()` — monta os 3 blocos do documento de
+  referência a partir de dados que JÁ existiam, sem inventar cálculo
+  novo: Bloco Fixo = linhas fora do Detalhamento agrupadas por
+  executor SEM o filtro "sem hora, não lista" (aqui elas aparecem
+  mesmo sem hora — é assim que o Bloco Fixo funciona: valor cheio, sem
+  risco); Pool de Horas de Detalhamento = linhas com Pavimento, com
+  Lucro/Sobra e Bonificação por executor; Margem do Escritório = Fundo
+  Garantidor + Fundo de Distribuição de Lucros (retido, nunca alocado
+  a ninguém).
+- Novo achado em `calcularDiagnosticoProjeto()`, generalizando o
+  achado do documento de referência ("DT_Vigas sozinha é quase 4× o
+  déficit final do Daniel"): pra cada executor com Lucro/Sobra negativo
+  no Pool, acha a linha Pavimento×Tarefa individual mais negativa e
+  avisa se ela sozinha (em módulo) já é maior que o déficit final dele
+  — sinal de que o problema é uma tarefa específica, não um padrão
+  espalhado.
+
+**`index.html`/`js/core.js`**: 5ª orelha `#orelha-bonificacao-projeto`
++ `#panel-bonificacao-projeto` + `irParaBonificacaoDoProjetoAtivo()`,
+mesmo padrão das outras 4. `atualizarOrelhasProjetoAtivo()` ganhou o
+5º caso.
+
+**`estilos.css`**: as regras `.desemp-*` que já existiam pra
+`#panel-desempenho-projeto` passaram a valer também pra
+`#panel-bonificacao-projeto`, via seletor `:is(#panel-desempenho-projeto,
+#panel-bonificacao-projeto) .desemp-...` (troca em massa, sem duplicar
+~50 linhas de CSS) — a nova orelha reaproveita exatamente o mesmo
+cabeçalho navy/moldura/cores que a de Desempenho.
+
+**Discrepância esperada com a planilha de referência**: como a
+metodologia de "Horas Previsto" ficou em Pontos (decisão do usuário),
+a Verba por Pavimento/Tarefa bate EXATO com a planilha (mesma cascata
+por área×peso — confirmado célula a célula), mas o Custo Real
+diverge um pouco (a planilha usa uma tabela de valor/hora mais granular,
+por atividade além de por data — nosso `valorHoraVigente()` só varia
+por data). Isso já muda até o SINAL da Bonificação do Andrey (negativa
+aqui, positiva na planilha) — esperado, não é bug; registrado aqui pra
+não reabrir a investigação à toa numa sessão futura.
+
+**Verificação**: `node --check` limpo nos 3 arquivos tocados. Testado
+em Node isolado (mesmo harness `vm`) — Bloco Fixo bate EXATO com a
+planilha (R$ 13.684,93 = Igor); Pool/Margem/Bonificação por executor
+calculam mas divergem em valor absoluto do Custo Real pela razão acima
+(sinal, não estrutura). Testado no navegador local: as 5 orelhas
+navegam, a tabela "Por Executor" em Desempenho mostra a 8ª coluna
+Bonificação, o campo "% Bonificação" edita e recalcula ao vivo
+(testado 100%→50%→100%, conferido no Firebase que voltou limpo em
+100% depois), e a tela de Bonificação mostra os 3 blocos + tabela por
+executor com Igor/Daniel/Andrey. Sem erro no console.

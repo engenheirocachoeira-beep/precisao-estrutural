@@ -163,7 +163,7 @@ function agruparLinhasDesempenho(linhas, chaveFn) {
         grupos[chave].verba += l.verba;
         grupos[chave].custo += l.custo;
     });
-    return ordem.map(c => grupos[c]).filter(g => g.realizado > 0);
+    return ordem.map(c => grupos[c]).filter(g => g.realizado > 0).map(g => Object.assign(g, { lucro: g.verba - g.custo }));
 }
 
 // --- 4) MONTAGEM DAS 4 TABELAS + TOTAL (mesmo pro todas as 4 — é o
@@ -270,6 +270,112 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
     };
 }
 
+// --- 7) BONIFICAÇÃO — 5ª orelha, pedido do usuário: "documento de
+// referência" trazido de outra conversa (planilha "...com_Desempenho_v4.xlsx"
+// + resumo em markdown), com o modelo de bonificação do detalhamento
+// estrutural. Conceito novo, não confundir com "Distribuição de Lucro
+// (Estagiários)" (js/distribuicao-lucro.js) — aquela reparte por
+// Pontos entre estagiários o Fundo de 5%; esta calcula, por Etapa/
+// Pavimento/Executor, o Lucro/Sobra (Verba − Custo Real) e uma
+// Bonificação = Lucro/Sobra × % Bonificação (pode dar negativo).
+//
+// "Horas Previsto" continua Pontos (decisão do usuário — não migrar
+// pra área×produtividade só por causa deste documento).
+//
+// Comissão do escritório (Verba Global p/ Produção, calcularResumoFinanceiroProjeto)
+// se divide em 3 blocos, conforme o documento de referência:
+// 1. Bloco Fixo — Etapas fora do Detalhamento (Pré-Lançamento/
+//    Lançamento/Análise/Cargas, tipicamente): recebem o valor cheio da
+//    própria Verba, sem comparação Previsto×Realizado (mesma regra
+//    "sem hora, custo=verba" já usada em calcularLinhasFolhaComVerba —
+//    aqui aparecem mesmo sem hora nenhuma, ao contrário das 4 tabelas
+//    de Desempenho).
+// 2. Pool de Horas de Detalhamento — Verba líquida que cascateia pra
+//    Pavimento/Tarefa (calcularListaPavimentosComVerbaSalva) — é onde
+//    a Bonificação por desempenho realmente acontece.
+// 3. Margem do Escritório — Fundo Garantidor + Fundo de Distribuição
+//    de Lucros: fatias estruturalmente retidas, nunca alocadas a
+//    ninguém (nem ao Bloco Fixo, nem ao Pool).
+function obterPctBonificacao(nomeProjeto) {
+    const salvos = JSON.parse(localStorage.getItem('banco_pct_bonificacao')) || {};
+    const salvo = salvos[nomeProjeto];
+    return (salvo && salvo.pct !== undefined && salvo.pct !== '') ? (parseFloat(salvo.pct) || 0) : 100;
+}
+
+function salvarPctBonificacao(nomeProjeto, pct) {
+    const salvos = JSON.parse(localStorage.getItem('banco_pct_bonificacao')) || {};
+    salvos[nomeProjeto] = { pct: String(pct) };
+    localStorage.setItem('banco_pct_bonificacao', JSON.stringify(salvos));
+}
+
+function calcularBonificacaoProjeto(nomeProjeto) {
+    const pctBonificacao = obterPctBonificacao(nomeProjeto);
+    const linhas = calcularLinhasFolhaComVerba(nomeProjeto);
+
+    // Bloco 1 — Fixo: linhas fora do Detalhamento (pavimentoNome nulo),
+    // agrupadas por executor, SEM o filtro "sem hora, não lista" (aqui
+    // elas aparecem mesmo sem hora nenhuma — é assim que recebem).
+    const fixoPorExecutor = {};
+    const ordemFixo = [];
+    linhas.filter(l => !l.pavimentoNome).forEach(l => {
+        const ex = l.executor || '(sem executor)';
+        if (!fixoPorExecutor[ex]) { fixoPorExecutor[ex] = 0; ordemFixo.push(ex); }
+        fixoPorExecutor[ex] += l.verba; // verba === custo aqui (regra "sem hora, custo=verba")
+    });
+    const totalFixo = ordemFixo.reduce((s, ex) => s + fixoPorExecutor[ex], 0);
+
+    // Bloco 2 — Pool de Horas de Detalhamento: linhas com Pavimento.
+    const linhasDetalhamento = linhas.filter(l => l.pavimentoNome);
+    const poolVerba = linhasDetalhamento.reduce((s, l) => s + l.verba, 0);
+    const poolCusto = linhasDetalhamento.reduce((s, l) => s + l.custo, 0);
+
+    const detalhamentoPorExecutor = {};
+    const ordemDetalhamento = [];
+    linhasDetalhamento.forEach(l => {
+        const ex = l.executor || '(sem executor)';
+        if (!detalhamentoPorExecutor[ex]) { detalhamentoPorExecutor[ex] = { verba: 0, custo: 0 }; ordemDetalhamento.push(ex); }
+        detalhamentoPorExecutor[ex].verba += l.verba;
+        detalhamentoPorExecutor[ex].custo += l.custo;
+    });
+
+    const executores = [];
+    ordemDetalhamento.forEach(ex => {
+        const d = detalhamentoPorExecutor[ex];
+        const lucro = d.verba - d.custo;
+        executores.push({ nome: ex, fixo: false, verba: d.verba, custo: d.custo, lucro: lucro, bonificacao: lucro * pctBonificacao / 100 });
+    });
+    ordemFixo.forEach(ex => {
+        // Alguém que já aparece no Bloco 2 (pool) e também tem uma
+        // parte fixa entraria 2x — não é o caso hoje (Igor só tem
+        // Bloco Fixo, Daniel/Andrey só têm Pool), mas soma junto se
+        // acontecer no futuro em vez de duplicar a linha.
+        const existente = executores.find(e => e.nome === ex);
+        if (existente) {
+            existente.verba += fixoPorExecutor[ex]; existente.custo += fixoPorExecutor[ex]; existente.fixo = true;
+            existente.bonificacao += fixoPorExecutor[ex];
+        } else {
+            executores.push({ nome: ex, fixo: true, verba: fixoPorExecutor[ex], custo: fixoPorExecutor[ex], lucro: 0, bonificacao: fixoPorExecutor[ex] });
+        }
+    });
+
+    // Bloco 3 — Margem do Escritório: retido, nunca alocado a ninguém.
+    const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
+    const margemEscritorio = fin.valorFundoGarantidor + fin.valorFundoLucros;
+
+    const totalCusto = executores.reduce((s, e) => s + e.custo, 0);
+    const totalBonificacao = executores.reduce((s, e) => s + e.bonificacao, 0);
+
+    return {
+        pctBonificacao: pctBonificacao,
+        valorGlobalProducao: fin.valorAnalista,
+        totalFixo: totalFixo,
+        poolVerba: poolVerba, poolCusto: poolCusto, poolLucro: poolVerba - poolCusto,
+        margemEscritorio: margemEscritorio,
+        executores: executores.sort((a, b) => b.custo - a.custo),
+        totalCusto: totalCusto, totalBonificacao: totalBonificacao
+    };
+}
+
 // --- ORQUESTRADOR ---
 function calcularDesempenhoProjeto(nomeProjeto) {
     return {
@@ -342,6 +448,34 @@ function calcularDiagnosticoProjeto(nomeProjeto) {
             ' Etapas cadastradas — as demais nunca tiveram hora apontada, então somem pela regra "sem hora, não lista".' });
     }
 
+    // Achado do documento de referência de Bonificação (2026-08-20):
+    // "a atividade DT_Vigas sozinha é o maior fator do resultado
+    // negativo do Daniel — quase 4× o déficit final". Generalizado:
+    // pra cada executor com Lucro/Sobra negativo no Pool de
+    // Detalhamento, acha a linha (Pavimento×Tarefa) individual mais
+    // negativa dele e avisa se ela sozinha já é maior (em módulo) que
+    // o déficit final do executor — indica que UMA tarefa concentra o
+    // prejuízo, não um padrão espalhado.
+    const linhasDetalhamento = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome && l.horas > 0);
+    const porExecutorLinhas = {};
+    linhasDetalhamento.forEach(l => {
+        const ex = l.executor || '(sem executor)';
+        if (!porExecutorLinhas[ex]) porExecutorLinhas[ex] = [];
+        porExecutorLinhas[ex].push(l);
+    });
+    Object.keys(porExecutorLinhas).forEach(ex => {
+        const linhasEx = porExecutorLinhas[ex];
+        const lucroTotalEx = linhasEx.reduce((s, l) => s + (l.verba - l.custo), 0);
+        if (lucroTotalEx >= 0) return; // só interessa quando o executor fechou no vermelho
+        const pior = linhasEx.slice().sort((a, b) => (a.verba - a.custo) - (b.verba - b.custo))[0];
+        const lucroPior = pior.verba - pior.custo;
+        if (lucroPior < 0 && Math.abs(lucroPior) >= Math.abs(lucroTotalEx)) {
+            const nomeEx = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(ex) : ex;
+            achados.push({ severidade: 'ruim', icone: '🔴', texto: pior.pavimentoNome + ' · ' + pior.nome + ' (' + nomeEx + ') concentra sozinha o déficit de ' + nomeEx +
+                ': ' + formatarMoeda(Math.abs(lucroPior)) + ' de prejuízo nessa única tarefa, contra ' + formatarMoeda(Math.abs(lucroTotalEx)) + ' de déficit total dele — não é um padrão espalhado, é essa tarefa específica.' });
+        }
+    });
+
     return achados;
 }
 
@@ -353,7 +487,8 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         calcularHorasCustoProjeto, calcularConclusaoProjeto, calcularLinhasFolhaComVerba,
         agruparLinhasDesempenho, calcularTabelasDesempenho, calcularDesempenhoExecutoresProjeto,
-        calcularResumoFinanceiroProjeto, calcularDesempenhoProjeto, calcularDiagnosticoProjeto
+        calcularResumoFinanceiroProjeto, calcularDesempenhoProjeto, calcularDiagnosticoProjeto,
+        obterPctBonificacao, salvarPctBonificacao, calcularBonificacaoProjeto
     };
 }
 
@@ -394,6 +529,69 @@ function diagnosticoCard(a) {
     return '<div class="diag-card diag-' + a.severidade + '"><span>' + a.icone + '</span><div>' + escapeHtml(a.texto) + '</div></div>';
 }
 
+function carregarPainelBonificacao(nomeProjeto) {
+    const area = document.getElementById('bonificacao-conteudo');
+    if (!area) return;
+    if (!nomeProjeto) { area.innerHTML = ''; return; }
+
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) {
+        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Este projeto ainda não tem Etapas cadastradas na Árvore — sem estrutura, não há bonificação pra calcular.</div>';
+        return;
+    }
+
+    const dados = calcularBonificacaoProjeto(nomeProjeto);
+    area.innerHTML = renderizarBonificacaoProjeto(dados);
+}
+
+function salvarPctBonificacaoTela() {
+    const nome = projetoSelecionadoAtivo || (document.getElementById('dc-projeto') ? document.getElementById('dc-projeto').value : '');
+    if (!nome) return;
+    const input = document.getElementById('bonif-pct-input');
+    salvarPctBonificacao(nome, input.value);
+    carregarPainelBonificacao(nome);
+}
+
+function renderizarBonificacaoProjeto(b) {
+    let html = '';
+
+    html += '<div class="desemp-grid-kpi">';
+    html += kpiCard('Bloco Fixo', formatarMoeda(b.totalFixo), 'fases sem apontamento de horas', 'good', 'sem risco');
+    html += kpiCard('Pool de Horas de Detalhamento', formatarMoeda(b.poolVerba), 'custo real: ' + formatarMoeda(b.poolCusto), b.poolLucro >= 0 ? 'good' : 'bad', b.poolLucro >= 0 ? '+' : '−');
+    html += kpiCard('Margem do Escritório', formatarMoeda(b.margemEscritorio), 'Fundo Garantidor + Fundo de Lucros, retido', 'good', 'não alocado');
+    html += kpiCard('Bonificação Total', (b.totalBonificacao >= 0 ? '+' : '−') + ' ' + formatarMoeda(Math.abs(b.totalBonificacao)), obterFormatoPct(b.pctBonificacao) + '% do Lucro/Sobra', b.totalBonificacao >= 0 ? 'good' : 'bad', b.totalBonificacao >= 0 ? 'positiva' : 'negativa');
+    html += '</div>';
+
+    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">% Bonificação sobre o Lucro/Sobra</p>';
+    html += '<p class="desemp-painel-legenda">Bonificação = (Verba − Custo Real) × esta %. Pode dar negativo quando o custo real supera a verba disponível.</p>';
+    html += '<div style="display:flex; align-items:center; gap:10px;">' +
+        '<input type="number" id="bonif-pct-input" value="' + obterFormatoPct(b.pctBonificacao) + '" style="width:100px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px;"> %' +
+        '<button type="button" onclick="salvarPctBonificacaoTela()" style="background:#00b4d8; color:white; border:none; padding:8px 16px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">Salvar</button>' +
+        '</div></div>';
+
+    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Bonificação por Executor <span class="desemp-tag">Bloco Fixo + Pool de Detalhamento</span></p>';
+    html += '<p class="desemp-painel-legenda">Quem só tem Bloco Fixo (fases sem apontamento) recebe o valor cheio, sem risco. Quem trabalha no Pool de Detalhamento tem Bonificação = Lucro/Sobra × % acima — pode ficar negativa.</p>';
+    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>Executor</th><th>Origem</th><th>Custo Real (R$)</th><th>Lucro/Sobra (R$)</th><th>Bonificação (R$)</th></tr></thead><tbody>';
+    b.executores.forEach(e => {
+        const nomeExibicao = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(e.nome) : e.nome;
+        html += '<tr><td>' + escapeHtml(nomeExibicao) + '</td>' +
+            '<td>' + (e.fixo ? 'Bloco Fixo' : 'Pool de Detalhamento') + '</td>' +
+            '<td class="num">' + formatarMoeda(e.custo) + '</td>' +
+            '<td class="num ' + (e.fixo ? '' : (e.lucro >= 0 ? 'desemp-desvio-bom' : 'desemp-desvio-ruim')) + '">' + (e.fixo ? '&mdash;' : ((e.lucro >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(e.lucro)))) + '</td>' +
+            '<td class="num ' + (e.bonificacao >= 0 ? 'desemp-desvio-bom' : 'desemp-desvio-ruim') + '">' + (e.bonificacao >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(e.bonificacao)) + '</td></tr>';
+    });
+    html += '</tbody><tfoot><tr><td>TOTAL</td><td></td><td class="num">' + formatarMoeda(b.totalCusto) + '</td><td></td>' +
+        '<td class="num">' + (b.totalBonificacao >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(b.totalBonificacao)) + '</td></tr></tfoot>';
+    html += '</table></div>';
+
+    return html;
+}
+
+function obterFormatoPct(v) {
+    return (v || 0).toFixed(v % 1 === 0 ? 0 : 1).replace('.', ',');
+}
+
 function renderizarDesempenhoProjeto(d) {
     const hc = d.horasCusto;
     const pctHoras = hc.horasPrevistas > 0 ? (hc.horasRealizadas / hc.horasPrevistas * 100) : 0;
@@ -418,10 +616,11 @@ function renderizarDesempenhoProjeto(d) {
     // --- Tabelas unificadas Por Etapa / Pavimento / Tarefa / Executor ---
     html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho <span class="desemp-tag">previsto &times; realizado &times; índice &times; desvio &times; verba &times; custo real</span></p>';
     html += '<p class="desemp-painel-legenda">Previsto = soma dos Pontos do Cadastro de Tarefas. Índice = Realizado &divide; Previsto. Linhas sem nenhuma hora realizada não entram na lista. Na linha TOTAL, "Horas Previsto" mostra o % de horas já consumidas e "Custo Real" mostra o % da verba já consumida.</p>';
+    const pctBonificacao = obterPctBonificacao(d.nomeProjeto);
     html += tabelaDesempenho('Por Etapa', 'porEtapa', tab.porEtapa, tab.totais);
     html += tabelaDesempenho('Por Pavimento', 'porPavimento', tab.porPavimento, tab.totais, 'só Detalhamento tem essa granularidade');
     html += tabelaDesempenho('Por Tarefa', 'porTarefa', tab.porTarefa, tab.totais, 'atividade do Cadastro, somada em todos os pavimentos');
-    html += tabelaDesempenho('Por Executor', 'porExecutor', tab.porExecutor, tab.totais);
+    html += tabelaDesempenho('Por Executor', 'porExecutor', tab.porExecutor, tab.totais, null, pctBonificacao);
     html += '</div>';
 
     // --- Desempenho por Executor (produtividade) ---
@@ -474,33 +673,43 @@ function renderizarDesempenhoProjeto(d) {
 
 // Uma das 4 tabelas (Por Etapa/Pavimento/Tarefa/Executor) — mesmo
 // formato pras 4, só muda o rótulo da 1ª coluna e as linhas.
-function tabelaDesempenho(titulo, chave, linhas, totais, tag) {
+// `pctBonificacao`, se informado, acrescenta uma 8ª coluna "Bonificação
+// (R$)" no fim (só usada na tabela "Por Executor" — documento de
+// referência de Bonificação, 2026-08-20).
+function tabelaDesempenho(titulo, chave, linhas, totais, tag, pctBonificacao) {
     if (linhas.length === 0) return '';
     const indiceTotal = totais.previsto > 0 ? (totais.realizado / totais.previsto * 100) : 0;
     const pctVerbaTotal = totais.verba > 0 ? (totais.custo / totais.verba * 100) : 0;
     const desvioTotal = totais.realizado - totais.previsto;
+    const comBonificacao = pctBonificacao !== undefined && pctBonificacao !== null;
 
     let html = '<p class="desemp-subtitulo-bloco">' + escapeHtml(titulo) + (tag ? ' <span class="desemp-tag">' + escapeHtml(tag) + '</span>' : '') + '</p>';
-    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th><th>Verba (R$)</th><th>Custo Real (R$)</th></tr></thead><tbody>';
+    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th><th>Verba (R$)</th><th>Custo Real (R$)</th>' + (comBonificacao ? '<th>Bonificação (R$)</th>' : '') + '</tr></thead><tbody>';
     linhas.forEach(l => {
         const indice = l.previsto > 0 ? (l.realizado / l.previsto * 100) : 0;
         const desvio = l.realizado - l.previsto;
         const nomeExibicao = (chave === 'porExecutor' && typeof nomeParaExibicao === 'function') ? nomeParaExibicao(l.nome) : l.nome;
+        const bonificacao = comBonificacao ? l.lucro * pctBonificacao / 100 : 0;
         html += '<tr><td>' + escapeHtml(nomeExibicao) + '</td>' +
             '<td class="num">' + formatarNumero(l.previsto) + ' h</td>' +
             '<td class="num">' + formatarNumero(l.realizado) + ' h</td>' +
             '<td class="num">' + indice.toFixed(1).replace('.', ',') + '%</td>' +
             '<td class="num ' + (desvio >= 0 ? 'desemp-desvio-ruim' : 'desemp-desvio-bom') + '">' + (desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvio)) + ' h</td>' +
             '<td class="num">' + formatarMoeda(l.verba) + '</td>' +
-            '<td class="num">' + formatarMoeda(l.custo) + '</td></tr>';
+            '<td class="num">' + formatarMoeda(l.custo) + '</td>' +
+            (comBonificacao ? '<td class="num ' + (bonificacao >= 0 ? 'desemp-desvio-bom' : 'desemp-desvio-ruim') + '">' + (bonificacao >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(bonificacao)) + '</td>' : '') +
+            '</tr>';
     });
+    const bonificacaoTotal = comBonificacao ? linhas.reduce((s, l) => s + l.lucro, 0) * pctBonificacao / 100 : 0;
     html += '</tbody><tfoot><tr><td>TOTAL</td>' +
         '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '% consumido</td>' +
         '<td class="num">' + formatarNumero(totais.realizado) + ' h</td>' +
         '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '%</td>' +
         '<td class="num">' + (desvioTotal >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvioTotal)) + ' h</td>' +
         '<td class="num">' + formatarMoeda(totais.verba) + '</td>' +
-        '<td class="num">' + pctVerbaTotal.toFixed(1).replace('.', ',') + '% da verba</td></tr></tfoot>';
+        '<td class="num">' + pctVerbaTotal.toFixed(1).replace('.', ',') + '% da verba</td>' +
+        (comBonificacao ? '<td class="num">' + (bonificacaoTotal >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(bonificacaoTotal)) + '</td>' : '') +
+        '</tr></tfoot>';
     html += '</table>';
     return html;
 }
