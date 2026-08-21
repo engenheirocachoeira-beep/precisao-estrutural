@@ -8669,3 +8669,80 @@ focado "por que Luiza fechou negativo", e o caso do executor
 sem-nome no Bloco Fixo). As 6 orelhas navegam nos dois projetos, sem
 erro no console em nenhum dos dois, depois dos 2 bugs acima
 corrigidos.
+
+## Retomada em 2026-08-21 (parte 30) — Renomeações + reenquadramento pra "Etapa Detalhamento" + tabela única com filtro
+
+**Pedido do usuário**: pediu explicitamente pra descrever TODAS as
+mudanças antes de eu mexer no código ("Aguarde eu descrever todas as
+mudanças requeridas para somente depois mexer na programação") — lista
+acumulada em várias mensagens, só implementada no final quando disse
+"implemente os pedidos". Mudanças:
+
+1. Orelha "Desempenho" → **"DETALHAMENTO - ANÁLISE PRODUTIVIDADE"**;
+   orelha "Distribuições" → **"DETALHAMENTO - ANÁLISE FINANCEIRA"**
+   (`index.html`, mais o texto de apoio do painel Diagnóstico e o
+   eyebrow do masthead do relatório, que citavam os nomes antigos).
+2. Na aba Desempenho, os 4 cartões de KPI do topo foram **reenquadrados
+   pra falar da Etapa Detalhamento especificamente**, não do projeto
+   inteiro (antes já dava quase na mesma, por coincidência dos dados —
+   agora é explícito e correto mesmo se outra Etapa um dia tiver
+   hora): "Horas" → "Horas Consumidas"; "Custo Real" → "CUSTO DO
+   DETALHAMENTO", comparando contra `fin.verbaDetalhamentoBruta` (a
+   verba designada à Etapa) em vez da soma das 5 etapas; "Conclusão" →
+   "% CONCLUÍDA"; "Resultado do Projeto" → "Resultado da Etapa",
+   virou um cartão com 2 valores (Saldo de Horas = Previsto −
+   Realizado, Saldo de Verba = Verba − Custo — mesmo sentido dos dois,
+   positivo = sobrou = bom).
+3. **As 4 tabelas fixas (Por Etapa/Pavimento/Tarefa/Executor) viraram
+   1 tabela só com um `<select>` "Agrupar por"** — pedido do usuário:
+   "planilhas de desempenho... com filtros suficientes... de acordo
+   com a vontade de quem estiver manipulando". `trocarDimensaoDesempenho()`
+   troca só o conteúdo de `#desemp-tabela-filtravel` reaproveitando
+   `tabelaDesempenho()` que já existia — nenhum cálculo novo, só
+   reduz de 4 chamadas fixas pra 1 dinâmica. Cache simples
+   (`desempCacheFiltro`, variável de módulo) guarda o `tab`/
+   `pctBonificacao` já calculados pra trocar de dimensão sem
+   recalcular a árvore inteira de novo. Default: "Tarefa" (já vinha
+   ordenada por maior desvio, mais acionável como primeira vista).
+4. Na aba Bonificação: "Bloco Fixo" → **"BLOCO ANÁLISE"**; "Pool de
+   Horas de Detalhamento" → **"VERBA DETALHAMENTO"**, virou cartão de
+   3 valores (Custo Previsto = `poolVerba`, Custo Realizado =
+   `poolCusto`, "Desempenho" = a diferença); "Margem do Escritório" →
+   **"Verba de Fundos"**, virou cartão de 2 valores (Fundo Garantidor,
+   Fundo para Distribuição) em vez de 1 número combinado. Nova função
+   `kpiCardMultiplo(rotulo, itens)` — cartão de KPI com N valores
+   empilhados em vez de 1 número + comparativo, reaproveita as classes
+   `desemp-desvio-bom/ruim` já existentes pra colorir cada item.
+5. **Regra de cálculo nova**: o Fundo Garantidor passa a absorver o
+   "Desempenho" da Verba Detalhamento (Custo Previsto − Custo
+   Realizado) — sobrou verba? soma ao Fundo Garantidor; estourou?
+   desconta dele. Implementado em `calcularBonificacaoProjeto()`:
+   `valorFundoGarantidor = fin.valorFundoGarantidor + poolLucro`
+   (`poolLucro` = `poolVerba − poolCusto`, já existia). O Fundo de
+   Distribuição de Lucros NÃO entra nessa regra. Como
+   `calcularDistribuicoesProjeto()` já reaproveita `bonif.margemEscritorio`
+   pra legenda da barra segmentada, o valor ajustado se propaga
+   automaticamente pra lá também — não precisou tocar em
+   `renderizarDistribuicoesProjeto()`.
+   (Pedido intermediário de listar Fundo Garantidor/Fundo para
+   Distribuição dentro do painel "% Bonificação" foi cancelado pelo
+   próprio usuário antes de eu implementar — não confundir com o item
+   4 acima, que é em outro cartão.)
+
+**Verificação**: `node --check` limpo. Testado em Node isolado
+(mesmo harness `vm`) especificamente a fórmula nova — Fundo Garantidor
+original (R$ 2.736,99, com 17% de imposto) + poolLucro (−R$ 1.293,87)
+= R$ 1.443,12, bateu exato com o valor calculado pela função. Testado
+no navegador local: as 6 orelhas com os nomes novos, os 4 cartões de
+Desempenho mostrando os valores da Etapa Detalhamento (Saldo de Horas
+e Saldo de Verba corretos e com a cor certa), o filtro "Agrupar por"
+testado nas 4 dimensões via `dispatchEvent('change')` — cada uma
+renderizou as colunas certas, só "Executor" com a 8ª coluna
+Bonificação — e a aba Bonificação com os 3 cartões novos (BLOCO
+ANÁLISE, VERBA DETALHAMENTO com os 3 valores, Verba de Fundos com os
+2 valores, Fundo Garantidor batendo com a conta manual). Sem erro no
+console, testado também no AP Praia (projeto bem diferente) sem
+quebrar. Durante o teste, percebido que o projeto Home Garden já
+estava salvo com Impostos=17% (não mais 23%) — o usuário aparentemente
+já corrigiu isso por fora, testando localmente como sugerido — a nota
+das partes 26/27 sobre esse valor estar desatualizado não vale mais.

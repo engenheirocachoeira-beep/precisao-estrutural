@@ -358,9 +358,19 @@ function calcularBonificacaoProjeto(nomeProjeto) {
         }
     });
 
-    // Bloco 3 — Margem do Escritório: retido, nunca alocado a ninguém.
+    // Bloco 3 — "Verba de Fundos" (antes "Margem do Escritório"): Fundo
+    // Garantidor + Fundo de Distribuição de Lucros, estruturalmente
+    // retidos (nunca alocados a ninguém). Pedido do usuário: o Fundo
+    // Garantidor passa a absorver o Desempenho do Pool de Detalhamento
+    // (Custo Previsto − Custo Realizado) — sobrou verba (Desempenho
+    // positivo)? soma ao Fundo Garantidor. Estourou (negativo)?
+    // desconta dele. O Fundo de Distribuição de Lucros NÃO entra nessa
+    // regra, fica como já era calculado.
     const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
-    const margemEscritorio = fin.valorFundoGarantidor + fin.valorFundoLucros;
+    const poolLucro = poolVerba - poolCusto;
+    const valorFundoGarantidor = fin.valorFundoGarantidor + poolLucro;
+    const valorFundoLucros = fin.valorFundoLucros;
+    const margemEscritorio = valorFundoGarantidor + valorFundoLucros;
 
     const totalCusto = executores.reduce((s, e) => s + e.custo, 0);
     const totalBonificacao = executores.reduce((s, e) => s + e.bonificacao, 0);
@@ -369,7 +379,8 @@ function calcularBonificacaoProjeto(nomeProjeto) {
         pctBonificacao: pctBonificacao,
         valorGlobalProducao: fin.valorAnalista,
         totalFixo: totalFixo,
-        poolVerba: poolVerba, poolCusto: poolCusto, poolLucro: poolVerba - poolCusto,
+        poolVerba: poolVerba, poolCusto: poolCusto, poolLucro: poolLucro,
+        valorFundoGarantidor: valorFundoGarantidor, valorFundoLucros: valorFundoLucros,
         margemEscritorio: margemEscritorio,
         executores: executores.sort((a, b) => b.custo - a.custo),
         totalCusto: totalCusto, totalBonificacao: totalBonificacao
@@ -548,6 +559,28 @@ if (typeof module !== 'undefined' && module.exports) {
 // RENDERIZAÇÃO (DOM) — só roda no navegador
 // =========================================================================
 
+// Estado da tabela única com filtro (pedido do usuário) — guarda o
+// último `tab`/`pctBonificacao` calculados pra trocarDimensaoDesempenho()
+// só re-renderizar a tabela na troca de filtro, sem recalcular tudo
+// de novo nem perder o resto da tela.
+let desempCacheFiltro = null;
+const DESEMP_DIMENSOES = {
+    porEtapa: { titulo: 'Por Etapa', tag: null },
+    porPavimento: { titulo: 'Por Pavimento', tag: 'só Detalhamento tem essa granularidade' },
+    porTarefa: { titulo: 'Por Tarefa', tag: 'atividade do Cadastro, somada em todos os pavimentos' },
+    porExecutor: { titulo: 'Por Executor', tag: null }
+};
+
+function trocarDimensaoDesempenho() {
+    const sel = document.getElementById('desemp-filtro-dimensao');
+    const area = document.getElementById('desemp-tabela-filtravel');
+    if (!sel || !area || !desempCacheFiltro) return;
+    const dim = sel.value;
+    const info = DESEMP_DIMENSOES[dim];
+    const pctBonif = dim === 'porExecutor' ? desempCacheFiltro.pctBonificacao : null;
+    area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag, pctBonif);
+}
+
 function carregarPainelDesempenho(nomeProjeto) {
     const area = document.getElementById('desemp-conteudo');
     if (!area) return;
@@ -609,9 +642,16 @@ function renderizarBonificacaoProjeto(b) {
     let html = '';
 
     html += '<div class="desemp-grid-kpi">';
-    html += kpiCard('Bloco Fixo', formatarMoeda(b.totalFixo), 'fases sem apontamento de horas', 'good', 'sem risco');
-    html += kpiCard('Pool de Horas de Detalhamento', formatarMoeda(b.poolVerba), 'custo real: ' + formatarMoeda(b.poolCusto), b.poolLucro >= 0 ? 'good' : 'bad', b.poolLucro >= 0 ? '+' : '−');
-    html += kpiCard('Margem do Escritório', formatarMoeda(b.margemEscritorio), 'Fundo Garantidor + Fundo de Lucros, retido', 'good', 'não alocado');
+    html += kpiCard('BLOCO ANÁLISE', formatarMoeda(b.totalFixo), 'fases sem apontamento de horas', 'good', 'sem risco');
+    html += kpiCardMultiplo('VERBA DETALHAMENTO', [
+        { label: 'Custo Previsto', valor: formatarMoeda(b.poolVerba) },
+        { label: 'Custo Realizado', valor: formatarMoeda(b.poolCusto) },
+        { label: 'Desempenho', valor: (b.poolLucro >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(b.poolLucro)), cor: b.poolLucro >= 0 ? 'bom' : 'ruim' }
+    ]);
+    html += kpiCardMultiplo('Verba de Fundos', [
+        { label: 'Fundo Garantidor', valor: formatarMoeda(b.valorFundoGarantidor) },
+        { label: 'Fundo para Distribuição', valor: formatarMoeda(b.valorFundoLucros) }
+    ]);
     html += kpiCard('Bonificação Total', (b.totalBonificacao >= 0 ? '+' : '−') + ' ' + formatarMoeda(Math.abs(b.totalBonificacao)), obterFormatoPct(b.pctBonificacao) + '% do Lucro/Sobra', b.totalBonificacao >= 0 ? 'good' : 'bad', b.totalBonificacao >= 0 ? 'positiva' : 'negativa');
     html += '</div>';
 
@@ -710,7 +750,7 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
 
     // --- Masthead ---
     html += '<div class="dist-masthead"><div class="dist-masthead-top"><div>';
-    html += '<div class="dist-eyebrow">Relat&oacute;rio de Distribui&ccedil;&otilde;es &middot; Detalhamento Estrutural</div>';
+    html += '<div class="dist-eyebrow">Relat&oacute;rio &middot; Detalhamento - An&aacute;lise Financeira</div>';
     html += '<h1>' + escapeHtml(nomeProjeto) + '</h1>';
     html += '<div class="dist-sub">' + (meta.cliente ? 'Cliente <b>' + escapeHtml(meta.cliente) + '</b> &middot; ' : '') +
         (meta.pavimentos ? escapeHtml(meta.pavimentos) + ' pavimentos, ' : '') + (meta.area ? formatarNumero(meta.area) + ' m&sup2;' : '') +
@@ -814,33 +854,56 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
 
 function renderizarDesempenhoProjeto(d) {
     const hc = d.horasCusto;
-    const pctHoras = hc.horasPrevistas > 0 ? (hc.horasRealizadas / hc.horasPrevistas * 100) : 0;
-
     const fin = d.financeiro;
-    const pctCustoVsVerba = fin.totalVerbaEtapas > 0 ? ((hc.custoRealTotal - fin.totalVerbaEtapas) / fin.totalVerbaEtapas * 100) : 0;
-
     const tab = d.tabelas;
-    const saldoProjeto = tab.totais.verba - tab.totais.custo;
-    const corSaldo = saldoProjeto >= 0 ? 'good' : 'bad';
+
+    // Pedido do usuário: os 4 cartões do topo passaram a falar
+    // especificamente da Etapa Detalhamento (não do projeto inteiro) —
+    // acha a linha dela em "Por Etapa" (já filtrada/agrupada) pra
+    // Horas Consumidas e Saldo de Horas; Verba/Custo do Detalhamento
+    // usam fin.verbaDetalhamentoBruta (a verba designada à Etapa,
+    // mesma fonte da tabela "Verba líquida por Etapa" mais abaixo).
+    const etapaDet = tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
+    const horasPrevistoDet = etapaDet ? etapaDet.previsto : hc.horasPrevistas;
+    const horasRealizadoDet = etapaDet ? etapaDet.realizado : hc.horasRealizadas;
+    const custoDetalhamento = etapaDet ? etapaDet.custo : hc.custoRealTotal;
+    const verbaDetalhamento = fin.verbaDetalhamentoBruta;
+    const pctHoras = horasPrevistoDet > 0 ? (horasRealizadoDet / horasPrevistoDet * 100) : 0;
+    const pctCustoVsVerbaDet = verbaDetalhamento > 0 ? ((custoDetalhamento - verbaDetalhamento) / verbaDetalhamento * 100) : 0;
+    // "Saldo" = o que sobra do orçado (mesmo sentido de Saldo de
+    // Verba = Verba − Custo): Previsto − Realizado, positivo = horas
+    // sobrando (bom), negativo = estourou o previsto (ruim).
+    const saldoHorasDet = horasPrevistoDet - horasRealizadoDet;
+    const saldoVerbaDet = verbaDetalhamento - custoDetalhamento;
 
     let html = '';
 
     // --- KPIs ---
     html += '<div class="desemp-grid-kpi">';
-    html += kpiCard('Horas', hc.horasRealizadas.toFixed(1) + 'h', 'previsto: ' + hc.horasPrevistas.toFixed(1) + 'h', pctHoras <= 110 ? 'good' : (pctHoras <= 200 ? 'warn' : 'bad'), (pctHoras >= 100 ? '+' : '') + (pctHoras - 100).toFixed(0) + '% do previsto');
-    html += kpiCard('Custo Real', formatarMoeda(hc.custoRealTotal), 'verba das etapas: ' + formatarMoeda(fin.totalVerbaEtapas), pctCustoVsVerba <= 0 ? 'good' : 'bad', (pctCustoVsVerba >= 0 ? '+' : '') + pctCustoVsVerba.toFixed(0) + '% vs verba');
-    html += kpiCard('Conclusão', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
-    html += kpiCard('Resultado do Projeto', (saldoProjeto >= 0 ? '+' : '−') + ' ' + formatarMoeda(Math.abs(saldoProjeto)), 'verba − custo real, tarefa a tarefa', corSaldo, saldoProjeto >= 0 ? 'positivo' : 'negativo');
+    html += kpiCard('Horas Consumidas', horasRealizadoDet.toFixed(1) + 'h', 'previsto: ' + horasPrevistoDet.toFixed(1) + 'h', pctHoras <= 110 ? 'good' : (pctHoras <= 200 ? 'warn' : 'bad'), (pctHoras >= 100 ? '+' : '') + (pctHoras - 100).toFixed(0) + '% do previsto');
+    html += kpiCard('CUSTO DO DETALHAMENTO', formatarMoeda(custoDetalhamento), 'verba do Detalhamento: ' + formatarMoeda(verbaDetalhamento), pctCustoVsVerbaDet <= 0 ? 'good' : 'bad', (pctCustoVsVerbaDet >= 0 ? '+' : '') + pctCustoVsVerbaDet.toFixed(0) + '% vs verba');
+    html += kpiCard('% CONCLUÍDA', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
+    html += kpiCardMultiplo('Resultado da Etapa', [
+        { label: 'Saldo de Horas', valor: (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + ' h', cor: saldoHorasDet >= 0 ? 'bom' : 'ruim' },
+        { label: 'Saldo de Verba', valor: (saldoVerbaDet >= 0 ? '+' : '&minus;') + ' ' + formatarMoeda(Math.abs(saldoVerbaDet)), cor: saldoVerbaDet >= 0 ? 'bom' : 'ruim' }
+    ]);
     html += '</div>';
 
-    // --- Tabelas unificadas Por Etapa / Pavimento / Tarefa / Executor ---
+    // --- Tabela única com filtro de dimensão (pedido do usuário: 1
+    // tabela só, com filtro suficiente pra ver os dados agrupados como
+    // quem estiver manipulando quiser, em vez de 4 tabelas fixas) ---
+    const pctBonificacao = obterPctBonificacao(d.nomeProjeto);
+    desempCacheFiltro = { tab: tab, pctBonificacao: pctBonificacao };
     html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho <span class="desemp-tag">previsto &times; realizado &times; índice &times; desvio &times; verba &times; custo real</span></p>';
     html += '<p class="desemp-painel-legenda">Previsto = soma dos Pontos do Cadastro de Tarefas. Índice = Realizado &divide; Previsto. Linhas sem nenhuma hora realizada não entram na lista. Na linha TOTAL, "Horas Previsto" mostra o % de horas já consumidas e "Custo Real" mostra o % da verba já consumida.</p>';
-    const pctBonificacao = obterPctBonificacao(d.nomeProjeto);
-    html += tabelaDesempenho('Por Etapa', 'porEtapa', tab.porEtapa, tab.totais);
-    html += tabelaDesempenho('Por Pavimento', 'porPavimento', tab.porPavimento, tab.totais, 'só Detalhamento tem essa granularidade');
-    html += tabelaDesempenho('Por Tarefa', 'porTarefa', tab.porTarefa, tab.totais, 'atividade do Cadastro, somada em todos os pavimentos');
-    html += tabelaDesempenho('Por Executor', 'porExecutor', tab.porExecutor, tab.totais, null, pctBonificacao);
+    html += '<div class="desemp-filtro-linha"><label for="desemp-filtro-dimensao">Agrupar por:</label>' +
+        '<select id="desemp-filtro-dimensao" onchange="trocarDimensaoDesempenho()">' +
+        '<option value="porEtapa">Etapa</option>' +
+        '<option value="porPavimento">Pavimento</option>' +
+        '<option value="porTarefa" selected>Tarefa</option>' +
+        '<option value="porExecutor">Executor</option>' +
+        '</select></div>';
+    html += '<div id="desemp-tabela-filtravel">' + tabelaDesempenho('Por Tarefa', 'porTarefa', tab.porTarefa, tab.totais, DESEMP_DIMENSOES.porTarefa.tag) + '</div>';
     html += '</div>';
 
     // --- Desempenho por Executor (produtividade) ---
@@ -939,6 +1002,23 @@ function kpiCard(rotulo, numero, comparativo, cor, selo) {
         '<div class="desemp-kpi-numero">' + numero + '</div>' +
         '<div class="desemp-kpi-comparativo">' + escapeHtml(comparativo) + '</div>' +
         '<span class="desemp-selo desemp-selo-' + cor + '">' + escapeHtml(selo) + '</span></div>';
+}
+
+// Cartão de KPI com vários valores empilhados (rótulo + valor cada) em
+// vez de um número só + comparativo — usado onde um cartão precisa
+// mostrar 2-3 grandezas relacionadas (ex: "Resultado da Etapa" =
+// Saldo de Horas + Saldo de Verba; "VERBA DETALHAMENTO" = Custo
+// Previsto + Custo Realizado + Desempenho). `itens` = [{label, valor,
+// cor?}], `cor` é 'bom'/'ruim' (reaproveita as classes
+// desemp-desvio-bom/ruim já existentes) ou omitido pra cor neutra.
+function kpiCardMultiplo(rotulo, itens) {
+    let html = '<div class="desemp-kpi"><div class="desemp-kpi-rotulo">' + escapeHtml(rotulo) + '</div>';
+    itens.forEach(it => {
+        html += '<div class="desemp-kpi-item"><span class="desemp-kpi-item-label">' + escapeHtml(it.label) + '</span>' +
+            '<span class="desemp-kpi-item-valor' + (it.cor ? ' desemp-desvio-' + it.cor : '') + '">' + it.valor + '</span></div>';
+    });
+    html += '</div>';
+    return html;
 }
 
 function finLinha(rotulo, valor, classe) {

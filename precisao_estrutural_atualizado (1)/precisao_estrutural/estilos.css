@@ -502,6 +502,19 @@
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-subtitulo-bloco { font-size:11.5px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:0.02em; margin:18px 0 6px; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-subtitulo-bloco:first-of-type { margin-top:2px; }
 
+        /* Cartão de KPI com vários valores empilhados (kpiCardMultiplo)
+           — "Resultado da Etapa", "VERBA DETALHAMENTO", "Verba de
+           Fundos". Reaproveita .desemp-desvio-bom/ruim (já existem)
+           pra colorir cada valor individualmente. */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-item { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:12px; margin-top:7px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-item-label { color:#64748b; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-item-valor { font-weight:700; color:#0f172a; white-space:nowrap; }
+
+        /* Filtro de dimensão da tabela única de Desempenho (pedido do
+           usuário: 1 tabela com filtro, no lugar de 4 fixas). */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-filtro-linha { display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:#475569; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-filtro-linha select { padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:12.5px; background:#fff; }
+
         /* Tabelas "Por Etapa/Pavimento/Tarefa/Executor": cabeçalho no
            mesmo azul-marinho/branco do cabeçalho da Árvore de Custos
            (Relatórios), moldura "medium" (2px) no contorno externo da
