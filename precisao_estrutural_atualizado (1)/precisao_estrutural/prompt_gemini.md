@@ -8746,3 +8746,48 @@ quebrar. Durante o teste, percebido que o projeto Home Garden já
 estava salvo com Impostos=17% (não mais 23%) — o usuário aparentemente
 já corrigiu isso por fora, testando localmente como sugerido — a nota
 das partes 26/27 sobre esse valor estar desatualizado não vale mais.
+
+## Retomada em 2026-08-24 (parte 31) — Tela inicial por papel + ano no histórico de valor-hora
+
+Dois pedidos pequenos e independentes, sem relação com a reforma
+Desempenho/Bonificação da parte 30.
+
+1. **Tela inicial pós-login por papel** (`js/core.js`,
+   `abrirTelaInicialPorNivel()`): Analista e Administrador agora abrem
+   direto na tela de seleção de projetos (a mesma do item "📁 Projetos"
+   do menu, `alternarModulo('arvore')` →
+   `renderizerProjetosParaSelecaoArvore()`), em vez do Kanban.
+   Detalhista, Estagiário (ambos `nivel='executor'`) e Supervisor
+   continuam abrindo direto no Kanban, como já era desde a reversão
+   registrada em partes anteriores. Reaproveitou 100% de infraestrutura
+   já existente — essa tela de seleção já filtrava certo por
+   `obterNomesProjetosPermitidos()` (Analista vê só os projetos onde é
+   `projeto.analista`; Administrador não tem filtro nenhum, então vê a
+   lista completa — não existe conceito de "projeto designado" pra
+   Administrador no modelo de dados, então "a relação de projetos aos
+   quais está designado" foi interpretada, pra esse papel, como a lista
+   toda). Nenhuma outra função precisou mudar.
+
+2. **Ano no histórico de valor-hora** (`js/cadastros.js`,
+   `renderizarTabelaHistoricoValorHora()`): a coluna "Vigente desde" da
+   tabela de histórico de valor-hora no Cadastro de Funcionário estava
+   usando `formatarDataPrevistaExibicao()` (js/feriados.js), que
+   propositalmente omite o ano (formato `DD/MM`, pensado pra outro
+   contexto). Trocado por uma formatação própria, só nessa função, que
+   quebra o ISO (`AAAA-MM-DD`, vindo do `<input type="date">`) em
+   `DD/MM/AAAA` — sem tocar em `formatarDataPrevistaExibicao()`, que
+   continua igual pros outros usos dela. O dado em si (com ano) já era
+   salvo certo desde antes; só a exibição estava cortando o ano.
+
+**Verificação**: `node --check` limpo nos dois arquivos. Testado no
+navegador local via `javascript_tool` (evitando `read_page`, que nesse
+app retorna elementos de painéis ocultos também — ver nota de método
+já registrada nesta sessão): simulado login como Administrador,
+Analista, Executor (Detalhista) e Supervisor via `usuarioLogado` +
+`abrirTelaInicialPorNivel()` — Administrador e Analista abriram
+`panel-arvore-projetos` (Administrador com os 10 projetos completos,
+Analista com só 4, filtro batendo), Executor e Supervisor abriram
+`panel-kanban`, como esperado. Histórico de valor-hora testado com
+duas entradas (`2026-08-24` e `2025-01-05`) — renderizou
+"24/08/2026" e "05/01/2025", ordenado por mais recente primeiro. Sem
+erro no console em nenhum dos dois testes.

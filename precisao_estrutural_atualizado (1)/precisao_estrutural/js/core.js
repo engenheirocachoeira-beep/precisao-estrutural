@@ -1260,8 +1260,20 @@ function aplicarPermissoesMenu() {
 // `executor` ia pro Kanban, os demais iam pra Árvore; revertido a
 // pedido explícito do usuário). `carregarPainelKanban()` já
 // pré-seleciona o próprio nome no dropdown (melhoria #7).
+// Pedido posterior (prompt_gemini.md parte 31): Analista e
+// Administrador passam a abrir direto a tela de seleção de projetos
+// (mesma tela do item "📁 Projetos" do menu, via
+// `renderizerProjetosParaSelecaoArvore()`, que já filtra pra Analista
+// através de `obterNomesProjetosPermitidos()` — pra Administrador essa
+// função não filtra nada, então ele vê a lista completa de projetos,
+// que é o comportamento esperado). Detalhista/Estagiário (nivel
+// 'executor') e Supervisor continuam indo direto pro Kanban.
 function abrirTelaInicialPorNivel() {
     if (!usuarioLogado) return;
+    if (usuarioLogado.nivel === 'analista' || usuarioLogado.nivel === 'administrador') {
+        alternarModulo('arvore');
+        return;
+    }
     alternarModulo('kanban');
 }
 

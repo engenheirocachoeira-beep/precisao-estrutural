@@ -334,9 +334,12 @@ function renderizarTabelaHistoricoValorHora() {
         .sort((a, b) => b.entrada.data_vigencia.localeCompare(a.entrada.data_vigencia));
 
     tbody.innerHTML = ordenado.map(({ entrada, indiceReal }) => {
-        const dataExibicao = typeof formatarDataPrevistaExibicao === 'function'
-            ? formatarDataPrevistaExibicao(entrada.data_vigencia)
-            : entrada.data_vigencia;
+        // Formata direto do ISO (AAAA-MM-DD do <input type="date">) pra
+        // DD/MM/AAAA — não usa formatarDataPrevistaExibicao() aqui de
+        // propósito, pois aquela função omite o ano (foi feita pra outro
+        // contexto, onde o formato compacto é intencional).
+        const partes = String(entrada.data_vigencia).split('-');
+        const dataExibicao = partes.length === 3 ? (partes[2] + '/' + partes[1] + '/' + partes[0]) : entrada.data_vigencia;
         return '<tr><td>R$ ' + parseFloat(entrada.valor).toFixed(2) + '</td>' +
             '<td>' + dataExibicao + '</td>' +
             '<td style="text-align:center;"><button class="btn-delete" onclick="removerValorHoraFuncionario(' + indiceReal + ')">🗑️</button></td></tr>';
