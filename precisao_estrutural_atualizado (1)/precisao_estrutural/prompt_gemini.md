@@ -8791,3 +8791,57 @@ Analista com só 4, filtro batendo), Executor e Supervisor abriram
 duas entradas (`2026-08-24` e `2025-01-05`) — renderizou
 "24/08/2026" e "05/01/2025", ordenado por mais recente primeiro. Sem
 erro no console em nenhum dos dois testes.
+
+## Retomada em 2026-08-24 (parte 32) — Relatórios: agrupar por Tarefa/Data/Pavimento + ordenar colunas
+
+Dois pedidos no motor genérico de Relatórios (`js/relatorios.js`,
+tela "Relatórios" → tipo "Genéricos", não a tela fixa "Relatório de
+Custos", que não foi tocada).
+
+1. **Novos campos de agrupar**: `NIVEIS_RELATORIO.sessao.camposAgrupar`
+   ganhou `'pavimento'`, `'tarefa'` e `'data'` (antes só tinha
+   projeto/etapa/cliente/executor); `NIVEIS_RELATORIO.tarefa.camposAgrupar`
+   ganhou `'tarefa'` e `'dataInicioReal'` (além de já ter status). Só
+   acrescentou entradas no catálogo — os 3 campos novos já existiam
+   como COLUNA em cada nível (só não apareciam como opção de
+   agrupamento); a UI (`renderizarChipsAgruparRelatorio()`) já lê o
+   rótulo certo automaticamente de `def.colunas`, sem precisar de
+   nenhuma outra mudança. "Avanço de Projeto" não ganhou nada (não tem
+   coluna de Tarefa nem Data nesse nível).
+
+2. **Ordenar por coluna** (pedido: "classificar cada coluna por ordem
+   de apresentação"): cabeçalho da tabela do motor genérico agora é
+   clicável — 1º clique ordena ascendente, 2º clique na MESMA coluna
+   inverte pra descendente, clicar noutra coluna troca e volta a
+   ascendente (padrão de planilha), com seta ▲/▼ no rótulo e destaque
+   visual (fundo azul-claro + borda inferior ciano) na coluna ativa.
+   Nova função pura `ordenarLinhasRelatorio(linhas, coluna, direcao)`
+   (compara como número pra tipo numero/horas/moeda/percentual,
+   `localeCompare('pt-BR')` pro resto — inclusive `tipo:'data'`, que
+   compara como texto mas funciona certo porque ISO AAAA-MM-DD já
+   ordena igual lexicograficamente e numericamente) — aplicada em
+   `renderizarTabelaRelatorio()` sobre as linhas JÁ filtradas/agrupadas,
+   ANTES de desenhar a tabela. Estado (`relOrdenacao`) não entra em
+   Visão salva de propósito (é uma releitura rápida da mesma consulta,
+   não uma configuração persistente) — reseta ao trocar de Nível ou
+   carregar uma Visão, igual já acontecia com filtros/colunas/agrupar.
+
+**Verificação**: `node --check` limpo. Testado em Node isolado (script
+novo `teste_relatorios_ordenar_agrupar.js`) as funções puras
+`ordenarLinhasRelatorio` (asc/desc, texto/número, não muta o array
+original, sem coluna = passa direto) e `agruparLinhasRelatorio` com
+`'tarefa'`/`'data'` como chave, batendo exato com a soma esperada à
+mão. Testado no navegador local com dados reais (AP Praia): grupos por
+Tarefa (13 linhas, nomes reais tipo DT_Blocos/LC_Blocos), por
+Pavimento (TÉRREO/SUBSOLO/G1 com Horas/Custo somados) e por Data (80
+linhas) no nível Sessão; por Tarefa no nível Tarefa também (23 linhas).
+Ordenação testada na coluna Horas (asc: 0.0h→166.0h, desc: invertido) e
+na coluna Tarefa (asc alfabética, ex: DT_Blocos antes de LC_Blocos),
+com a seta e a classe `.ativo` mudando junto. Sem erro no console.
+(Nota de método: o navegador de preview local desta sessão ficou com
+cache agressivo pra `js/relatorios.js`/`estilos.css` — `curl` direto no
+servidor sempre trouxe o arquivo certo, então não é um bug do app; só
+precisou buscar o conteúdo fresco via `fetch(..., {cache:'no-store'})`
+e rodar num escopo isolado (`new Function`) / injetar como `<style>`
+novo pra testar de verdade, em vez de confiar no `<script src>`/`<link>`
+normal da página durante os testes.)

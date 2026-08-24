@@ -196,6 +196,13 @@
            pra tabela. */
         #panel-relatorios { overflow-y: auto; }
         #rel-area-resultado .table-wrapper { max-height: none; }
+        /* Cabeçalho clicável pra ordenar (pedido do usuário: "classificar
+           cada coluna por ordem de apresentação") — só no motor genérico
+           (#rel-area-resultado), não na Árvore de Custos, que tem
+           cabeçalho de 2 linhas com colspan e não faz sentido ordenar. */
+        #rel-area-resultado th.rel-th-ordenavel { cursor: pointer; user-select: none; white-space: nowrap; }
+        #rel-area-resultado th.rel-th-ordenavel:hover { background: #e0f2fe; color: #0a192f; }
+        #rel-area-resultado th.rel-th-ordenavel.ativo { background: #e0f2fe; color: #0a192f; border-bottom: 2px solid #00b4d8; }
         #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { max-height: none; }
 
         /* Árvore de Custos com par de coluna Tempo/Custo por nível

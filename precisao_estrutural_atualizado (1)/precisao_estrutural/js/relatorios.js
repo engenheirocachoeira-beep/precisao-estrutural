@@ -315,6 +315,25 @@ function agruparLinhasRelatorio(linhas, camposAgrupar, camposSoma) {
     return ordem.map(chave => grupos[chave]);
 }
 
+// Ordena as linhas já filtradas/agrupadas por UMA coluna, clicável no
+// cabeçalho da tabela (pedido do usuário: "classificar cada coluna por
+// ordem de apresentação"). Números/horas/moeda/percentual comparam como
+// número; data compara como string ISO (ordena certo sem precisar
+// converter, AAAA-MM-DD já é ordenável lexicograficamente); texto usa
+// localeCompare pt-BR (acentuação correta). `coluna` é o objeto do
+// catálogo (precisa do `.tipo`), não só o id — função pura, testável
+// sem DOM.
+function ordenarLinhasRelatorio(linhas, coluna, direcao) {
+    if (!coluna) return linhas;
+    const numerico = coluna.tipo === 'numero' || coluna.tipo === 'horas' || coluna.tipo === 'moeda' || coluna.tipo === 'percentual';
+    const mult = direcao === 'desc' ? -1 : 1;
+    return linhas.slice().sort((a, b) => {
+        const va = a[coluna.id], vb = b[coluna.id];
+        if (numerico) return ((parseFloat(va) || 0) - (parseFloat(vb) || 0)) * mult;
+        return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'pt-BR') * mult;
+    });
+}
+
 // --- CATÁLOGO DE NÍVEIS E COLUNAS ---
 // A "fonte de verdade" de tudo que a tela oferece — cada coluna sabe seu
 // rótulo, se aparece marcada por padrão, se pode ser somada num
@@ -340,7 +359,7 @@ const NIVEIS_RELATORIO = {
             { id: 'valorHora', rotulo: 'Valor da Hora', padrao: false, somavel: false, tipo: 'moeda' },
             { id: 'custo', rotulo: 'Custo', padrao: true, somavel: true, tipo: 'moeda' },
         ],
-        camposAgrupar: ['projeto', 'etapa', 'cliente', 'executor']
+        camposAgrupar: ['projeto', 'etapa', 'pavimento', 'cliente', 'executor', 'tarefa', 'data']
     },
     tarefa: {
         rotulo: 'Tarefa',
@@ -361,7 +380,7 @@ const NIVEIS_RELATORIO = {
             { id: 'custoReal', rotulo: 'Custo Real', padrao: false, somavel: true, tipo: 'moeda' },
             { id: 'dataInicioReal', rotulo: 'Data de Início Real', padrao: false, somavel: false, tipo: 'data' },
         ],
-        camposAgrupar: ['projeto', 'etapa', 'cliente', 'executor', 'status']
+        camposAgrupar: ['projeto', 'etapa', 'cliente', 'executor', 'status', 'tarefa', 'dataInicioReal']
     },
     avanco: {
         rotulo: 'Avanço de Projeto',
@@ -508,6 +527,10 @@ function apagarVisaoRelatorio(id) {
 let relNivelAtivo = 'sessao';
 let relColunasAtivas = new Set();
 let relAgruparAtivos = new Set();
+// Ordenação por coluna (clique no cabeçalho) — não faz parte de Visão
+// salva de propósito (é um jeito rápido de reler a MESMA consulta já
+// montada, não uma configuração que precise sobreviver entre sessões).
+let relOrdenacao = { campo: null, direcao: 'asc' };
 
 // Loop sobre os níveis do catálogo em vez de listar cada botão à mão —
 // assim o 3º nível (Avanço de Projeto) não precisou duplicar essa
@@ -552,6 +575,7 @@ function mudarNivelRelatorio(nivel) {
     atualizarBotoesNivelRelatorio(nivel);
     relColunasAtivas = new Set(NIVEIS_RELATORIO[nivel].colunas.filter(c => c.padrao).map(c => c.id));
     relAgruparAtivos = new Set();
+    relOrdenacao = { campo: null, direcao: 'asc' };
 
     ['projeto', 'etapa', 'cliente', 'executor', 'status'].forEach(c => {
         const el = document.getElementById('rel-filtro-' + c);
@@ -661,6 +685,23 @@ function limparFiltrosRelatorio() {
     renderizarTabelaRelatorio();
 }
 
+// Alterna a ordenação da coluna clicada no cabeçalho: 1º clique
+// ascendente, 2º clique na mesma coluna inverte pra descendente,
+// clicar noutra coluna troca e volta a ascendente (mesmo padrão de
+// planilha). Se a coluna clicada sumir da tabela (ex: usuário
+// desmarcou ela logo depois), `ordenarLinhasRelatorio()` já ignora o
+// pedido de ordenação (`coluna` não encontrada = sem-op), sem precisar
+// resetar aqui.
+function ordenarColunaRelatorio(campoId) {
+    if (relOrdenacao.campo === campoId) {
+        relOrdenacao.direcao = relOrdenacao.direcao === 'asc' ? 'desc' : 'asc';
+    } else {
+        relOrdenacao.campo = campoId;
+        relOrdenacao.direcao = 'asc';
+    }
+    renderizarTabelaRelatorio();
+}
+
 function renderizarTabelaRelatorio() {
     const linhasBase = NIVEIS_RELATORIO[relNivelAtivo].coletor();
     const resultado = montarResultadoRelatorio(relNivelAtivo, linhasBase, lerFiltrosRelatorio(), relColunasAtivas, Array.from(relAgruparAtivos));
@@ -671,7 +712,10 @@ function renderizarTabelaRelatorio() {
         return;
     }
 
-    const corpo = resultado.linhas.map(linha => {
+    const colunaOrdenacao = resultado.colunas.find(c => c.id === relOrdenacao.campo);
+    const linhasOrdenadas = ordenarLinhasRelatorio(resultado.linhas, colunaOrdenacao, relOrdenacao.direcao);
+
+    const corpo = linhasOrdenadas.map(linha => {
         // Destaque de outlier (item 5 da Frente Kanban avançado,
         // mesmo critério de 40% da Calibração BI) — só faz sentido
         // linha a linha, sem agrupamento (agrupar mistura várias
@@ -691,9 +735,15 @@ function renderizarTabelaRelatorio() {
           ).join('') + '</tr>'
         : '';
 
+    const cabecalho = resultado.colunas.map(c => {
+        const ativa = relOrdenacao.campo === c.id;
+        const seta = ativa ? (relOrdenacao.direcao === 'asc' ? ' ▲' : ' ▼') : '';
+        return '<th class="rel-th-ordenavel' + (ativa ? ' ativo' : '') + '" onclick="ordenarColunaRelatorio(\'' + c.id + '\')" title="Ordenar por ' + c.rotulo + '">' + c.rotulo + seta + '</th>';
+    }).join('');
+
     area.innerHTML =
         '<div class="table-wrapper"><table>' +
-        '<thead><tr>' + resultado.colunas.map(c => '<th>' + c.rotulo + '</th>').join('') + '</tr></thead>' +
+        '<thead><tr>' + cabecalho + '</tr></thead>' +
         '<tbody>' + corpo + linhaTotal + '</tbody>' +
         '</table></div>';
 }
@@ -723,6 +773,7 @@ function carregarVisaoSelecionadaRelatorio() {
     renderizarChipsColunasRelatorio();
     relAgruparAtivos = new Set(normalizarCamposAgrupar(visao.agrupar));
     renderizarChipsAgruparRelatorio();
+    relOrdenacao = { campo: null, direcao: 'asc' };
 
     renderizarTabelaRelatorio();
 }
