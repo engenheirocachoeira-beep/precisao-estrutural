@@ -356,7 +356,16 @@ const NIVEIS_RELATORIO = {
             { id: 'executor', rotulo: 'Executor', padrao: true, somavel: false, tipo: 'texto' },
             { id: 'data', rotulo: 'Data da Sessão', padrao: true, somavel: false, tipo: 'data' },
             { id: 'horas', rotulo: 'Horas', padrao: true, somavel: true, tipo: 'horas' },
-            { id: 'valorHora', rotulo: 'Valor da Hora', padrao: false, somavel: false, tipo: 'moeda' },
+            // Não é `somavel` (somar taxas não faz sentido) nem faz parte
+            // de nenhum agrupamento — sem `derivarDoGrupo`, sumia (virava
+            // "—") toda vez que a tabela estava agrupada por qualquer
+            // campo (bug relatado pelo usuário: "selecionei a coluna
+            // Valor da Hora mas ela não aparece"). `derivarDoGrupo` dá a
+            // MÉDIA PONDERADA de verdade (Custo do grupo ÷ Horas do
+            // grupo), não a média ingênua das taxas — só funciona se
+            // Custo e Horas também estiverem marcadas (são as colunas que
+            // alimentam a conta); ver `montarResultadoRelatorio()`.
+            { id: 'valorHora', rotulo: 'Valor da Hora', padrao: false, somavel: false, tipo: 'moeda', derivarDoGrupo: (g) => (g.horas > 0 ? g.custo / g.horas : null) },
             { id: 'custo', rotulo: 'Custo', padrao: true, somavel: true, tipo: 'moeda' },
         ],
         camposAgrupar: ['projeto', 'etapa', 'pavimento', 'cliente', 'executor', 'tarefa', 'data']
@@ -424,6 +433,22 @@ function montarResultadoRelatorio(nivel, linhasBase, filtros, colunasAtivasIds, 
     const camposSoma = colunas.filter(c => c.somavel).map(c => c.id);
     const camposAgruparNorm = normalizarCamposAgrupar(camposAgrupar);
     const linhasFinal = agruparLinhasRelatorio(linhasFiltradas, camposAgruparNorm, camposSoma);
+
+    // Colunas "derivadas de grupo" (`derivarDoGrupo` no catálogo, ex:
+    // Valor da Hora) só fazem sentido recalcular QUANDO agrupado — sem
+    // agrupamento a linha já é a sessão/tarefa original, com o valor
+    // exato dela (recalcular aqui poderia até zerar por engano uma
+    // linha com 0h). Roda depois do agrupamento pra usar os campos JÁ
+    // somados (ex: Custo/Horas do grupo), e só pra colunas que não
+    // viraram elas mesmas a chave do agrupamento (aí já têm o valor
+    // real, não precisam de fórmula).
+    if (camposAgruparNorm.length > 0) {
+        colunas.forEach(c => {
+            if (typeof c.derivarDoGrupo === 'function' && camposAgruparNorm.indexOf(c.id) === -1) {
+                linhasFinal.forEach(l => { l[c.id] = c.derivarDoGrupo(l); });
+            }
+        });
+    }
 
     // Linha de "Total Geral" no rodapé — soma os campos somáveis
     // independente de estar agrupado ou não (agrupar ou não dá na mesma

@@ -8845,3 +8845,46 @@ precisou buscar o conteúdo fresco via `fetch(..., {cache:'no-store'})`
 e rodar num escopo isolado (`new Function`) / injetar como `<style>`
 novo pra testar de verdade, em vez de confiar no `<script src>`/`<link>`
 normal da página durante os testes.)
+
+## Retomada em 2026-08-24 (parte 33) — Bug: "Valor da Hora" sumia quando o Relatório Personalizado estava agrupado
+
+Reportado pelo usuário: "mesmo selecionando o valor da hora no filtro
+colunas a exibir, o valor da hora considerado para cada tarefa não
+aparece". Reproduzido: sem agrupamento a coluna "Valor da Hora"
+aparecia certa (ex: R$ 20,00); ligando qualquer agrupamento (ex:
+"Agrupar por: Tarefa") ela virava "—" em toda linha. Causa raiz: essa
+coluna nunca foi `somavel` (somar taxas não faz sentido) nem é campo
+de agrupamento — `agruparLinhasRelatorio()` só carrega no grupo os
+campos que são chave OU estão em `camposSoma`, então qualquer outro
+campo simplesmente não sobrevive ao agrupamento.
+
+Correção em `js/relatorios.js`: a coluna `valorHora` do catálogo
+(`NIVEIS_RELATORIO.sessao.colunas`) ganhou `derivarDoGrupo: (g) =>
+(g.horas > 0 ? g.custo / g.horas : null)` — não é a média ingênua das
+taxas dentro do grupo (que poderia distorcer se um executor tiver mais
+sessões que outro), é a MÉDIA PONDERADA de verdade: Custo do grupo
+inteiro ÷ Horas do grupo inteiro, que dá exatamente "quanto custou por
+hora, em média, esse grupo" — usa os mesmos `custo`/`horas` que já
+foram somados pelo agrupamento (por isso só funciona se as colunas
+Custo e Horas também estiverem marcadas; sem elas, sem dado pra
+calcular, mostra "—" mesmo, que é o correto). `montarResultadoRelatorio()`
+roda essa fórmula em cada coluna do catálogo que tiver
+`derivarDoGrupo`, só QUANDO há agrupamento ativo e só pra colunas que
+não são elas mesmas a chave do agrupamento (linha sem agrupar já tem o
+valor exato da sessão original — não precisa, e não deve, recalcular:
+uma sessão de 0h recalculada por essa fórmula viraria "—" por engano,
+em vez de mostrar o valor real que ela tinha). Padrão genérico —
+qualquer outra coluna futura que precise de um "resumo" ao agrupar (em
+vez de suma ou "—") pode usar o mesmo mecanismo, só declarando
+`derivarDoGrupo` no catálogo.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_relatorios_valorhora_derivado.js`): grupo com 2 sessões (3h a
+R$20 + 2h a R$25) deu Valor da Hora = R$22,00 (bate a conta manual:
+(60+50)/5); grupo de 1 sessão só manteve o valor original (R$30);
+sem agrupamento nenhuma linha foi recalculada (mantiveram 20/25/30);
+grupo com Horas=0 deu `null` (não `NaN`/`Infinity`) — todos batendo
+exato com o esperado. Testado no navegador local (AP Praia) agrupando
+por Tarefa: "DT_Vigas" mostrou R$ 31,85 (média ponderada real,
+diferente de qualquer taxa nominal única, porque a tarefa atravessou
+sessões com valor-hora diferente) em vez de "—". Sem erro no console.
