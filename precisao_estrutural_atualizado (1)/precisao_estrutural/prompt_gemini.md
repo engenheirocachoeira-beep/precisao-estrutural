@@ -8888,3 +8888,71 @@ exato com o esperado. Testado no navegador local (AP Praia) agrupando
 por Tarefa: "DT_Vigas" mostrou R$ 31,85 (média ponderada real,
 diferente de qualquer taxa nominal única, porque a tarefa atravessou
 sessões com valor-hora diferente) em vez de "—". Sem erro no console.
+
+## Retomada em 2026-08-24 (parte 34) — Valor da Hora vira valores REAIS (não média) + bug grave: Horas Realizadas zeradas no nível Tarefa
+
+Duas correções em `js/relatorios.js`, a 2ª (Horas Realizadas) bem mais
+séria que a 1ª — achado durante o teste da parte 33.
+
+1. **Valor da Hora: parou de inventar média, agora mostra os valores
+   REAIS**. O usuário corrigiu a solução da parte 33 (que mostrava uma
+   média ponderada Custo÷Horas do grupo): "Você deve mostrar o valor
+   da hora de cada apontamento. Esse valor da hora deve ser aquele
+   cadastrado no cadastro de funcionários" — ou seja, nunca um número
+   sintético, sempre uma taxa que REALMENTE foi usada em algum
+   apontamento. `agruparLinhasRelatorio()` (motor genérico) ganhou
+   `_linhas` em cada grupo — as linhas originais que caíram ali, não só
+   a soma — permanecendo genérica (não sabe nome de nenhum campo
+   específico). `derivarDoGrupo` da coluna `valorHora` agora olha os
+   valores REAIS de `g._linhas`: grupo com 1 taxa só → mostra ela igual
+   antes (é "aquele cadastrado", só que 1 grupo = 1 taxa); grupo com
+   taxas diferentes (reajuste no meio da tarefa, ou mais de 1 executor)
+   → lista TODAS as taxas reais separadas por "/" (ex: "R$ 31,25 / R$
+   33,77"), nunca inventa uma média. `formatarValorColuna()` ganhou um
+   "escape" (`{__texto: '...'}`) pra esse caso — sem ele, o
+   `parseFloat()` da formatação normal de moeda cortaria pro primeiro
+   número e perderia o resto do texto.
+
+2. **BUG achado ao testar: "Horas Realizadas" sempre 0h no nível
+   Tarefa, mesmo com sessões reais registradas.** Reportado pelo
+   usuário com print de tela (Home Garden, agrupado por Tarefa — Horas
+   Previstas aparecia certo, Horas Realizadas sempre "0.0h"). Causa
+   raiz: `coletarLinhasTarefa()` lia `tarefa.horas_reais` — um campo
+   CACHEADO/derivado (ver `apontamento.js:20-23`,
+   `recalcularHorasReais()`) que deveria sempre espelhar a soma de
+   `tarefa.sessoes_trabalho`, mas foi encontrado **dessincronizado em
+   dados reais**: nas 36 tarefas do Home Garden que têm sessão, as 36
+   estavam com `horas_reais` errado (a maioria zerada mesmo tendo
+   dezenas de horas reais de sessão — ex: DT_Vigas com 6
+   sub-tarefas somando 166h de sessões reais, todas com
+   `horas_reais: "0.0"`); no AP Praia, 3 tarefas divergentes, inclusive
+   uma com `horas_reais` MAIOR que a soma das sessões (16,68 vs 4,00) —
+   não é só "sempre zero", é uma dessincronia genuína, provavelmente
+   resíduo de antes da reforma que tornou o campo "sempre recalculado".
+   **Correção só no relatório**: `coletarLinhasTarefa()` parou de
+   confiar em `tarefa.horas_reais` e passou a somar
+   `tarefa.sessoes_trabalho` direto, a mesma fonte robusta que
+   `calcularCustoRealTarefa()` (por isso "Custo Real" nunca teve esse
+   bug) e `coletarLinhasSessaoTrabalho()` (nível Sessão) já usam — imune
+   a qualquer futura dessincronia do campo cacheado.
+   **NÃO CORRIGIDO** (fora do escopo pedido, avisado ao usuário): o
+   campo `tarefa.horas_reais` em si continua desatualizado nos dados de
+   produção — isso pode afetar outras telas que leem esse campo direto
+   (Kanban — total de horas por executor, BI/Calibração, "Total: Xh" em
+   Atribuição de Tarefas, aprovações de calendário). Fica pendente uma
+   decisão do usuário sobre investigar a causa (por que
+   `recalcularHorasReais()` não pegou essas sessões?) e/ou rodar uma
+   correção nos dados existentes.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_relatorios_fix2.js`): grupo com MESMA taxa (2 sessões a R$20)
+manteve 20 (valor real, não recalculado); grupo com taxas DIFERENTES
+(R$20 + R$25) devolveu `{__texto:"R$ 20,00 / R$ 25,00"}`, formatado
+igual; sem agrupar manteve os valores originais (20, 25) — tudo batendo
+exato. Testado no navegador local com dados reais: nível Tarefa,
+agrupado por Tarefa, "DT_Vigas" passou a mostrar 166.0h de Horas
+Realizadas (batendo EXATO com o mesmo total já visto no nível Sessão
+agrupado por Tarefa, parte 33) em vez de 0.0h; nível Sessão, mesma
+tarefa, "Valor da Hora" passou a mostrar "R$ 31,25 / R$ 33,77" (2
+taxas reais distintas) em vez da média inventada R$ 31,85 da parte 33.
+Sem erro no console nos dois testes.

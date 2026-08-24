@@ -171,7 +171,20 @@ function coletarLinhasTarefa() {
         coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path }) => {
             if (!tarefa.executor) return;
             const loc = resolverLocalizacaoPorNivel(arv, path);
-            const horasRealizadas = parseFloat(tarefa.horas_reais) || 0;
+            // NÃO lê tarefa.horas_reais direto (bug relatado pelo
+            // usuário: "não aparecem as horas realizadas" — esse campo
+            // é DERIVADO/cacheado e encontrado DESSINCRONIZADO das
+            // sessões de verdade em várias tarefas reais, tanto pra
+            // menos quanto pra mais — provavelmente resquício de dados
+            // de antes da reforma que tornou horas_reais "sempre
+            // recalculado" (ver apontamento.js:20-23). Soma direto
+            // tarefa.sessoes_trabalho, a mesma fonte robusta que
+            // calcularCustoRealTarefa() já usa logo abaixo e que
+            // coletarLinhasSessaoTrabalho() (nível Sessão) também usa —
+            // impossível ficar desatualizado, e não depende de nenhum
+            // outro código ter lembrado de recalcular o campo cacheado.
+            const horasRealizadas = (Array.isArray(tarefa.sessoes_trabalho) ? tarefa.sessoes_trabalho : [])
+                .reduce((s, sessao) => s + (parseFloat(sessao.duracao) || 0), 0);
             const custoReal = calcularCustoRealTarefa(tarefa, tarefa.executor);
             const dataInicioReal = obterDataInicioExecucaoReal(tarefa);
 
@@ -295,7 +308,12 @@ function normalizarCamposAgrupar(agrupar) {
 // agrupador + os totais). Sem nenhum campo de agrupar, devolve a lista
 // original sem alterar (linha a linha). `_quantidade` = quantas linhas
 // originais formaram aquele grupo, útil pra dar contexto no relatório
-// (ex: "12 sessões" por trás do total). Função pura, testável sem DOM.
+// (ex: "12 sessões" por trás do total). `_linhas` = as linhas originais
+// que caíram nesse grupo (não só um resumo) — usado por colunas com
+// `derivarDoGrupo` no catálogo (ver montarResultadoRelatorio()) que
+// precisam olhar o dado individual de cada uma, não só a soma; função
+// continua genérica, não sabe o nome de nenhum campo específico. Função
+// pura, testável sem DOM.
 function agruparLinhasRelatorio(linhas, camposAgrupar, camposSoma) {
     const campos = normalizarCamposAgrupar(camposAgrupar);
     if (campos.length === 0) return linhas;
@@ -304,13 +322,14 @@ function agruparLinhasRelatorio(linhas, camposAgrupar, camposSoma) {
     linhas.forEach(l => {
         const chave = campos.map(c => l[c]).join('␟'); // separador improvável de colidir com dado real
         if (!grupos[chave]) {
-            grupos[chave] = { _quantidade: 0 };
+            grupos[chave] = { _quantidade: 0, _linhas: [] };
             campos.forEach(c => grupos[chave][c] = l[c]);
             camposSoma.forEach(c => grupos[chave][c] = 0);
             ordem.push(chave);
         }
         camposSoma.forEach(c => grupos[chave][c] += (parseFloat(l[c]) || 0));
         grupos[chave]._quantidade++;
+        grupos[chave]._linhas.push(l);
     });
     return ordem.map(chave => grupos[chave]);
 }
@@ -360,12 +379,32 @@ const NIVEIS_RELATORIO = {
             // de nenhum agrupamento — sem `derivarDoGrupo`, sumia (virava
             // "—") toda vez que a tabela estava agrupada por qualquer
             // campo (bug relatado pelo usuário: "selecionei a coluna
-            // Valor da Hora mas ela não aparece"). `derivarDoGrupo` dá a
-            // MÉDIA PONDERADA de verdade (Custo do grupo ÷ Horas do
-            // grupo), não a média ingênua das taxas — só funciona se
-            // Custo e Horas também estiverem marcadas (são as colunas que
-            // alimentam a conta); ver `montarResultadoRelatorio()`.
-            { id: 'valorHora', rotulo: 'Valor da Hora', padrao: false, somavel: false, tipo: 'moeda', derivarDoGrupo: (g) => (g.horas > 0 ? g.custo / g.horas : null) },
+            // Valor da Hora mas ela não aparece"). Pedido explícito do
+            // usuário sobre COMO mostrar: "deve ser aquele cadastrado no
+            // cadastro de funcionários" — ou seja, o valor REAL de cada
+            // apontamento (já é o que `coletarLinhasSessaoTrabalho()`
+            // grava em cada sessão via `valorHoraVigente()`), nunca uma
+            // média/conta inventada. `derivarDoGrupo` olha os valores
+            // reais de TODOS os apontamentos que caíram no grupo
+            // (`g._linhas`): se todos usaram a mesma taxa, mostra ela
+            // (ainda é "aquele cadastrado", só que 1 grupo = 1 taxa); se
+            // o grupo juntou apontamentos com taxas diferentes (ex:
+            // executor teve reajuste no meio, ou mais de um executor),
+            // lista os valores distintos de verdade, cada um vindo do
+            // cadastro — nunca inventa um número que não corresponde a
+            // nenhum apontamento real.
+            {
+                id: 'valorHora', rotulo: 'Valor da Hora', padrao: false, somavel: false, tipo: 'moeda',
+                derivarDoGrupo: (g) => {
+                    const distintos = Array.from(new Set((g._linhas || []).map(l => l.valorHora).filter(v => v !== undefined && v !== null)));
+                    if (distintos.length === 0) return null;
+                    if (distintos.length === 1) return distintos[0];
+                    const texto = distintos.sort((a, b) => a - b)
+                        .map(v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+                        .join(' / ');
+                    return { __texto: texto };
+                }
+            },
             { id: 'custo', rotulo: 'Custo', padrao: true, somavel: true, tipo: 'moeda' },
         ],
         camposAgrupar: ['projeto', 'etapa', 'pavimento', 'cliente', 'executor', 'tarefa', 'data']
@@ -412,6 +451,12 @@ const NIVEIS_RELATORIO = {
 // /home/claude/testes/teste_relatorios_catalogo_composicao.js).
 function formatarValorColuna(tipo, valor) {
     if (valor === undefined || valor === null || valor === '') return '—';
+    // Saída de escape pra colunas com `derivarDoGrupo` que precisam
+    // mostrar texto JÁ FORMATADO (ex: "R$ 20,00 / R$ 25,00" quando um
+    // grupo juntou apontamentos com taxas diferentes) — sem isso,
+    // `parseFloat()` abaixo cortaria pro primeiro número e perderia o
+    // resto do texto.
+    if (typeof valor === 'object' && valor !== null && '__texto' in valor) return valor.__texto;
     if (tipo === 'horas') return parseFloat(valor).toFixed(1) + 'h';
     if (tipo === 'moeda') return 'R$ ' + parseFloat(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (tipo === 'percentual') return parseFloat(valor).toFixed(0) + '%';
