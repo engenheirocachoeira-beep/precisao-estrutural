@@ -8956,3 +8956,54 @@ agrupado por Tarefa, parte 33) em vez de 0.0h; nível Sessão, mesma
 tarefa, "Valor da Hora" passou a mostrar "R$ 31,25 / R$ 33,77" (2
 taxas reais distintas) em vez da média inventada R$ 31,85 da parte 33.
 Sem erro no console nos dois testes.
+
+## Retomada em 2026-08-24 (parte 35) — Investigação e correção de dados: `horas_reais` dessincronizado (produção, Firebase)
+
+Pedido do usuário: investigar a causa da dessincronia achada na parte
+34. Não mexeu em nenhum arquivo do repositório — é 100% correção de
+DADOS, feita direto no Firebase de produção
+(`precisao-estrutural-default-rtdb`) via a própria sincronização já
+embutida no app (qualquer `localStorage.setItem` é interceptado e
+propagado, ver `sync-provisorio.js` §5/§6).
+
+**Causa raiz confirmada**: o código atual (`js/apontamento.js`) está
+correto — as 5 únicas funções que tocam `sessoes_trabalho`
+(play/pause, sessão manual, editar, remover, forçar pausa) chamam
+`recalcularHorasReais()` logo em seguida, sempre; usando o app pela
+interface é impossível gerar essa dessincronia. A causa é EXTERNA:
+dados escritos direto no banco, fora do app. Evidência forte no Home
+Garden: as 36 tarefas divergentes tinham 100% das sessões com
+`manual: true` e `horas_reais` travado em `"0.0"`, datas de set/2025 a
+jul/2026 — padrão clássico de um script de importação que escreveu
+`sessoes_trabalho` direto (reproduzindo até a flag `manual`) mas nunca
+recalculou o campo cacheado; o projeto tem um arquivo
+`DANIEL_HOME_GARDEN_SETOR_C_reorganizado.xlsx` na pasta (Daniel é o
+executor de todas as sessões afetadas) — provável origem. No AP Praia,
+só 3 tarefas com padrão mais heterogêneo (uma com `horas_reais` MAIOR
+que a soma das sessões) — indício de edições pontuais direto no banco,
+não uma reimportação completa. Descartado `js_estacionado/timesheet_executor.js`
+(a versão antiga que escrevia `horas_reais` direto sem depender de
+sessão) como causa atual — confirmado que não está em
+`SYNC_PROVISORIO_SCRIPTS_APP`, ou seja, não é carregado pelo app.
+
+**Correção aplicada** (confirmada pelo usuário antes de rodar): script
+rodado no console do navegador, conectado ao Firebase real, que
+percorre TODAS as tarefas-folha de TODOS os projetos e chama
+`recalcularHorasReais(tarefa)` (a mesma função oficial usada em toda
+edição de sessão pela interface — não uma reimplementação) em cada uma
+que tem `sessoes_trabalho`; só depois disso grava e força o envio
+imediato (`_syncEnviarAgora()`, sem esperar o debounce de 3s). Não
+mexeu em nenhuma sessão, só no campo cacheado. Fora do escopo desta
+correção, de propósito: `horas_revisao`/`sessoes_revisao` (trilha
+paralela de Revisão/Conferência) não foi verificada nem tocada — o
+usuário só reportou o problema na trilha de Execução.
+
+**Verificação**: dry-run primeiro (só leitura, sem gravar) — achou 39
+tarefas divergentes em 2 projetos (Home Garden 36, AP Praia 3), soma
+total de Horas Realizadas cacheadas = 49,18h contra o valor real de
+469,51h. Rodou a correção → 39 tarefas corrigidas. Confirmado
+DIRETO NO SERVIDOR (`_syncFirebaseRef.once('value')`, não só no
+localStorage local) que a gravação chegou: DT_Vigas (Home Garden)
+mostrando `horas_reais: "42.17"` no Firebase. Reconferência completa
+pós-correção, lendo de novo direto do servidor: **zero tarefas
+divergentes restantes** em todos os projetos. Sem erro no console.
