@@ -88,6 +88,29 @@ function ehNoFolha(no) {
     return !no || !Array.isArray(no.filhos) || no.filhos.length === 0;
 }
 
+// Item 5/6/7 (prompt_gemini.md §14, leva 4 — bug confirmado): banco_arvores_projetos
+// é indexado por nome de projeto, mas nada garante que toda chave ali
+// ainda corresponda a um projeto vivo em banco_projetos — deletar ou
+// renomear um projeto no Cadastro podia deixar (ou ainda deixa, se
+// veio de antes desta correção) uma árvore órfã sob o nome antigo, que
+// o Kanban e a Atribuição de Tarefas mostravam porque liam
+// Object.keys(banco_arvores_projetos) direto, sem cruzar com a lista
+// atual do Cadastro. deletarProjeto()/salvarProjeto() (cadastros.js)
+// já foram corrigidas pra não deixar órfãos NOVOS — esta função aqui é
+// o filtro defensivo usado por quem LISTA projetos/tarefas, cobrindo
+// tanto órfãos futuros (por segurança) quanto órfãos que já existiam
+// no localStorage de antes da correção.
+function obterArvoresProjetosAtivas() {
+    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const projetosCadastro = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    const nomesValidos = new Set(projetosCadastro.map(p => p.nome));
+    const ativas = {};
+    Object.keys(arvores).forEach(nome => {
+        if (nomesValidos.has(nome)) ativas[nome] = arvores[nome];
+    });
+    return ativas;
+}
+
 // Devolve uma lista achatada de TODOS os nós-folha de um array de
 // Etapas, em QUALQUER profundidade (já que os níveis agora são
 // puláveis, não dá mais pra saber de antemão se a folha vai estar a 1,
@@ -603,10 +626,48 @@ function abrirAbaCadastro(modulo) {
     else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
 }
 
+// Pedido do usuário: quando um Projeto está "aberto" (na Árvore/Estrutura
+// de Projeto OU na Distribuição de Custos dele), o título principal da
+// tela mostra o NOME do projeto (em vez de um rótulo genérico), e logo
+// abaixo aparecem 2 "orelhas" (abas) — Estrutura de Projeto / Custos —
+// pra pular de uma pra outra sem re-escolher o projeto. Sem projeto
+// aberto, a barra de orelhas fica escondida e cada tela cuida do seu
+// próprio título genérico (esta função só MEXE no título quando HÁ
+// projeto — ver `nomeProjeto` vazio abaixo).
+function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
+    const barra = document.getElementById('orelhas-projeto-ativo');
+    if (!barra) return;
+    if (!nomeProjeto) {
+        barra.style.display = 'none';
+        return;
+    }
+    barra.style.display = 'flex';
+    document.getElementById('page-context-title').innerText = nomeProjeto;
+    const orelhaEstrutura = document.getElementById('orelha-estrutura-projeto');
+    const orelhaCustos = document.getElementById('orelha-custos-projeto');
+    const orelhaDesempenho = document.getElementById('orelha-desempenho-projeto');
+    const orelhaDiagnostico = document.getElementById('orelha-diagnostico-projeto');
+    const orelhaBonificacao = document.getElementById('orelha-bonificacao-projeto');
+    const orelhaDistribuicoes = document.getElementById('orelha-distribuicoes-projeto');
+    if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
+    if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
+    if (orelhaDesempenho) orelhaDesempenho.classList.toggle('active', abaAtiva === 'desempenho');
+    if (orelhaDiagnostico) orelhaDiagnostico.classList.toggle('active', abaAtiva === 'diagnostico');
+    if (orelhaBonificacao) orelhaBonificacao.classList.toggle('active', abaAtiva === 'bonificacao');
+    if (orelhaDistribuicoes) orelhaDistribuicoes.classList.toggle('active', abaAtiva === 'distribuicoes');
+}
+
 function alternarModulo(modulo) {
     document.getElementById('panel-blank-state').style.display = 'none';
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+
+    // As "orelhas" (Estrutura de Projeto/Custos) só fazem sentido dentro
+    // do fluxo de Projeto — indo pra QUALQUER outro módulo, escondem.
+    // 'arvore' fica de fora daqui de propósito: fecharProjetoAtivoNaArvore()
+    // (chamada logo abaixo) já decide se mostra ou esconde, conforme tinha
+    // ou não um projeto aberto antes.
+    if (modulo !== 'arvore' && typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo('', null);
 
     if (document.getElementById('nav-' + modulo)) document.getElementById('nav-' + modulo).classList.add('active');
 
@@ -687,11 +748,81 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
     if (!nome) return;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-distribuicao-custos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Distribuição de Custos";
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'custos');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     carregarPainelDistribuicaoCustos();
     escolherProjetoDistribuicaoInicial(nome);
+}
+
+// Pedido do usuário: 3ª orelha do Hub "📁 Projetos", ao lado de
+// Estrutura de Projeto/Custos — mostra horas previstas×realizadas,
+// custo real, % de conclusão e o saldo (verba − custo) do projeto
+// (ver js/desempenho-projeto.js pelos cálculos). Mesmo padrão de
+// irParaDistribuicaoCustosDoProjetoAtivo() acima, mas com a mesma
+// cautela de irParaEstruturaProjetoDoProjetoAtivo() quanto à origem do
+// nome do projeto: `projetoSelecionadoAtivo` cobre quem vem da
+// Estrutura de Projeto, mas quem abriu o projeto direto pelo portal da
+// Distribuição de Custos nunca passou por ali — nesse caso o nome só
+// existe no select `#dc-projeto`.
+function irParaDesempenhoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-desempenho-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome);
+}
+
+// 4ª orelha do Hub "📁 Projetos" — leituras automáticas (Diagnóstico)
+// em cima dos mesmos dados de Desempenho, ver
+// js/desempenho-projeto.js::calcularDiagnosticoProjeto(). Mesmo padrão
+// de origem do nome do projeto que irParaDesempenhoDoProjetoAtivo().
+function irParaDiagnosticoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-diagnostico-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'diagnostico');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDiagnostico === 'function') carregarPainelDiagnostico(nome);
+}
+
+// 5ª orelha do Hub "📁 Projetos" — Bonificação (Lucro/Sobra e
+// Bonificação por Executor, rateio da Verba Global em 3 blocos), ver
+// js/desempenho-projeto.js::calcularBonificacaoProjeto(). Mesmo padrão
+// de origem do nome do projeto das outras orelhas.
+function irParaBonificacaoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-bonificacao-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'bonificacao');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelBonificacao === 'function') carregarPainelBonificacao(nome);
+}
+
+// 6ª orelha do Hub "📁 Projetos" — Distribuições (relatório editorial
+// de bonificação, formato trazido pelo usuário de um Artifact de
+// referência), ver js/desempenho-projeto.js::calcularDistribuicoesProjeto().
+// Mesmo padrão de origem do nome do projeto das outras orelhas.
+function irParaDistribuicoesDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-distribuicoes-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'distribuicoes');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDistribuicoes === 'function') carregarPainelDistribuicoes(nome);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {
@@ -700,7 +831,6 @@ function irParaEstruturaProjetoDoProjetoAtivo() {
     if (!nome) return;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-arvore-projetos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Estrutura de Projeto Construtiva";
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     abrirProjetoNaArvore(nome);
@@ -1130,8 +1260,20 @@ function aplicarPermissoesMenu() {
 // `executor` ia pro Kanban, os demais iam pra Árvore; revertido a
 // pedido explícito do usuário). `carregarPainelKanban()` já
 // pré-seleciona o próprio nome no dropdown (melhoria #7).
+// Pedido posterior (prompt_gemini.md parte 31): Analista e
+// Administrador passam a abrir direto a tela de seleção de projetos
+// (mesma tela do item "📁 Projetos" do menu, via
+// `renderizerProjetosParaSelecaoArvore()`, que já filtra pra Analista
+// através de `obterNomesProjetosPermitidos()` — pra Administrador essa
+// função não filtra nada, então ele vê a lista completa de projetos,
+// que é o comportamento esperado). Detalhista/Estagiário (nivel
+// 'executor') e Supervisor continuam indo direto pro Kanban.
 function abrirTelaInicialPorNivel() {
     if (!usuarioLogado) return;
+    if (usuarioLogado.nivel === 'analista' || usuarioLogado.nivel === 'administrador') {
+        alternarModulo('arvore');
+        return;
+    }
     alternarModulo('kanban');
 }
 

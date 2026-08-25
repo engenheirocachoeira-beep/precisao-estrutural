@@ -9171,3 +9171,53 @@ Projeto e Tarefa voltaram certos e o relatório recarregou (1 projeto
 encontrado, consistente); apagou a visão (`confirm()` mockado) → menu
 voltou a "-- Nova consulta --", botão apagar sumiu, banco zerado. Sem
 erro novo no console.
+
+## Retomada em 2026-08-24 (parte 39) — Sincroniza modulos_isolados/relatorios/ (drift de ~9 partes, desde 13/08)
+
+Achado ao concluir a parte 38 e revisar a regra estabelecida no
+próprio `prompt_gemini.md`/memória: "toda mudança nos arquivos
+principais deve ser replicada em `modulos_isolados/<módulo>/`" não
+vinha sendo seguida pra `relatorios.js` desde a reforma da parte 30 —
+9 partes de mudança acumuladas sem sincronizar. Avisado ao usuário, que
+pediu pra sincronizar agora.
+
+**O que estava desatualizado, além do JS**: o `index.html` isolado era
+de ANTES da própria existência da tela "Relatório de Custos" (parte
+16/18) — só tinha a UI do motor genérico ("Personalizado"), com um
+`<select>` único de Agrupar (não os chips multi-campo da parte 32/33),
+2 níveis só (faltava "Avanço de Projeto", parte 18) e nenhuma orelha
+Custos/Personalizado. Não dava pra só copiar o `.js` por cima — o HTML
+também precisava virar uma cópia fiel do bloco `#panel-relatorios`
+atual do `index.html` principal (as 2 orelhas completas, com todos os
+filtros/chips/árvore de custos/visões de cada uma).
+
+**Sincronizado**: `index.html` isolado reescrito com o bloco
+`#panel-relatorios` real, inteiro (mesmo harness de sempre por fora —
+título, header de teste, `alternarModulo`); `relatorios.js` e
+`estilos.css` copiados por completo. Verificando as dependências que
+`relatorios.js` chama fora dele mesmo, achado que `core.js`,
+`feriados.js` e `apontamento.js` isolados TAMBÉM estavam desatualizados
+(faltavam `obterArvoresProjetosAtivas()`, entre outras) — sincronizados
+os 3 também, mesmo padrão de cópia completa. `escapeHtml`/
+`calcularProgressoProjeto` (usada só na "Avanço de Projeto", com
+`typeof` guard) continuam fora do módulo isolado — vivem em
+`desempenho-projeto.js`/`painel-progresso.js`, não carregados aqui;
+sem risco de quebrar nada porque o código já lida com a ausência sem
+crashar.
+
+**Verificação**: `node --check` limpo nos 4 `.js` sincronizados.
+Testado servindo o módulo isolado de verdade (`python -m http.server`
+numa porta separada, não o `data:`/snapshot estático que a ferramenta
+de preview usa pra arquivo local fora do projeto servido) — carregou,
+`alternarModulo('relatorios')` abriu a orelha Custos ativa com todos
+os filtros novos presentes (Setor/Pavimento/Tarefa/Visão); salvar,
+listar e apagar Visão testados de ponta a ponta dentro do harness
+isolado, todos batendo. Achado (e investigado) um erro de boot NÃO
+relacionado — `core.js`'s `window.onload` chama `iniciarAppPosLogin()`
+pra módulos isolados (comportamento já documentado no próprio
+código-fonte, "não faz sentido exigir login numa página de teste de UM
+módulo"), que tenta inicializar Cadastros
+(`renderizarTabelaClientes`), tela que este harness nunca carregou —
+confirmado como limitação estrutural PRÉ-EXISTENTE de todo módulo
+isolado (não causada por esta sincronização), sem efeito na
+funcionalidade real de Relatórios testada logo em seguida.
