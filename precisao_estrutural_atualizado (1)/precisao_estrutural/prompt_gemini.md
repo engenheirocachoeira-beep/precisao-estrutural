@@ -9892,3 +9892,64 @@ inspeção do DOM: `dca-valor-analista-ref.value` = "R$ 85.119,68",
 `vp-verba-liquida-ref.value` = "R$ 28.302,29" — todos os 3 campos
 populados corretamente como `<input readonly>` dentro de
 `.form-group col-4`/`.form-group col-6`. Sem erro no console.
+
+## Retomada em 2026-08-25 (parte 52) — Orçamento: sub-abas viram cartões empilhados numa coluna estreita (≤50% da tela)
+
+Pedido do usuário: "Quero que mostre as abas secundárias da aba
+Orçamento em formato de cartão. Todas as abas devem ter a mesma
+largura e serem distribuídas em apenas 1 coluna de largura menor,
+ocupando, no máximo 50% da tela. Use altura das linhas com espaço
+igual a que usou na aba Verba Global para produção."
+
+As 4 sub-abas (Orçamento Global/Verba Global para Produção/Verba por
+Pavimento/Verba por Tarefa), antes uma barra horizontal de "tabs"
+sublinhadas (`.tab-bar`/`.tab-selector`, mesmo padrão usado em
+Relatório Personalizado), viraram uma coluna vertical de cartões
+(borda + sombra leve + barra de destaque à esquerda quando ativo),
+com o conteúdo da aba selecionada ao lado, à direita — mesmo padrão
+coluna-estreita-esquerda + conteúdo-à-direita já usado em
+Detalhamento/Produtividade (parte 47) e Detalhamento/Financeira
+(parte 49/50).
+
+**`index.html`**: os 2 botões que ficavam dentro da antiga `.tab-bar`
+("📁 Estrutura de Projeto"/"🔁 Trocar Projeto") saíram pra uma
+`.dc-toolbar` própria acima (não fazem sentido virando "cartão" junto
+com as abas). Novo wrapper `.dc-abas-layout` (flex) com 2 filhos: a
+`.tab-bar` (agora só com os 4 `.tab-selector`, virou a coluna de
+cartões) e `.dc-abas-conteudo` (os 4 `.tab-content` de sempre, sem
+nenhuma mudança de conteúdo/atribuições). IDs e `onclick`s de cada aba
+ficaram exatamente iguais — só mudou o que envolve os elementos.
+
+**`estilos.css`**: nova regra escopada a `#dc-conteudo-principal
+.dc-abas-layout .tab-selector` (não mexe no `.tab-selector` genérico —
+esse continua servindo Relatório Personalizado, como já documentado
+no CSS desde a reforma das orelhas). `.tab-bar` vira
+`flex-direction:column` com `flex: 0 1 320px; max-width: 50%` (nunca
+passa de metade do espaço disponível, mesmo em telas estreitas —
+confirmado a 900px de largura, onde o limite de 50% realmente entra em
+ação). `gap: 10px` entre os cartões — o MESMO valor de `.form-grid`
+(pedido explícito do usuário: "espaço igual a que usou na aba Verba
+Global para Produção"); padding do cartão `12px 16px`, peso visual
+parecido ao bloco label+input daquela aba. Cartão ativo:
+`background:#eff6ff` + `border-left: 3px solid #00b4d8` (mesmo par
+navy+ciano usado em todo canto do sistema pra "selecionado"). Media
+query em 760px empilha a coluna de cartões ACIMA do conteúdo (em vez
+de do lado) pra não espremer demais em telas bem estreitas.
+
+**Verificação**: `node --check` limpo, `estilos.css` com chaves
+balanceadas (362/362), `index.html` com `<div>` balanceados (423/423).
+Testado no navegador local (porta nova 5714) no projeto piloto "AP
+PRAIA (SAVOIA) - SETOR B": confirmado visualmente os 4 cartões
+empilhados à esquerda, "Orçamento Global" ativo por padrão; clicar
+"Verba Global para Produção" troca a classe `.active` corretamente
+(confirmado via `classList`) e o card ganha
+`background-color:rgb(239,246,255)` + `border-left-color:rgb(0,180,216)`
+(computado, não só CSS declarado). Largura da coluna de cartões
+medida via `getBoundingClientRect()`: 320px fixos em tela larga
+(1400px, ~29,6% do espaço disponível) e exatamente 50% quando o espaço
+aperta (900px) — nunca ultrapassa o teto pedido. Sem erro no console.
+Não sincronizado em `modulos_isolados/distribuicao-custos/index.html`
+(único módulo isolado com esse tab-bar) — já tem drift estrutural
+maior e pré-existente (ainda tem a aba "Verba para Detalhamento",
+removida do app principal numa reforma anterior desta sessão), mesmo
+precedente já registrado antes.
