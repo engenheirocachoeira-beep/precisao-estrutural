@@ -9645,3 +9645,35 @@ confirmado visualmente os 3 gráficos de desvio aparecendo na coluna
 esquerda, abaixo dos KPIs (rolando a coluna); coluna direita mostrando
 só a tabela "Desempenho por Executor" nesse ponto de rolagem. Sem erro
 no console.
+
+## Retomada em 2026-08-25 (parte 48) — Corrige "&minus;" aparecendo cru (texto, não sinal de menos) no cartão SALDO DE HORAS
+
+Usuário reportou com print (projeto HOME GARDEN - SETOR C): o texto
+comparativo do cartão "SALDO DE HORAS" mostrava literalmente "previsto
+294,60h &minus; realizado 400,00h" na tela, em vez do sinal de menos.
+
+**Causa**: `kpiCard(rotulo, numero, comparativo, cor, selo)`
+(`js/desempenho-projeto.js`) passa `comparativo` por `escapeHtml()`
+antes de inserir no HTML — correto/esperado pra texto livre, mas a
+chamada de "SALDO DE HORAS" (linha ~955, adicionada na parte 42)
+embutia a entidade HTML `&minus;` DENTRO desse texto. `escapeHtml()`
+escapa `&` → `&amp;` primeiro, transformando `&minus;` em
+`&amp;minus;`, que o navegador não decodifica de volta — mostra o
+texto cru "&minus;". O 2º argumento (`numero`) usa a MESMA entidade e
+não quebra, porque `kpiCard()` insere `numero` sem escapar (por isso
+"− 105,40h" no número grande sempre apareceu certo, só o texto pequeno
+embaixo é que quebrava).
+
+**Fix**: trocada a entidade `&minus;` pelo caractere Unicode "−"
+(U+2212) direto na string do `comparativo` — sobrevive ao
+`escapeHtml()` sem problema, porque não é feito de `&` + texto.
+Nenhuma outra chamada de `kpiCard()`/`kpiCardMultiplo()` no arquivo
+tinha esse padrão (confirmado por busca de todas as ocorrências de
+`&minus;` no arquivo) — bug isolado a essa única linha.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5708) no projeto real do usuário "HOME GARDEN - SETOR C"
+(mesmo projeto do print): `.desemp-kpi-comparativo` do cartão SALDO DE
+HORAS inspecionado via DOM, mostrando agora "previsto 294,60h −
+realizado 400,00h" com o sinal de menos de verdade, batendo com os
+números do print original (previsto 294,6h, realizado 400,00h).

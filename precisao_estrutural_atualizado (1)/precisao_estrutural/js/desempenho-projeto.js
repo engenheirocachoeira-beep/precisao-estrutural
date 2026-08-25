@@ -947,7 +947,12 @@ function renderizarDesempenhoProjeto(d) {
     html += '<div class="desemp-grid-kpi">';
     html += kpiCard('Horas Consumidas', horasRealizadoDet.toFixed(1) + 'h', 'previsto: ' + horasPrevistoDet.toFixed(1) + 'h', pctHoras <= 110 ? 'good' : (pctHoras <= 200 ? 'warn' : 'bad'), (pctHoras >= 100 ? '+' : '') + (pctHoras - 100).toFixed(0) + '% do previsto');
     html += kpiCard('% CONCLUÍDA', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
-    html += kpiCard('SALDO DE HORAS', (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + 'h', 'previsto ' + formatarNumero(horasPrevistoDet) + 'h &minus; realizado ' + formatarNumero(horasRealizadoDet) + 'h', saldoHorasDet >= 0 ? 'good' : 'bad', saldoHorasDet >= 0 ? 'sobrando' : 'estourado');
+    // Nota: o 3º argumento (comparativo) passa por escapeHtml() dentro
+    // de kpiCard() — usar a entidade HTML "&minus;" aqui quebraria (o
+    // "&" viraria "&amp;", mostrando o texto cru "&minus;" na tela, em
+    // vez do sinal de menos). Caractere Unicode "−" direto sobrevive à
+    // escapagem sem problema.
+    html += kpiCard('SALDO DE HORAS', (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + 'h', 'previsto ' + formatarNumero(horasPrevistoDet) + 'h − realizado ' + formatarNumero(horasRealizadoDet) + 'h', saldoHorasDet >= 0 ? 'good' : 'bad', saldoHorasDet >= 0 ? 'sobrando' : 'estourado');
     html += '</div>';
 
     // --- Gráficos de desvio de horas (pedido do usuário: "use
