@@ -645,16 +645,24 @@ function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
     document.getElementById('page-context-title').innerText = nomeProjeto;
     const orelhaEstrutura = document.getElementById('orelha-estrutura-projeto');
     const orelhaCustos = document.getElementById('orelha-custos-projeto');
-    const orelhaDesempenho = document.getElementById('orelha-desempenho-projeto');
+    const orelhaDetalhamento = document.getElementById('orelha-detalhamento-projeto');
     const orelhaDiagnostico = document.getElementById('orelha-diagnostico-projeto');
     const orelhaBonificacao = document.getElementById('orelha-bonificacao-projeto');
-    const orelhaDistribuicoes = document.getElementById('orelha-distribuicoes-projeto');
     if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
     if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
-    if (orelhaDesempenho) orelhaDesempenho.classList.toggle('active', abaAtiva === 'desempenho');
+    // Reforma de orelhas (prompt_gemini.md, retomada 2026-08-25): as
+    // orelhas "Desempenho" (Produtividade) e "Distribuições"
+    // (Financeira) viraram sub-abas DENTRO de uma única orelha
+    // "Detalhamento" — as duas continuam mandando 'desempenho'/
+    // 'distribuicoes' aqui (irParaDesempenhoDoProjetoAtivo()/
+    // irParaDistribuicoesDoProjetoAtivo() não mudaram), só que agora as
+    // duas acendem a MESMA orelha de topo; qual sub-aba (.subaba-pill)
+    // fica marcada como ativa é decidido estaticamente no HTML de cada
+    // painel (#panel-desempenho-projeto/#panel-distribuicoes-projeto),
+    // não aqui.
+    if (orelhaDetalhamento) orelhaDetalhamento.classList.toggle('active', abaAtiva === 'desempenho' || abaAtiva === 'distribuicoes');
     if (orelhaDiagnostico) orelhaDiagnostico.classList.toggle('active', abaAtiva === 'diagnostico');
     if (orelhaBonificacao) orelhaBonificacao.classList.toggle('active', abaAtiva === 'bonificacao');
-    if (orelhaDistribuicoes) orelhaDistribuicoes.classList.toggle('active', abaAtiva === 'distribuicoes');
 }
 
 function alternarModulo(modulo) {

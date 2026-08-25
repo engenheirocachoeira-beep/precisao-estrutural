@@ -9221,3 +9221,91 @@ módulo"), que tenta inicializar Cadastros
 confirmado como limitação estrutural PRÉ-EXISTENTE de todo módulo
 isolado (não causada por esta sincronização), sem efeito na
 funcionalidade real de Relatórios testada logo em seguida.
+
+## Retomada em 2026-08-25 (parte 40) — Reforma das orelhas implementada (ícones reais, Detalhamento unificado, botão neutro)
+
+Implementação do plano validado ao longo de várias rodadas de mockup
+(ver memória do projeto `project_precisao_estrutural_orelhas_redesign`,
+não repetida aqui em detalhe) — pedido original: "os contornos poderiam
+ser mais destacados, os ícones maiores e com algum desenho/imagem
+representando-o além da descrição".
+
+**index.html**:
+1. `#orelhas-projeto-ativo` trocou a classe `.tab-bar` por `.orelhas-bar`
+   própria (o sublinhado de baixo não fazia sentido pra um grid de
+   botões) — os 6 antigos `.tab-selector` (emoji + texto) viraram 5
+   `.orelha-btn` (imagem real de 42px + legenda pequena embaixo):
+   Estrutura, **Orçamento** (renomeado de "Custos"), **Detalhamento**
+   (unificação de "DETALHAMENTO - ANÁLISE PRODUTIVIDADE" +
+   "DETALHAMENTO - ANÁLISE FINANCEIRA", que eram 2 orelhas de topo
+   separadas), Diagnóstico, Bonificação. Ícones vêm de
+   `assets/icones-orelhas/*.png` (arquivos reais do Flaticon, já
+   salvos no repo numa rodada anterior de mockup desta mesma sessão —
+   só precisou apontar o `<img>` pra eles).
+2. `#panel-desempenho-projeto` e `#panel-distribuicoes-projeto`
+   (Produtividade/Financeira) ganharam, cada um, um `.subaba-breadcrumb`
+   (ícone de Detalhamento + nome) e um `.subaba-pill-track` com 2
+   pílulas (Produtividade/Financeira) — clicar na pílula chama as
+   MESMAS funções de navegação que já existiam
+   (`irParaDesempenhoDoProjetoAtivo()`/`irParaDistribuicoesDoProjetoAtivo()`),
+   sem precisar mexer em `desempenho-projeto.js` — os 2 painéis
+   continuam existindo separados por baixo, só ganharam uma cascinha
+   de navegação em comum por cima. Cada painel já nasce com a pílula
+   certa marcada `active` (estático no HTML — não precisa de JS extra
+   pra isso).
+3. Rodapé de créditos (`Ícones: Flaticon.com`, linkado) acrescentado
+   como último item dentro do 2º grupo de `<aside class="sidebar">`
+   (depois de "Configurações") — colocar como filho desse grupo, e não
+   como um 3º `<div>` irmão solto, foi necessário porque `.sidebar` usa
+   `justify-content:space-between` nos 2 grupos existentes; um 3º
+   irmão ia ficar espremido no meio, não no rodapé de verdade.
+
+**js/core.js**: `atualizarOrelhasProjetoAtivo()` — as 2 antigas
+constantes `orelhaDesempenho`/`orelhaDistribuicoes` viraram uma só
+`orelhaDetalhamento` (`#orelha-detalhamento-projeto`), que fica `active`
+tanto pra `abaAtiva === 'desempenho'` quanto `'distribuicoes'` (as 2
+funções de navegação que setam esses valores não mudaram nada). Qual
+pílula interna fica marcada ativa é decidido estaticamente no HTML de
+cada painel, não aqui.
+
+**estilos.css**: novo bloco de estilos — `.orelhas-bar`/`.orelha-btn`/
+`.orelha-btn-legenda` (botão neutro: fundo branco, contorno cinza
+2px em repouso, navy 3px + auréola ciano quando `.active` — o MESMO
+par de cor que `.tab-selector.active` já usa em outro lugar do
+sistema, não uma paleta nova por orelha — essa ideia foi testada em
+mockup e descartada, competia com a cor que cada ícone real já trazia
+sozinho); `.subaba-breadcrumb`/`.subaba-pill-track`/`.subaba-pill`
+(sub-abas de Detalhamento, mesmo espírito neutro, um degrau abaixo);
+`.sidebar-creditos`. Classes novas de propósito, não reaproveitando
+`.tab-selector` — aquela classe continua servindo Distribuição de
+Custos e Relatório Personalizado, que ficaram FORA do escopo desta
+rodada (a reforma do sub-menu de Distribuição de Custos pro mesmo
+estilo pílula+breadcrumb foi desenhada no mockup mas não pedida
+explicitamente pra implementar agora — fica de fora até o usuário
+confirmar que quer).
+
+**Verificação**: `node --check` limpo em `js/core.js`. `grep` confirmou
+zero referência sobrando aos ids antigos
+(`orelha-desempenho-projeto`/`orelha-distribuicoes-projeto`) em
+`js/`/`index.html`/`estilos.css`, e zero módulo isolado referencia essa
+barra (não precisou sincronizar `modulos_isolados/` desta vez). Testado
+no navegador com dados reais (Home Garden), servido num PORTO NOVO
+(5603, não o 5601 de sempre) especificamente pra contornar o cache
+agressivo já registrado nesta sessão pro navegador de preview local —
+as 5 imagens reais carregaram (`naturalWidth: 512` cada, nenhuma
+quebrada); clicar em "Detalhamento" abriu Produtividade por padrão com
+a orelha e a pílula certas marcadas `active`; clicar na pílula
+"Financeira" trocou pro painel de Distribuições mantendo a orelha
+"Detalhamento" ativa (conteúdo renderizado de verdade, não vazio);
+Orçamento/Diagnóstico/Bonificação testadas também, todas abrindo o
+painel certo com a orelha certa acesa; rodapé de créditos presente com
+o link certo. Screenshot confirma visualmente: 5 botões com ícone
+colorido de verdade, contorno reforçado na ativa, pílulas de sub-aba,
+crédito no rodapé da barra lateral. Sem erro no console.
+
+**Fora do escopo desta rodada** (fica pra outra hora, se o usuário
+quiser): restilizar o sub-menu de 4 abas da Distribuição de Custos
+("Orçamento Global"/"Verba Global para Produção"/"Verba por
+Pavimento"/"Verba por Tarefa") pro mesmo padrão pílula+breadcrumb que
+Detalhamento ganhou — desenhado no mockup ("Opção 7 revisada") mas
+não pedido explicitamente ainda.

@@ -50,18 +50,33 @@
                     <div class="menu-item" id="nav-distribuicao-lucro" style="color:#10b981; font-weight:bold;" onclick="alternarModulo('distribuicao_lucro')">🎓 Distribuição de Lucro (Estagiários)</div>
                     <div class="menu-item" id="nav-bi-calibracao" style="color:#ffbd2e; font-weight:bold;" onclick="alternarModulo('bi_calibracao')">🎛️ Painel de Calibração BI</div>
                     <div class="menu-item" onclick="alternarModulo('configuracoes')" style="border-top:1px solid #1e3a66;">🔒 Configurações</div>
+                    <div class="sidebar-creditos">Ícones: <a href="https://www.flaticon.com" target="_blank" rel="noopener">Flaticon.com</a></div>
                 </div>
             </aside>
             
             <main class="main-content">
                 <div class="context-title" id="page-context-title">Aguardando Ação</div>
-                <div id="orelhas-projeto-ativo" class="tab-bar" style="display:none; margin-top:-6px; margin-bottom:12px;">
-                    <div id="orelha-estrutura-projeto" class="tab-selector" onclick="irParaEstruturaProjetoDoProjetoAtivo()">🏗️ Estrutura de Projeto</div>
-                    <div id="orelha-custos-projeto" class="tab-selector" onclick="irParaDistribuicaoCustosDoProjetoAtivo()">📊 Custos</div>
-                    <div id="orelha-desempenho-projeto" class="tab-selector" onclick="irParaDesempenhoDoProjetoAtivo()">📈 DETALHAMENTO - ANÁLISE PRODUTIVIDADE</div>
-                    <div id="orelha-diagnostico-projeto" class="tab-selector" onclick="irParaDiagnosticoDoProjetoAtivo()">🩺 Diagnóstico</div>
-                    <div id="orelha-bonificacao-projeto" class="tab-selector" onclick="irParaBonificacaoDoProjetoAtivo()">🏆 Bonificação</div>
-                    <div id="orelha-distribuicoes-projeto" class="tab-selector" onclick="irParaDistribuicoesDoProjetoAtivo()">📰 DETALHAMENTO - ANÁLISE FINANCEIRA</div>
+                <div id="orelhas-projeto-ativo" class="orelhas-bar" style="display:none;">
+                    <div id="orelha-estrutura-projeto" class="orelha-btn" onclick="irParaEstruturaProjetoDoProjetoAtivo()">
+                        <img src="assets/icones-orelhas/estrutura.png" alt="Estrutura de Projeto">
+                        <span class="orelha-btn-legenda">Estrutura</span>
+                    </div>
+                    <div id="orelha-custos-projeto" class="orelha-btn" onclick="irParaDistribuicaoCustosDoProjetoAtivo()">
+                        <img src="assets/icones-orelhas/orcamento.png" alt="Orçamento">
+                        <span class="orelha-btn-legenda">Orçamento</span>
+                    </div>
+                    <div id="orelha-detalhamento-projeto" class="orelha-btn" onclick="irParaDesempenhoDoProjetoAtivo()">
+                        <img src="assets/icones-orelhas/detalhamento.png" alt="Detalhamento">
+                        <span class="orelha-btn-legenda">Detalhamento</span>
+                    </div>
+                    <div id="orelha-diagnostico-projeto" class="orelha-btn" onclick="irParaDiagnosticoDoProjetoAtivo()">
+                        <img src="assets/icones-orelhas/diagnostico.png" alt="Diagnóstico">
+                        <span class="orelha-btn-legenda">Diagnóstico</span>
+                    </div>
+                    <div id="orelha-bonificacao-projeto" class="orelha-btn" onclick="irParaBonificacaoDoProjetoAtivo()">
+                        <img src="assets/icones-orelhas/bonificacao.png" alt="Bonificação">
+                        <span class="orelha-btn-legenda">Bonificação</span>
+                    </div>
                 </div>
 
                 <div id="panel-blank-state" class="workspace-blank active">
@@ -548,6 +563,14 @@
                 </div>
 
                 <div id="panel-desempenho-projeto" class="content-panel" style="overflow-y:auto;">
+                    <div class="subaba-breadcrumb">
+                        <img src="assets/icones-orelhas/detalhamento.png" alt="Detalhamento">
+                        <b>Detalhamento</b>
+                    </div>
+                    <div class="subaba-pill-track">
+                        <div class="subaba-pill active" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Produtividade</div>
+                        <div class="subaba-pill" onclick="irParaDistribuicoesDoProjetoAtivo()">📰 Financeira</div>
+                    </div>
                     <div id="desemp-conteudo"></div>
                 </div>
 
@@ -562,6 +585,14 @@
                 </div>
 
                 <div id="panel-distribuicoes-projeto" class="content-panel" style="overflow-y:auto;">
+                    <div class="subaba-breadcrumb">
+                        <img src="assets/icones-orelhas/detalhamento.png" alt="Detalhamento">
+                        <b>Detalhamento</b>
+                    </div>
+                    <div class="subaba-pill-track">
+                        <div class="subaba-pill" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Produtividade</div>
+                        <div class="subaba-pill active" onclick="irParaDistribuicoesDoProjetoAtivo()">📰 Financeira</div>
+                    </div>
                     <div id="distribuicoes-conteudo"></div>
                 </div>
 

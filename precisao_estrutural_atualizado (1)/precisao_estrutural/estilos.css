@@ -96,6 +96,63 @@
         .tab-content { display: block; }
         .tab-projeto-header { font-size: 12px; color: #64748b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
 
+        /* Reforma das orelhas do Hub "📁 Projetos" (prompt_gemini.md,
+           retomada 2026-08-25) — pedido do usuário: contornos mais
+           destacados, ícones maiores, com desenho/imagem própria além
+           da descrição. Depois de várias rodadas de mockup (ver
+           memória do projeto), a direção final foi: botão NEUTRO
+           (fundo branco, contorno cinza em repouso) — a cor vem só do
+           ícone real (banco de imagens, Flaticon — ver crédito no
+           rodapé da barra lateral), sem tingir o fundo do botão com
+           uma paleta por orelha (testada e descartada — competia com
+           a cor que cada ícone já trazia). Ativa se destaca com o
+           mesmo par navy+ciano que `.tab-selector.active` já usa em
+           todo o resto do sistema pra "isto está selecionado" — não
+           uma cor nova. Classe própria (`.orelha-btn`, não
+           `.tab-selector`) de propósito: `.tab-selector` continua
+           servindo outras barras de aba do sistema (Distribuição de
+           Custos, Relatório Personalizado) que não fazem parte desta
+           reforma.
+           `#orelhas-projeto-ativo` deixou de usar a classe `.tab-bar`
+           (o sublinhado embaixo não faz sentido pra um grid de
+           botões) — ganhou `.orelhas-bar` própria aqui. */
+        .orelhas-bar { display: flex; gap: 12px; margin-top: -2px; margin-bottom: 16px; flex-wrap: wrap; }
+        .orelha-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+            width: 84px; height: 84px;
+            border: 2px solid #e2e8f0; border-radius: 16px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .orelha-btn img { width: 42px; height: 42px; object-fit: contain; }
+        .orelha-btn-legenda { font-size: 9.5px; font-weight: 700; letter-spacing: .01em; color: #64748b; text-align: center; line-height: 1.15; }
+        .orelha-btn:hover { border-color: #94a3b8; }
+        .orelha-btn.active { border-color: #0a192f; border-width: 3px; box-shadow: 0 0 0 3px rgba(0,180,216,.2), 0 6px 16px -8px rgba(10,25,47,.35); }
+        .orelha-btn.active .orelha-btn-legenda { color: #0a192f; }
+
+        /* Sub-abas de "Detalhamento" (Produtividade/Financeira, ex-2
+           orelhas de topo separadas — unificadas nesta reforma) —
+           mesmo espírito neutro dos `.orelha-btn` acima, um degrau
+           abaixo (sem selo de ícone próprio, só o breadcrumb com o
+           ícone da orelha-mãe, reaproveitado em tamanho pequeno). */
+        .subaba-breadcrumb { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+        .subaba-breadcrumb img { width: 24px; height: 24px; object-fit: contain; }
+        .subaba-breadcrumb b { font-size: 13px; color: #0f223f; }
+        .subaba-pill-track { display: inline-flex; gap: 3px; padding: 4px; border: 2px solid #e2e8f0; border-radius: 12px; background: #ffffff; margin-bottom: 16px; }
+        .subaba-pill { padding: 7px 14px; border-radius: 8px; color: #0f223f; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .subaba-pill:not(.active):hover { background: #eef2f6; }
+        .subaba-pill.active { background: #0a192f; color: #fff; box-shadow: 0 3px 8px -3px rgba(10,25,47,.5); }
+
+        /* Crédito dos ícones das orelhas (Flaticon, plano gratuito —
+           decisão do usuário: manter atribuição em vez de comprar
+           licença Premium) — reservado no fim da barra lateral,
+           discreto de propósito (não deve competir visualmente com o
+           menu). */
+        .sidebar-creditos { padding: 10px 20px 4px; font-size: 10px; color: #5b6c8a; line-height: 1.5; }
+        .sidebar-creditos a { color: #7fa8c9; text-decoration: none; }
+        .sidebar-creditos a:hover { text-decoration: underline; }
+
         /* Aba "Orçamento Global" ganhou um 4º item (Coparticipações no
            Detalhamento, reforma 2026-08-17) — espaçamento mais enxuto,
            só nesta aba (não mexe no .form-section genérico usado em
