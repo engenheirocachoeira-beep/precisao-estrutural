@@ -722,6 +722,29 @@
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value.pos { color: var(--dist-good); }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value.neg { color: var(--dist-critical); }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-subrow-meta { grid-column: 1; font-size: 10.5px; color: var(--dist-ink-muted); text-align: right; }
+        /* Pedido do usuário (Produtividade): "previsto/realizado" em 2
+           linhas em vez de 1 só, com o número de horas alinhado numa
+           coluna — rótulo à esquerda, valor à direita; como os 2 <span>
+           de cada linha caem nas mesmas 2 colunas do grid, o valor de
+           "Previsto" e o de "Realizado" ficam na mesma largura de
+           coluna (alinhados), mesmo a palavra "Realizado" sendo mais
+           comprida que "Previsto". */
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo { display: grid; grid-template-columns: auto auto; gap: 1px 8px; justify-content: end; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(odd) { text-align: left; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* Pedido do usuário: orelha Produtividade — os 3 gráficos de
+           "Desvio de horas" (Executor/Pavimento/Tarefa) lado a lado em
+           2 colunas em vez de empilhados em largura cheia (que sobrava
+           espaço em telas largas); o de Tarefa (normalmente a lista
+           mais longa) ganha a linha inteira pra si
+           (.desemp-grafico-full). Padding do .dist-panel reduzido um
+           pouco aqui dentro pra "encaixar melhor" o conteúdo na coluna
+           mais estreita (pedido do usuário: "adequando os espaços"). */
+        #panel-desempenho-projeto .desemp-graficos-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 24px; }
+        #panel-desempenho-projeto .desemp-graficos-2col .dist-panel { padding: 16px 18px; }
+        #panel-desempenho-projeto .desemp-graficos-2col .desemp-grafico-full { grid-column: 1 / -1; }
+        @media (max-width: 900px) { #panel-desempenho-projeto .desemp-graficos-2col { grid-template-columns: 1fr; } }
 
         #panel-distribuicoes-projeto .dist-tech-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: stretch; }
         @media (max-width: 720px) { #panel-distribuicoes-projeto .dist-tech-row { grid-template-columns: 1fr; } }

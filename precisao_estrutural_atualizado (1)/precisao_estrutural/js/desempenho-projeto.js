@@ -985,21 +985,31 @@ function renderizarDesempenhoProjeto(d) {
     // caso (maior estouro) primeiro, como o "Diagnóstico por
     // atividade" de Financeira já faz. ---
     const formatarHorasChart = v => formatarNumero(v) + ' h';
-    function graficoDesvioHoras(titulo, nota, linhas) {
+    function graficoDesvioHoras(titulo, nota, linhas, classeExtra) {
         if (linhas.length === 0) return '';
         const ordenadas = linhas.slice().sort((a, b) => (a.previsto - a.realizado) - (b.previsto - b.realizado));
         const itens = ordenadas.map((l, i) => ({
             label: (l.chave === 'porExecutor') ? nomeExecutorExibicao(l.nome) : l.nome,
             valor: l.previsto - l.realizado,
             emph: i === 0 || i === ordenadas.length - 1,
-            meta: 'previsto ' + formatarNumero(l.previsto) + 'h &middot; realizado ' + formatarNumero(l.realizado) + 'h'
+            // Pedido do usuário: previsto/realizado em 2 linhas, com o
+            // número de horas alinhado numa coluna (ver .dist-metaduo
+            // no CSS) — antes era 1 linha só ("previsto Xh · realizado
+            // Yh"), apertada demais agora que os gráficos ficaram lado
+            // a lado em 2 colunas.
+            meta: '<div class="dist-metaduo"><span>previsto</span><span>' + formatarNumero(l.previsto) + ' h</span><span>realizado</span><span>' + formatarNumero(l.realizado) + ' h</span></div>'
         }));
-        return '<div class="dist-section"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
+        return '<div class="dist-section' + (classeExtra ? ' ' + classeExtra : '') + '"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
             '<div class="dist-panel">' + distDivChart(itens, formatarHorasChart) + '</div></div>';
     }
+    // Pedido do usuário: os 3 gráficos lado a lado em 2 colunas (era
+    // empilhado em largura cheia) — o de Tarefa (lista normalmente mais
+    // longa) ganha a linha inteira pra si (.desemp-grafico-full).
+    html += '<div class="desemp-graficos-2col">';
     html += graficoDesvioHoras('Desvio de horas por Executor', 'previsto &minus; realizado, por pessoa', tab.porExecutor.map(l => Object.assign({ chave: 'porExecutor' }, l)));
     html += graficoDesvioHoras('Desvio de horas por Pavimento', 'previsto &minus; realizado, por pavimento', tab.porPavimento);
-    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa);
+    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa, 'desemp-grafico-full');
+    html += '</div>';
 
     return html;
 }

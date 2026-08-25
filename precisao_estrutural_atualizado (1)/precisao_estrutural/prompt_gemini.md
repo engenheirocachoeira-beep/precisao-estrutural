@@ -9492,3 +9492,67 @@ PRAIA (SAVOIA) - SETOR B": aba abre com todos os pavimentos fechados
 cabeçalho expande só aquele cartão (▼) mostrando as tarefas; em
 1900px de largura confirmado visualmente exatamente 3 cartões por
 linha (antes abriria 4+).
+
+## Retomada em 2026-08-25 (parte 44) — Verba por Tarefa: borda dos cartões mais escura/grossa + fundo do título mais escuro
+
+Dois ajustes visuais rápidos pedidos pelo usuário depois de ver a
+grade em 3 colunas (parte 43): "os limites estão difíceis de
+visualizar" (`.vt-card`: borda `1px solid #e2e8f0` quase sem contraste
+com o fundo da página → `2px solid #94a3b8` + sombra um pouco mais
+forte) e, na sequência, "escureça um pouco a cor do fundo dos títulos
+dos pavimentos" (`.vt-card-header`: `background: #e2e8f0` →
+`#cbd5e1`). Só `estilos.css`, sem tocar JS. Testado visualmente em
+1300px (3 cartões por linha) — bordas e títulos bem mais legíveis.
+
+## Retomada em 2026-08-25 (parte 45) — Produtividade: gráficos de desvio de horas em 2 colunas + previsto/realizado em 2 linhas alinhadas
+
+Pedido do usuário: "divida as informações em 2 colunas, adequando os
+espaços da informações... Organize também as informações de
+previsto/realizado, colocando em duas linhas, alinhando o número de
+horas na coluna" — referindo-se aos 3 gráficos de "Desvio de horas"
+(Executor/Pavimento/Tarefa, adicionados na parte 42) da orelha
+Detalhamento → Produtividade, que ficavam empilhados em largura cheia
+desperdiçando espaço em telas largas.
+
+**`js/desempenho-projeto.js`** (`renderizarDesempenhoProjeto()`):
+1. Os 3 `graficoDesvioHoras(...)` (Executor/Pavimento/Tarefa) passaram
+   a ficar dentro de um `<div class="desemp-graficos-2col">` — grid de
+   2 colunas. O de Tarefa (lista normalmente mais longa) ganhou um 4º
+   parâmetro (`classeExtra = 'desemp-grafico-full'`) que faz ele
+   ocupar a linha inteira (`grid-column: 1 / -1`) em vez de dividir
+   espaço com um vizinho.
+2. O `meta` de cada barra (antes uma linha só: "previsto Xh ·
+   realizado Yh", apertada demais numa coluna mais estreita) virou um
+   mini-grid de 2 linhas × 2 colunas (`.dist-metaduo`: rótulo à
+   esquerda, valor à direita) — como os 2 `<span>` de valor caem na
+   MESMA coluna do grid CSS nas 2 linhas, "758,00 h" (previsto) e
+   "69,50 h" (realizado) ficam alinhados um embaixo do outro mesmo com
+   rótulos de tamanho diferente ("previsto" vs "realizado").
+
+**`estilos.css`**: `.desemp-graficos-2col` (grid 2 colunas, gap só
+horizontal — o espaçamento vertical entre linhas continua vindo do
+`margin-top:28px` que `.dist-section` já tinha, mesmo padrão usado em
+outros pontos do arquivo) + `.desemp-grafico-full` (`grid-column: 1 /
+-1`) + media query (`max-width:900px` → 1 coluna, mesmo breakpoint já
+usado pra `.dist-kpis`), todas escopadas só a `#panel-desempenho-projeto`
+(não afetam os 3 gráficos equivalentes de Financeira, que continuam
+full-width). `.dist-panel` ganhou um padding levemente reduzido
+dentro desse grid (`16px 18px` em vez de `20px 22px`) pra "adequar o
+espaço" à coluna mais estreita. Nova classe `.dist-metaduo` (+
+seletores `:nth-child(odd)`/`:nth-child(even)`) escopada no mesmo
+`:is(#panel-distribuicoes-projeto, #panel-desempenho-projeto)` das
+outras classes `.dist-*` compartilhadas — mas só É USADA pelos
+gráficos de horas de Produtividade; os metas de Financeira (`custo
+R$X`, `N lançamentos · Xh`) continuam texto simples de 1 linha,
+intocados.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5705) no projeto piloto "AP PRAIA (SAVOIA) - SETOR B":
+confirmado visualmente "Desvio de horas por Executor" e "...por
+Pavimento" lado a lado, "...por Tarefa" ocupando a linha inteira
+abaixo; `.dist-metaduo` inspecionado via DOM (`previsto`/`758,00 h` /
+`realizado`/`69,50 h`) e visualmente confirmado que os valores em
+horas ficam alinhados numa coluna comum entre as 2 linhas. Sem erro
+no console. Nenhum módulo isolado tem cópia de
+`js/desempenho-projeto.js` nem do painel `#panel-desempenho-projeto`
+— nada pra sincronizar.
