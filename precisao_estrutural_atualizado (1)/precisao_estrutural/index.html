@@ -824,6 +824,16 @@
                     </div>
 
                     <div id="rel-conteudo-custos">
+                        <div class="barra-visoes">
+                            <div style="flex:1;">
+                                <label>Visão</label>
+                                <select id="rel-custos-seletor-visao" onchange="carregarVisaoSelecionadaRelatorioCustos()"></select>
+                            </div>
+                            <div class="separador-vertical"></div>
+                            <button class="btn-secondary" onclick="salvarVisaoAtualRelatorioCustos()">💾 Salvar visão atual</button>
+                            <button class="btn-secondary" id="rel-custos-btn-apagar-visao" onclick="apagarVisaoSelecionadaRelatorioCustos()" style="display:none;">🗑️ Apagar visão</button>
+                        </div>
+
                         <div class="painel-filtro" style="margin-bottom:14px;">
                             <div class="painel-filtro-cabecalho" onclick="alternarPainelFiltroRelatorioCustos()">
                                 <span class="titulo">🔽 Filtro avançado</span>
@@ -838,7 +848,6 @@
                                     <div class="campo"><label>Tarefa</label><select id="rel-custos-filtro-tarefa"></select></div>
                                     <div class="campo"><label>Cliente</label><select id="rel-custos-filtro-cliente"></select></div>
                                     <div class="campo"><label>Executor</label><select id="rel-custos-filtro-executor"></select></div>
-                                    <div class="campo"><label>Papel</label><select id="rel-custos-filtro-papel"></select></div>
                                     <div class="campo"><label>Data inicial</label><input type="date" id="rel-custos-filtro-data-de"></div>
                                     <div class="campo"><label>Data final</label><input type="date" id="rel-custos-filtro-data-ate"></div>
                                 </div>

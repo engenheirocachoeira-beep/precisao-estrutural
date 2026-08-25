@@ -82,42 +82,6 @@ function resolverLocalizacaoPorNivel(arv, path) {
     return resultado;
 }
 
-// Classifica um executor num dos 5 "papéis" que o usuário pediu pra
-// filtrar no Relatório de Custos — 3 vêm direto de `nivel`
-// (administrador/supervisor/analista); `executor` não é um papel em
-// si, então pra ele olha o `cargo` (mesmo padrão de prefixo que
-// `funcionarioEhEstagiario()`, distribuicao-lucro.js, já usa) e separa
-// entre 'detalhista'/'estagiario'. Sem `banco_funcionarios` batendo
-// com o nome (funcionário desligado/renomeado) ou cargo fora dos 2
-// prefixos conhecidos, devolve `null` — linha não bate com NENHUMA
-// opção do filtro, mas também não quebra nada (só não aparece se um
-// papel específico for escolhido).
-function papelFuncionarioRelatorio(nomeExecutor) {
-    const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
-    const f = funcionarios.find(x => x.nome === nomeExecutor);
-    if (!f) return null;
-    if (f.nivel === 'administrador' || f.nivel === 'supervisor' || f.nivel === 'analista') return f.nivel;
-    if (f.nivel === 'executor') {
-        const cargo = (f.cargo || '').toLowerCase();
-        if (cargo.indexOf('detalhista') === 0) return 'detalhista';
-        if (cargo.indexOf('estagiário') === 0) return 'estagiario';
-    }
-    return null;
-}
-
-// Lista FIXA (não "valores distintos que aparecem nos dados", mesmo
-// padrão de STATUS_TAREFA_OPCOES mais abaixo) — pedido do usuário:
-// "filtros também por administrador, supervisor, analista, detalhista,
-// estagiário", as 5 opções ficam sempre disponíveis no filtro mesmo
-// que, no momento, não exista nenhuma sessão de alguma delas.
-const PAPEIS_FUNCIONARIO_OPCOES = [
-    { valor: 'administrador', rotulo: 'Administrador' },
-    { valor: 'supervisor', rotulo: 'Supervisor' },
-    { valor: 'analista', rotulo: 'Analista' },
-    { valor: 'detalhista', rotulo: 'Detalhista' },
-    { valor: 'estagiario', rotulo: 'Estagiário' }
-];
-
 // Uma linha por SESSÃO DE TRABALHO, de todos os projetos/executores.
 // `caminho` no mesmo formato usado em todo o resto do projeto
 // (`nomeProjeto|fIdx-eIdx-sIdx-tIdx`), útil pra rastrear de volta à
@@ -158,7 +122,6 @@ function coletarLinhasSessaoTrabalho() {
                     pavimento: pavimentoNome,
                     tarefa: tarefa.nome,
                     executor: tarefa.executor,
-                    papel: papelFuncionarioRelatorio(tarefa.executor),
                     data: dataSessaoISO,
                     horas: horas,
                     valorHora: valorHora,
@@ -319,7 +282,6 @@ function aplicarFiltrosRelatorio(linhas, filtros) {
         if (filtros.tarefa && l.tarefa !== filtros.tarefa) return false;
         if (filtros.cliente && l.cliente !== filtros.cliente) return false;
         if (filtros.executor && l.executor !== filtros.executor) return false;
-        if (filtros.papel && l.papel !== filtros.papel) return false;
         if (filtros.status && l.status !== filtros.status) return false;
         if (filtros.campoData && (filtros.dataDe || filtros.dataAte)) {
             const dataLinha = l[filtros.campoData];
@@ -955,7 +917,92 @@ function alternarTipoRelatorio(tipo) {
 
 function carregarRelatorioCustos() {
     renderizarOpcoesFiltroRelatorioCustos();
+    renderizarSeletorVisoesRelatorioCustos();
     exibirRelatorioCustos();
+}
+
+// --- VISÕES do Relatório de Custos ---
+// Pedido do usuário: "com todos os filtros aplicados nesta aba, fica
+// sem sentido uma aba específica pra relatórios personalizados...
+// poderia ser substituído por um botão Salvar Visão". Por enquanto as
+// duas abas continuam existindo (decisão do usuário — a substituição
+// de verdade fica pra depois), mas Custos ganha seu PRÓPRIO atalho de
+// visões salvas — banco dedicado (`banco_relatorios_custos_visoes`),
+// não o mesmo `banco_relatorios_visoes` do motor genérico, porque o
+// formato é mais simples aqui (só filtros — Custos não tem Nível,
+// Colunas nem Agrupar pra guardar junto) e pra não misturar visões
+// pensadas pra telas com formato diferente.
+function carregarVisoesRelatorioCustos() {
+    const visoes = JSON.parse(localStorage.getItem('banco_relatorios_custos_visoes'));
+    return Array.isArray(visoes) ? visoes : [];
+}
+
+function salvarNovaVisaoRelatorioCustos(nome, filtros) {
+    if (!nome || !nome.trim()) return { ok: false, erro: 'Informe um nome pra visão.' };
+    const visoes = carregarVisoesRelatorioCustos();
+    const id = 'visao_custos_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    visoes.push({ id: id, nome: nome.trim(), filtros: filtros || {} });
+    localStorage.setItem('banco_relatorios_custos_visoes', JSON.stringify(visoes));
+    return { ok: true, id: id };
+}
+
+function apagarVisaoRelatorioCustos(id) {
+    const visoes = carregarVisoesRelatorioCustos();
+    if (!visoes.find(v => v.id === id)) return { ok: false, erro: 'Visão não encontrada.' };
+    localStorage.setItem('banco_relatorios_custos_visoes', JSON.stringify(visoes.filter(v => v.id !== id)));
+    return { ok: true };
+}
+
+function renderizarSeletorVisoesRelatorioCustos() {
+    const visoes = carregarVisoesRelatorioCustos();
+    const sel = document.getElementById('rel-custos-seletor-visao');
+    if (!sel) return;
+    const valorAtual = sel.value;
+    sel.innerHTML = '<option value="">-- Nova consulta (sem visão salva) --</option>' +
+        visoes.map(v => '<option value="' + v.id + '">' + v.nome + '</option>').join('');
+    sel.value = valorAtual;
+}
+
+function carregarVisaoSelecionadaRelatorioCustos() {
+    const id = document.getElementById('rel-custos-seletor-visao').value;
+    document.getElementById('rel-custos-btn-apagar-visao').style.display = id ? 'inline-block' : 'none';
+    if (!id) return;
+
+    const visao = carregarVisoesRelatorioCustos().find(v => v.id === id);
+    if (!visao) return;
+
+    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(c => {
+        const el = document.getElementById('rel-custos-filtro-' + c);
+        if (el) el.value = (visao.filtros && visao.filtros[c]) || '';
+    });
+    document.getElementById('rel-custos-filtro-data-de').value = (visao.filtros && visao.filtros.dataDe) || '';
+    document.getElementById('rel-custos-filtro-data-ate').value = (visao.filtros && visao.filtros.dataAte) || '';
+
+    exibirRelatorioCustos();
+}
+
+function salvarVisaoAtualRelatorioCustos() {
+    const nome = prompt('Nome da visão (fica disponível pra todo mundo que acessa Relatórios):');
+    if (!nome) return;
+    const resultado = salvarNovaVisaoRelatorioCustos(nome, lerFiltrosRelatorioCustos());
+    if (!resultado.ok) { alert(resultado.erro); return; }
+
+    renderizarSeletorVisoesRelatorioCustos();
+    document.getElementById('rel-custos-seletor-visao').value = resultado.id;
+    document.getElementById('rel-custos-btn-apagar-visao').style.display = 'inline-block';
+}
+
+function apagarVisaoSelecionadaRelatorioCustos() {
+    const id = document.getElementById('rel-custos-seletor-visao').value;
+    if (!id) return;
+    if (!confirm('Apagar esta visão? Não afeta nenhum dado do sistema, só o atalho salvo.')) return;
+
+    const resultado = apagarVisaoRelatorioCustos(id);
+    if (!resultado.ok) { alert(resultado.erro); return; }
+
+    renderizarSeletorVisoesRelatorioCustos();
+    document.getElementById('rel-custos-seletor-visao').value = '';
+    document.getElementById('rel-custos-btn-apagar-visao').style.display = 'none';
 }
 
 // Popula Projeto/Etapa/Cliente/Executor só com os valores que aparecem
@@ -975,16 +1022,6 @@ function renderizarOpcoesFiltroRelatorioCustos() {
         sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + v + '">' + rotulo(v) + '</option>').join('');
         sel.value = valorAtual;
     });
-
-    // Papel é lista FIXA (PAPEIS_FUNCIONARIO_OPCOES), não "valores que
-    // aparecem nos dados" — mesmo espírito do filtro de Status no
-    // motor genérico (renderizarOpcoesFiltroRelatorio()).
-    const selPapel = document.getElementById('rel-custos-filtro-papel');
-    if (selPapel) {
-        const valorAtual = selPapel.value;
-        selPapel.innerHTML = '<option value="">-- Todos --</option>' + PAPEIS_FUNCIONARIO_OPCOES.map(p => '<option value="' + p.valor + '">' + p.rotulo + '</option>').join('');
-        selPapel.value = valorAtual;
-    }
 }
 
 function lerFiltrosRelatorioCustos() {
@@ -996,7 +1033,6 @@ function lerFiltrosRelatorioCustos() {
         tarefa: document.getElementById('rel-custos-filtro-tarefa').value || null,
         cliente: document.getElementById('rel-custos-filtro-cliente').value || null,
         executor: document.getElementById('rel-custos-filtro-executor').value || null,
-        papel: document.getElementById('rel-custos-filtro-papel').value || null,
         dataDe: document.getElementById('rel-custos-filtro-data-de').value || null,
         dataAte: document.getElementById('rel-custos-filtro-data-ate').value || null,
         campoData: 'data'
@@ -1004,7 +1040,7 @@ function lerFiltrosRelatorioCustos() {
 }
 
 function limparFiltrosRelatorioCustos() {
-    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor', 'papel'].forEach(c => {
+    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(c => {
         const el = document.getElementById('rel-custos-filtro-' + c);
         if (el) el.value = '';
     });

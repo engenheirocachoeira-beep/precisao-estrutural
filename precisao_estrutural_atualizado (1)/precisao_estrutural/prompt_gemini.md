@@ -9107,3 +9107,67 @@ relacionado ("Distribuição de Lucro (Estagiários)", `index.html`
 linha 48) — confirmado como resquício de sessão anterior, não algo
 causado por este código (os testes limpos, rodados depois, não geraram
 nenhum erro novo).
+
+## Retomada em 2026-08-24 (parte 38) — Filtro de Papel revertido + "Salvar Visão" no Relatório de Custos
+
+Retorno do usuário logo depois da parte 37, com 3 pontos:
+
+1. **"O filtro por papel não é necessário. Quando escrevi Estagiário,
+   queria dizer executor."** — revertido por completo: apagados
+   `papelFuncionarioRelatorio()`, `PAPEIS_FUNCIONARIO_OPCOES`, o campo
+   `l.papel` em cada linha de `coletarLinhasSessaoTrabalho()`, o
+   `if (filtros.papel...)` no motor genérico, o `<select>` no
+   `index.html` e toda referência em
+   ler/limpar/renderizar-filtros-de-Custos. Confirmado com `grep` que
+   não sobrou nenhuma menção a "papel" no código. Os filtros de
+   Setor/Pavimento/Tarefa da parte 37 (que continuam fazendo sentido)
+   não foram tocados.
+
+2. **Observação do usuário**: "com todos os filtros aplicados nesta
+   aba, fica sem sentido uma aba específica pra relatórios
+   personalizados" — poderia ser substituído por "Salvar Visão" dentro
+   de Custos. Como isso implicaria PERDER capacidades que só existem
+   no motor genérico (nível "Avanço de Projeto", nível "Tarefa" com
+   Previsto×Realizado/Desvio%, agrupamento livre por múltiplos campos —
+   nada disso existe em nenhum outro lugar do sistema), perguntei antes
+   de mexer. Usuário decidiu: **manter as duas abas por enquanto**,
+   decisão de remover Personalizado fica pra outra hora, com mais
+   análise.
+
+3. **"Salvar Visão" implementado só dentro de Custos** (sem tocar em
+   Personalizado): nova barra `.barra-visoes` (mesmo componente visual
+   que Personalizado já usa) no topo de `#rel-conteudo-custos`, com
+   seletor de visão salva + botão "💾 Salvar visão atual" + botão
+   "🗑️ Apagar visão". Banco **dedicado**
+   `banco_relatorios_custos_visoes` (não o mesmo
+   `banco_relatorios_visoes` do motor genérico) — decisão deliberada:
+   uma "visão" de Custos só precisa guardar os filtros (Projeto/Etapa/
+   Setor/Pavimento/Tarefa/Cliente/Executor/datas), sem Nível/Colunas/
+   Agrupar, formato mais simples e sem misturar visões pensadas pra
+   telas diferentes. Novas funções (espelhando 1:1 o padrão que
+   `salvarNovaVisaoRelatorio`/`apagarVisaoRelatorio`/
+   `carregarVisaoSelecionadaRelatorio` já usam no motor genérico, só
+   que mais simples): `carregarVisoesRelatorioCustos()`,
+   `salvarNovaVisaoRelatorioCustos(nome, filtros)`,
+   `apagarVisaoRelatorioCustos(id)`,
+   `renderizarSeletorVisoesRelatorioCustos()`,
+   `carregarVisaoSelecionadaRelatorioCustos()`,
+   `salvarVisaoAtualRelatorioCustos()`,
+   `apagarVisaoSelecionadaRelatorioCustos()`. Sem visão de fábrica
+   pré-cadastrada (diferente do motor genérico) — lista nasce vazia,
+   só o que o usuário salvar.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_visoes_custos.js`): banco vazio no início, salvar sem nome
+falha com mensagem certa, salvar com nome guarda os filtros exatos,
+apagar id inexistente falha, apagar id válido remove — todos batendo.
+Testado no navegador (via `fetch({cache:'no-store'})` + `new Function`
++ injeção manual dos elementos novos no DOM, mesmo contorno de cache já
+registrado nesta sessão): salvou uma visão com Projeto="HOME GARDEN -
+SETOR C" + Tarefa="DT_Vigas" (nome via `prompt()` mockado) → apareceu
+certo no menu, botão apagar ficou visível, filtros gravados batendo
+exato; limpou os campos manualmente, reselecionou a visão salva →
+Projeto e Tarefa voltaram certos e o relatório recarregou (1 projeto
+encontrado, consistente); apagou a visão (`confirm()` mockado) → menu
+voltou a "-- Nova consulta --", botão apagar sumiu, banco zerado. Sem
+erro novo no console.
