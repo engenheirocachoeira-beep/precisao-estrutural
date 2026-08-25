@@ -996,11 +996,17 @@ function formatarHorasHHMM(horasDecimal) {
 // '—', quando a Tarefa está direto na Etapa, ex: Etapa Única) é
 // pulado — mesmo espírito de "níveis puláveis" que a Árvore Genérica
 // Recursiva já usa no resto do sistema (ver arvore.js).
-// Ordem fixa dos 5 níveis — usada tanto pra montar a árvore quanto
+// Ordem fixa dos 6 níveis — usada tanto pra montar a árvore quanto
 // pra desenhar o cabeçalho de 2 linhas e decidir em qual par de
-// coluna (Tempo/Custo) cada linha da tabela cai.
-const NIVEIS_ARVORE_CUSTO = ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa'];
-const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', setor: 'Setor', pavimento: 'Pavimento', tarefa: 'Tarefa' };
+// coluna (Tempo/Custo) cada linha da tabela cai. `executor` (pedido do
+// usuário: "ampliar o menu em cascata da tarefa, colocando também
+// cada executor(es), tempo e custo") é o último nível — sempre tem
+// valor (coletarLinhasSessaoTrabalho() só gera sessão com
+// `tarefa.executor` preenchido), então nunca cai no caso "nível
+// pulado"; uma Tarefa com um só executor mostra 1 filho só (correto,
+// não é bug — é só menos interessante de expandir).
+const NIVEIS_ARVORE_CUSTO = ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'executor'];
+const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', setor: 'Setor', pavimento: 'Pavimento', tarefa: 'Tarefa', executor: 'Executor' };
 
 function agruparArvoreCustoRelatorio(linhas) {
     const porProjeto = {};
@@ -1009,7 +1015,7 @@ function agruparArvoreCustoRelatorio(linhas) {
         if (!porProjeto[l.projeto]) { porProjeto[l.projeto] = []; ordemProjetos.push(l.projeto); }
         porProjeto[l.projeto].push(l);
     });
-    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'setor', 'pavimento', 'tarefa'], 'projeto'));
+    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'setor', 'pavimento', 'tarefa', 'executor'], 'projeto'));
 }
 
 // `nivelDesteNo` é o nível CONCEITUAL do nó ('projeto'/'etapa'/
@@ -1108,6 +1114,11 @@ function renderizarLinhaArvoreCustoRelatorio(no, nivelIndent, uidPai) {
     const temFilhos = no.filhos && no.filhos.length > 0;
     const indent = 10 + nivelIndent * 20;
     const seta = temFilhos ? '►' : '•';
+    // Nível Executor guarda o nome bruto (pra não juntar por engano
+    // duas pessoas que só coincidem no apelido) — só na exibição troca
+    // pro nome amigável (codinome, se tiver), mesma função que o resto
+    // do sistema já usa pra mostrar executor.
+    const nomeExibicao = no.nivel === 'executor' ? nomeParaExibicao(no.nome) : no.nome;
 
     // Tempo/Custo só aparecem no par de coluna do nível DESTE nó
     // (`no.nivel`, conceitual — não confundir com `nivelIndent`, que
@@ -1122,7 +1133,7 @@ function renderizarLinhaArvoreCustoRelatorio(no, nivelIndent, uidPai) {
     let html = '<tr id="rc-' + uid + '"' + (uidPai ? ' data-pai-custo="' + uidPai + '"' : '') +
         (nivelIndent === 0 ? '' : ' style="display:none;"') + '>' +
         '<td style="padding-left:' + indent + 'px;' + (temFilhos ? ' cursor:pointer;' : '') + '"' + (temFilhos ? ' onclick="alternarGrupoCustoRelatorio(\'' + uid + '\')"' : '') + '>' +
-        '<span class="tree-toggle-icon"' + (temFilhos ? '' : ' style="color:#cbd5e1;"') + '>' + seta + '</span> ' + no.nome +
+        '<span class="tree-toggle-icon"' + (temFilhos ? '' : ' style="color:#cbd5e1;"') + '>' + seta + '</span> ' + nomeExibicao +
         '</td>' + celulasNiveis +
         '</tr>';
 

@@ -9007,3 +9007,39 @@ localStorage local) que a gravação chegou: DT_Vigas (Home Garden)
 mostrando `horas_reais: "42.17"` no Firebase. Reconferência completa
 pós-correção, lendo de novo direto do servidor: **zero tarefas
 divergentes restantes** em todos os projetos. Sem erro no console.
+
+## Retomada em 2026-08-24 (parte 36) — Relatório de Custos: árvore ganha nível Executor dentro da Tarefa
+
+Pedido do usuário: "permitir ampliar o menu em cascata da tarefa,
+colocando também cada executor(es), tempo e custo" — a árvore
+Projeto→Etapa→Setor→Pavimento→Tarefa do Relatório de Custos (tela
+fixa, `exibirRelatorioCustos()`) não expandia além de Tarefa.
+
+`js/relatorios.js`: `NIVEIS_ARVORE_CUSTO` ganhou `'executor'` como 6º
+nível (era `['projeto','etapa','setor','pavimento','tarefa']`, virou
+`[...,'tarefa','executor']`), e `agruparArvoreCustoRelatorio()` passa
+esse nível a mais pra `construirNoArvoreCustoRelatorio()`. Como o
+motor da árvore inteiro (cabeçalho de 2 linhas com um par Tempo/Custo
+por nível, recursão de agrupamento, indentação, seta de expandir) já
+era genérico em cima dessa lista, não precisou tocar em mais nada da
+lógica — só cresceu de 5 pra 6 pares de coluna sozinho. `executor`
+nunca cai no caso "nível pulado" (sessão sem executor não existe,
+`coletarLinhasSessaoTrabalho()` já garante isso), então toda Tarefa
+com sessão sempre expande em pelo menos 1 Executor (1 executor só =
+não é bug, só menos interessante de abrir). Nome do executor exibido
+com `nomeParaExibicao()` (mesmo codinome que o resto do sistema usa) —
+mas o AGRUPAMENTO continua pela string bruta, pra não juntar por
+engano duas pessoas com o mesmo apelido.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_arvore_custo_executor.js`): árvore de 3 sessões (2 executores
+numa tarefa, 1 na outra) bateu exato — Tarefa 1 somou 5h/R$140 e virou
+pai de 2 executores (3h/R$90 e 2h/R$50), Tarefa 2 virou pai de 1 só.
+Testado no navegador com TODOS os dados reais (sem filtro): cabeçalho
+já nasce com 6 pares Tempo/Custo incluindo "Executor"; expandiu em
+cascata até um executor de verdade (Home Garden) e bateu com o
+esperado; validação automática rodou nas 41 tarefas reais que têm
+sessão no banco inteiro — em 100% delas a soma dos executores-filhos
+bate exato com o total da Tarefa-mãe (0 inconsistências) e nenhum
+executor apareceu com neto (sempre folha, como esperado). Sem erro no
+console.
