@@ -644,12 +644,17 @@ function carregarAbaVerbaPorTarefa() {
         // mesmo padrão visual (▼/►) já usado na Árvore
         // (alternarRecolhimentoNo/nosRecolhidosEstado), só que com
         // estado próprio desta aba (vtGruposRecolhidos).
-        const recolhido = !!vtGruposRecolhidos[pav.caminho];
+        // Pedido do usuário (2026-08-25): pavimentos recolhidos por
+        // padrão, com totalização de Pontos/Valor na própria linha do
+        // título — sincronizado do app principal (js/distribuicao-custos.js).
+        const recolhido = vtGruposRecolhidos[pav.caminho] !== false;
         const seta = recolhido ? '►' : '▼';
         const estiloOcultoSeRecolhido = recolhido ? ' style="display:none;"' : '';
+        const totalPontosPav = pav.tarefas.reduce((soma, t) => soma + (parseFloat(t.pontos) || 0), 0);
+        const totalizacaoHeader = ' <span style="font-weight:normal; font-size:11px; color:#475569;">' + totalPontosPav.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts &middot; ' + formatarMoeda(pav.valorVerba) + '</span>';
 
         html += '<tr style="background:#e2e8f0; cursor:pointer;" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')">' +
-                '<td colspan="6" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</td>' +
+                '<td colspan="6" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + totalizacaoHeader + '</td>' +
                 '</tr>';
 
         pav.tarefas.forEach((tarefa, idxTarefa) => {
@@ -696,7 +701,8 @@ function carregarAbaVerbaPorTarefa() {
 let vtGruposRecolhidos = {};
 
 function alternarGrupoVerbaPorTarefa(caminhoGrupo) {
-    vtGruposRecolhidos[caminhoGrupo] = !vtGruposRecolhidos[caminhoGrupo];
+    const estaRecolhido = vtGruposRecolhidos[caminhoGrupo] !== false;
+    vtGruposRecolhidos[caminhoGrupo] = estaRecolhido ? false : true;
     carregarAbaVerbaPorTarefa();
 }
 

@@ -9443,3 +9443,52 @@ barras vermelho/verde, tipografia condensada — confirmado por
 screenshot), "Resumo financeiro" aparecendo dentro de Financeira com o
 novo estilo `.dist-finha` (Detalhamento em negrito/destaque). Sem erro
 no console nos dois projetos.
+
+## Retomada em 2026-08-25 (parte 43) — Verba por Tarefa: grade em 3 colunas + pavimentos recolhidos por padrão com totalização no título
+
+Pedido do usuário: "Na Aba Orçamento - Verba por Tarefa, Distribua as
+tarefas em 3 coluna ao invés de 4 e, quando abrir a aba, mostrar os
+pavimentos recolhidos por default e com a totalização de Pontos e
+valor na Linha do título do pavimento."
+
+**`estilos.css`**: `.vt-grid` deixou de usar
+`repeat(auto-fit, minmax(360px, 1fr))` (que em telas largas abria 4+
+colunas) e passou a `repeat(3, minmax(0, 1fr))` fixo, com 2 media
+queries novas (`max-width:1100px` → 2 colunas, `max-width:700px` → 1
+coluna) pra manter o comportamento responsivo que já existia antes,
+só com o teto em 3. `.vt-card-header` virou `display:flex;
+justify-content:space-between` pra acomodar a nova totalização
+alinhada à direita; nova classe `.vt-card-header-totais` (peso normal,
+cinza, 11px).
+
+**`js/distribuicao-custos.js`** (`carregarAbaVerbaPorTarefa()`):
+1. Convenção de recolhimento invertida — antes `undefined` (nunca
+   clicado) contava como EXPANDIDO e só `true` explícito recolhia;
+   agora `undefined` conta como RECOLHIDO (padrão ao abrir a aba) e só
+   `false` explícito (usuário clicou pra abrir) expande.
+   `alternarGrupoVerbaPorTarefa()` ajustada pro mesmo critério
+   (`!== false` em vez de `=== true`).
+2. Cabeçalho do cartão de cada pavimento ganhou um `<span>` à direita
+   com `total de Pontos das tarefas daquele pavimento` + `pav.valorVerba`
+   (o mesmo Valor da Verba que a aba anterior calculou pro pavimento —
+   não recalculado, é a mesma fonte que o Subtotal de dentro do cartão
+   já confere contra) — fica visível mesmo com o cartão fechado.
+
+**Módulos isolados**: `modulos_isolados/distribuicao-custos/js/` e
+`modulos_isolados/atribuicao-tarefas/js/distribuicao-custos.js` têm
+essa mesma aba implementada de um jeito bem mais antigo (uma tabela
+única empilhada com linha de cabeçalho por pavimento, não o grid de
+cartões — drift pré-existente já registrado antes nesta sessão). Não
+tinha grid pra limitar a 3 colunas, então essa parte não se aplica lá;
+mas a mudança de comportamento (recolhido por padrão + totalização no
+cabeçalho) foi replicada nos dois arquivos, adaptada pro layout de
+tabela deles (span inline no `<td>` do cabeçalho em vez da classe CSS
+nova).
+
+**Verificação**: `node --check` limpo nos 3 arquivos JS tocados.
+Testado no navegador local (porta nova 5701) no projeto piloto "AP
+PRAIA (SAVOIA) - SETOR B": aba abre com todos os pavimentos fechados
+(►) mostrando "83,0 pts · R$ 3.987,49" etc. no título; clicar um
+cabeçalho expande só aquele cartão (▼) mostrando as tarefas; em
+1900px de largura confirmado visualmente exatamente 3 cartões por
+linha (antes abriria 4+).

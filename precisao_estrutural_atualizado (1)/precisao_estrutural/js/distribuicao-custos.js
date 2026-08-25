@@ -1009,13 +1009,18 @@ function carregarAbaVerbaPorTarefa() {
         // Melhoria #6 (prompt_gemini.md §12): cabeçalho de grupo próprio
         // — permite recolher/expandir, mesmo padrão visual (▼/►) já
         // usado na Árvore, com estado próprio desta aba
-        // (vtGruposRecolhidos). Reforma de 2026-08-17 (parte 12 — o
-        // usuário reconsiderou a parte 11): EXPANDIDO volta a ser o
-        // padrão (valor `undefined`, nunca tocado, conta como
-        // expandido) — só um clique explícito guarda `true` (recolhido).
-        const recolhido = vtGruposRecolhidos[pav.caminho] === true;
+        // (vtGruposRecolhidos). Reforma de 2026-08-25 (parte 43 — o
+        // usuário reconsiderou de novo): RECOLHIDO volta a ser o padrão
+        // (valor `undefined`, nunca tocado, conta como recolhido) — só
+        // um clique explícito guarda `false` (expandido). O cabeçalho
+        // ganhou a totalização de Pontos e Valor do pavimento pra
+        // continuar útil mesmo fechado.
+        const recolhido = vtGruposRecolhidos[pav.caminho] !== false;
         const seta = recolhido ? '►' : '▼';
         const estiloOcultoSeRecolhido = recolhido ? ' style="display:none;"' : '';
+
+        const totalPontosPav = pav.tarefas.reduce((soma, t) => soma + (parseFloat(t.pontos) || 0), 0);
+        const totalizacaoHeader = ' <span class="vt-card-header-totais">' + totalPontosPav.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts &middot; ' + formatarMoeda(pav.valorVerba) + '</span>';
 
         let linhasTarefas = '';
         pav.tarefas.forEach((tarefa, idxTarefa) => {
@@ -1041,7 +1046,7 @@ function carregarAbaVerbaPorTarefa() {
         // linha de conferência (texto auxiliar) some junto com as
         // Tarefas, por ser detalhe, não resumo.
         return '<div class="vt-card">' +
-            '<div class="vt-card-header" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</div>' +
+            '<div class="vt-card-header" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')"><span><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</span>' + totalizacaoHeader + '</div>' +
             '<div class="table-wrapper"><table class="tabela-compacta"><thead><tr>' +
                 '<th>Tarefa</th><th style="width:120px;">Executor</th><th class="col-centralizada" style="width:55px;">H.Máx</th><th class="col-centralizada" style="width:55px;">Pontos</th><th style="width:100px; text-align:right;">Valor</th>' +
             '</tr></thead><tbody>' +
@@ -1065,14 +1070,14 @@ function carregarAbaVerbaPorTarefa() {
 
 // Estado de recolhimento por grupo (Pavimento) desta aba — em memória,
 // reseta ao trocar de projeto/aba (não precisa persistir). Convenção
-// (parte 12 — usuário reconsiderou a parte 11): `undefined` (nunca
-// clicado) = EXPANDIDO (padrão); só um `true` explícito (usuário
-// clicou pra fechar) conta como recolhido — ver `recolhido` em
+// (parte 43 — usuário reconsiderou de novo): `undefined` (nunca
+// clicado) = RECOLHIDO (padrão); só um `false` explícito (usuário
+// clicou pra abrir) conta como expandido — ver `recolhido` em
 // carregarAbaVerbaPorTarefa().
 let vtGruposRecolhidos = {};
 
 function alternarGrupoVerbaPorTarefa(caminhoGrupo) {
-    const estaRecolhido = vtGruposRecolhidos[caminhoGrupo] === true;
+    const estaRecolhido = vtGruposRecolhidos[caminhoGrupo] !== false;
     vtGruposRecolhidos[caminhoGrupo] = estaRecolhido ? false : true;
     carregarAbaVerbaPorTarefa();
 }

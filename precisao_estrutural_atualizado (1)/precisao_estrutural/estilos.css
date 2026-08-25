@@ -445,15 +445,17 @@
         }
 
         /* Pedido do usuário: Aba "Verba por Tarefa" — Pavimentos lado a
-           lado (2 ou 3, conforme a largura disponível) em vez de uma
-           tabela única empilhada. auto-fit com minmax redistribui o
-           espaço igualmente entre as colunas que couberem. */
+           lado, no máximo 3 colunas (antes: auto-fit deixava abrir até
+           4+ em telas largas) — cai pra 2 e depois 1 coluna em telas
+           menores via as media queries logo abaixo. */
         .vt-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 16px;
             align-items: start;
         }
+        @media (max-width: 1100px) { .vt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 700px) { .vt-grid { grid-template-columns: 1fr; } }
         /* Pedido do usuário: cartão de Pavimento com a MESMA cara dos
            cartões do Kanban (ver .kb-cartao acima) — borda + sombra
            suave, não só uma borda seca. */
@@ -471,6 +473,19 @@
             font-size: 12px;
             padding: 6px 10px;
             cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        /* Totalização de Pontos/Valor no cabeçalho do cartão — pedido do
+           usuário: continuar útil mesmo com o pavimento recolhido
+           (estado padrão agora, ver carregarAbaVerbaPorTarefa). */
+        .vt-card-header-totais {
+            font-weight: normal;
+            font-size: 11px;
+            color: #475569;
+            white-space: nowrap;
         }
         .vt-card table { width: 100%; }
         .vt-card .table-wrapper { max-height: none; border: none; border-radius: 0; }
