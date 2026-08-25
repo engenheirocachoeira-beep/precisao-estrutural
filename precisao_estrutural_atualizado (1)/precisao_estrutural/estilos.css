@@ -562,7 +562,6 @@
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-painel-titulo { font-size:13px; font-weight:700; color:#0f172a; margin:0 0 4px; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tag { font-size:10px; font-weight:400; color:#94a3b8; margin-left:4px; text-transform:none; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-painel-legenda { font-size:12px; color:#94a3b8; margin:0 0 16px; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-bloco-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:#94a3b8; margin:0 0 10px; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-subtitulo-bloco { font-size:11.5px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:0.02em; margin:18px 0 6px; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-subtitulo-bloco:first-of-type { margin-top:2px; }
 
@@ -592,19 +591,10 @@
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela td { padding:6px 8px; border-bottom:1px solid #e2e8f0; color:#475569; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tbody tr:last-child td { border-bottom:none; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tr.desemp-destaque td { color:#0f172a; font-weight:700; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tfoot td { padding:7px 8px; border-top:1px solid #e2e8f0; border-bottom:none; font-weight:700; color:#0f172a; background:var(--desemp-total-bg); }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tfoot td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-desvio-bom { color:#0e8f6f; font-weight:600; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-desvio-ruim { color:#c1432a; font-weight:600; }
-
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-grid-financeiro { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-fin { display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; font-size:12.5px; border-bottom:1px solid #f1f5f9; color:#475569; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-fin:last-child { border-bottom:none; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-fin span:last-child { font-weight:600; color:#0f172a; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-fin.desemp-deducao span:last-child { color:#c1432a; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-fin.desemp-subtotal { font-weight:700; }
-        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-fin.desemp-subtotal span { color:#0f172a; }
 
         /* 4ª orelha "Diagnóstico" — cards de leitura automática em cima
            das mesmas 4 tabelas acima (js/desempenho-projeto.js,
@@ -616,7 +606,6 @@
 
         @media (max-width: 1100px) {
             :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-grid-kpi { grid-template-columns:repeat(2, 1fr); }
-            :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-grid-financeiro { grid-template-columns:1fr; }
         }
 
         /* 6ª orelha "Distribuições" — pedido do usuário: "crie nova aba
@@ -630,8 +619,20 @@
            "relatório", não uma tela de trabalho), escopada só a
            #panel-distribuicoes-projeto. Os NÚMEROS vêm dos mesmos
            cálculos de Bonificação/Desempenho já existentes — nada
-           recalculado aqui, só reorganizado no layout novo. */
-        #panel-distribuicoes-projeto {
+           recalculado aqui, só reorganizado no layout novo.
+           Retomada 2026-08-25 (parte 42, separar Produtividade/
+           Financeiro): as variáveis de cor e as classes de "seção com
+           painel" (.dist-section/.dist-panel) e "gráfico de barra
+           divergente" (.dist-divchart/.dist-divrow/...) passaram a
+           valer também em #panel-desempenho-projeto (pedido do
+           usuário: gráficos de horas em Produtividade usando como
+           referência visual os gráficos que já existem em Financeira
+           — precisa ser o MESMO CSS, não uma cópia que pode divergir
+           depois). As classes específicas do "relatório editorial"
+           (masthead, headline, KPIs, barra segmentada, tech-row,
+           callout) continuam só em Financeira — não fazem sentido em
+           Produtividade e não foram estendidas. */
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) {
             --dist-bg: #F2F4EF; --dist-surface: #FFFFFF; --dist-surface-2: #E8ECE4;
             --dist-ink: #1B2420; --dist-ink-2: #4B5750; --dist-ink-muted: #7C8880;
             --dist-border: #D7DED4; --dist-border-strong: #B9C4B3;
@@ -646,7 +647,7 @@
             font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
         }
         #panel-distribuicoes-projeto .dist-page { max-width: 980px; margin: 0 auto; }
-        #panel-distribuicoes-projeto .dist-num { font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-num { font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
         #panel-distribuicoes-projeto .dist-eyebrow { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; font-size: 11.5px; color: var(--dist-ink-muted); }
 
         #panel-distribuicoes-projeto .dist-masthead { background: var(--dist-surface); border: 1px solid var(--dist-border-strong); border-radius: 3px; padding: 28px 30px 24px; position: relative; overflow: hidden; }
@@ -665,11 +666,11 @@
         #panel-distribuicoes-projeto .dist-headline .dist-figure.critical { color: var(--dist-critical); }
         #panel-distribuicoes-projeto .dist-headline .dist-caption { color: var(--dist-ink-2); font-size: 13.5px; max-width: 46ch; }
 
-        #panel-distribuicoes-projeto .dist-section { margin-top: 28px; }
-        #panel-distribuicoes-projeto .dist-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
-        #panel-distribuicoes-projeto .dist-section-head h2 { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-size: 19px; font-weight: 700; margin: 0; }
-        #panel-distribuicoes-projeto .dist-section-head .dist-note { font-size: 12px; color: var(--dist-ink-muted); }
-        #panel-distribuicoes-projeto .dist-panel { background: var(--dist-surface); border: 1px solid var(--dist-border); border-radius: 3px; padding: 20px 22px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section { margin-top: 28px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section-head h2 { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-size: 19px; font-weight: 700; margin: 0; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section-head .dist-note { font-size: 12px; color: var(--dist-ink-muted); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-panel { background: var(--dist-surface); border: 1px solid var(--dist-border); border-radius: 3px; padding: 20px 22px; }
 
         #panel-distribuicoes-projeto .dist-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--dist-border); border: 1px solid var(--dist-border); border-radius: 3px; overflow: hidden; }
         #panel-distribuicoes-projeto .dist-kpi { background: var(--dist-surface); padding: 14px 14px; min-width: 0; }
@@ -690,19 +691,19 @@
         #panel-distribuicoes-projeto .dist-tolerance .tag { font-size: 10.5px; font-weight: 700; color: var(--dist-critical); background: var(--dist-critical-soft); border-radius: 2px; padding: 1px 6px; letter-spacing: 0.04em; }
         #panel-distribuicoes-projeto .dist-tolerance .tag.ok { color: var(--dist-good); background: var(--dist-good-soft); }
 
-        #panel-distribuicoes-projeto .dist-divchart { display: flex; flex-direction: column; gap: 9px; }
-        #panel-distribuicoes-projeto .dist-divrow { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; }
-        #panel-distribuicoes-projeto .dist-divrow .dist-label { font-size: 12.5px; color: var(--dist-ink-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        #panel-distribuicoes-projeto .dist-divrow.emph .dist-label { color: var(--dist-ink); font-weight: 700; }
-        #panel-distribuicoes-projeto .dist-track { position: relative; height: 20px; background: var(--dist-surface-2); border-radius: 2px; }
-        #panel-distribuicoes-projeto .dist-track .zero { position: absolute; top: -3px; bottom: -3px; left: 50%; width: 1px; background: var(--dist-border-strong); }
-        #panel-distribuicoes-projeto .dist-track .bar { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
-        #panel-distribuicoes-projeto .dist-track .bar.pos { left: 50%; background: var(--dist-good); }
-        #panel-distribuicoes-projeto .dist-track .bar.neg { right: 50%; background: var(--dist-critical); }
-        #panel-distribuicoes-projeto .dist-divrow .dist-value { font-size: 12px; text-align: right; }
-        #panel-distribuicoes-projeto .dist-divrow .dist-value.pos { color: var(--dist-good); }
-        #panel-distribuicoes-projeto .dist-divrow .dist-value.neg { color: var(--dist-critical); }
-        #panel-distribuicoes-projeto .dist-subrow-meta { grid-column: 1; font-size: 10.5px; color: var(--dist-ink-muted); text-align: right; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divchart { display: flex; flex-direction: column; gap: 9px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-label { font-size: 12.5px; color: var(--dist-ink-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow.emph .dist-label { color: var(--dist-ink); font-weight: 700; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track { position: relative; height: 20px; background: var(--dist-surface-2); border-radius: 2px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .zero { position: absolute; top: -3px; bottom: -3px; left: 50%; width: 1px; background: var(--dist-border-strong); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .bar { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .bar.pos { left: 50%; background: var(--dist-good); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .bar.neg { right: 50%; background: var(--dist-critical); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value { font-size: 12px; text-align: right; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value.pos { color: var(--dist-good); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value.neg { color: var(--dist-critical); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-subrow-meta { grid-column: 1; font-size: 10.5px; color: var(--dist-ink-muted); text-align: right; }
 
         #panel-distribuicoes-projeto .dist-tech-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: stretch; }
         @media (max-width: 720px) { #panel-distribuicoes-projeto .dist-tech-row { grid-template-columns: 1fr; } }
@@ -712,6 +713,24 @@
         #panel-distribuicoes-projeto .dist-swatch-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
         #panel-distribuicoes-projeto .dist-fixo-card .dist-amount { font-size: 20px; font-weight: 700; }
         #panel-distribuicoes-projeto .dist-fixo-card .dist-desc { font-size: 12px; color: var(--dist-ink-muted); }
+
+        /* "Resumo financeiro" — retomada 2026-08-25 (parte 42, separar
+           Produtividade/Financeiro): movido pra cá de Produtividade
+           (pedido do usuário). Estilo próprio (.dist-finha), não
+           reaproveitando .desemp-linha-fin (essa é escopada só a
+           #panel-desempenho-projeto/#panel-bonificacao-projeto e tem
+           outra paleta) — o resumo agora mora dentro de Financeira,
+           então segue a mesma linguagem visual .dist-* do resto dessa
+           página, pra não parecer um bloco emprestado de outra tela. */
+        #panel-distribuicoes-projeto .dist-fingrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-fingrid { grid-template-columns: 1fr; } }
+        #panel-distribuicoes-projeto .dist-finha { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--dist-border); color: var(--dist-ink-2); }
+        #panel-distribuicoes-projeto .dist-finha:last-child { border-bottom: none; }
+        #panel-distribuicoes-projeto .dist-finha span:last-child { font-weight: 700; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-finha.emph { color: var(--dist-ink); font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-finha.deducao span:last-child { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-finha.subtotal { font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-finha.subtotal span { color: var(--dist-ink); }
 
         #panel-distribuicoes-projeto .dist-callout { margin-top: 14px; background: var(--dist-critical-soft); border: 1px solid var(--dist-critical); border-radius: 3px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
         #panel-distribuicoes-projeto .dist-callout.good { background: var(--dist-good-soft); border-color: var(--dist-good); }

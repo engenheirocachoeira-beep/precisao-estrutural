@@ -9358,3 +9358,88 @@ navegador de preview já registrado nesta sessão) nos dois projetos —
 resultados idênticos aos do teste Node. Sem erro novo no console (o
 único erro presente é o de sempre, não relacionado, já rastreado ao
 item de menu "Distribuição de Lucro").
+
+## Retomada em 2026-08-25 (parte 42) — Separa Produtividade/Financeiro nas sub-abas de Detalhamento + gráficos de horas
+
+Pedido do usuário, decidido em detalhe por 3 perguntas (AskUserQuestion)
+antes de implementar — ver
+[[project_precisao_estrutural_detalhamento_separar_produtividade_financeiro]]
+na memória do projeto pras 3 decisões completas. Resumo: "as
+informações sobre produtividade e desempenho estão misturadas nas
+orelhas [Produtividade/Financeira]... coloque desempenho medido por
+horas/índices na aba Produtividade e os valores [dinheiro] todos na
+Financeira. Use gráficos considerando as horas na Produtividade
+usando como referência os gráficos que estão na Financeira. O resumo
+financeiro deve estar na aba Financeiro."
+
+**`js/desempenho-projeto.js`**:
+1. `tabelaDesempenho()` (tabela única com filtro "Agrupar por" —
+   Etapa/Pavimento/Tarefa/Executor) perdeu as colunas Verba/Custo/
+   Bonificação — ficou só Previsto/Realizado/Índice/Desvio (horas).
+   Parâmetro `pctBonificacao` removido (só existia pra alimentar a
+   coluna de Bonificação que saiu); `trocarDimensaoDesempenho()` e
+   `renderizarDesempenhoProjeto()` pararam de calcular/passar isso.
+2. `renderizarDesempenhoProjeto()` (Produtividade): cartão "CUSTO DO
+   DETALHAMENTO" removido; "Resultado da Etapa" (que tinha Saldo de
+   Horas + Saldo de Verba) virou um cartão simples "SALDO DE HORAS"
+   (só horas); bloco inteiro "Resumo financeiro" removido daqui
+   (foi pra Financeira, item 4). **3 gráficos novos** de barra
+   divergente (`distDivChart()`, mesmo componente que Financeira já
+   usa pra lucro/resultado): "Desvio de horas por Executor/Pavimento/
+   Tarefa", alimentados com Saldo de Horas (Previsto − Realizado,
+   mesma convenção positivo=bom/negativo=ruim já usada no KPI) em vez
+   de lucro, pior estouro primeiro (mesmo critério que "Diagnóstico
+   por atividade" de Financeira já usa).
+3. `distDivChart(linhas, formatarValor)` ganhou um 2º parâmetro
+   opcional (formatador do número — padrão `formatarMoeda`, pra não
+   quebrar as 3 chamadas antigas de Financeira) — os 3 gráficos novos
+   passam um formatador de horas (`v => formatarNumero(v) + ' h'`) em
+   vez de deixar formatar em R$ (a função tinha `formatarMoeda(...)`
+   fixo no meio do código antes, precisou generalizar).
+4. `renderizarDistribuicoesProjeto()` (Financeira): ganhou a seção
+   "Resumo financeiro" (Valor do Contrato → Impostos → parcelas →
+   Verba líquida por Etapa → Fundo Garantidor → cascata pra
+   Pavimentos — mesmos dados de antes, `fin.*`), reescrita com a
+   paleta `.dist-*` própria dessa página (não a antiga
+   `.desemp-linha-fin`, que é de outra tela) — nova função auxiliar
+   `distFinLinha()`, mesmo papel que a antiga `finLinha()` tinha.
+   `finLinha()` ficou sem NENHUM uso em lugar nenhum do sistema depois
+   dessa mudança (confirmado por busca no repo inteiro) — removida
+   por completo, junto com as classes CSS que só ela usava
+   (`.desemp-grid-financeiro`, `.desemp-linha-fin` e variantes,
+   `.desemp-bloco-titulo`, `.desemp-tabela tr.desemp-destaque`).
+
+**`estilos.css`**: as variáveis `--dist-*` e as classes de "seção com
+painel" (`.dist-section`/`.dist-panel`) e "gráfico de barra divergente"
+(`.dist-divchart`/`.dist-divrow`/`.dist-track`/...) — que antes só
+valiam dentro de `#panel-distribuicoes-projeto` — passaram a valer
+também em `#panel-desempenho-projeto` (`:is(...)`, mesmo padrão já
+usado noutros pontos do arquivo pra estilo compartilhado entre 2
+painéis) — é o MESMO CSS, não uma cópia, pra garantir que os gráficos
+novos ficam visualmente idênticos aos de referência, sem risco de
+divergir depois. Só as classes específicas do "relatório editorial"
+(masthead, KPIs, barra segmentada, tech-row, callout) continuam
+exclusivas de Financeira — não fazem sentido em Produtividade e não
+foram estendidas (decisão já tomada: sem versão em horas da barra
+segmentada). Novo bloco `.dist-fingrid`/`.dist-finha` (+ variantes
+`.deducao`/`.subtotal`/`.emph`) pro "Resumo financeiro" que migrou pra
+Financeira, escopado só a `#panel-distribuicoes-projeto`.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_separar_produtividade_financeiro.js`, dados reais do Home
+Garden): confirmado que o HTML de Produtividade NÃO contém mais
+"CUSTO DO DETALHAMENTO", "Saldo de Verba", "Resumo financeiro" nem
+"Verba (R$)"; contém "SALDO DE HORAS" e as 3 seções de gráfico novas;
+o HTML de Financeira contém "Resumo financeiro" e "Valor do Contrato"
+certos. Conferido o trecho renderizado de um dos gráficos novos: valor
+formatado em horas ("&minus; 69,75 h", não R$), meta batendo a conta
+manual (previsto 37,50h, realizado 107,25h, diferença 69,75h). Testado
+no navegador local (porta nova, 5604, pra fugir do cache de preview já
+registrado nesta sessão) em 2 projetos reais (Home Garden e AP Praia):
+KPIs de Produtividade batendo (Horas Consumidas/% Concluída/Saldo de
+Horas, sem nada de dinheiro), os 3 gráficos aparecendo com o MESMO
+visual das seções de referência de Financeira (fundo pontilhado,
+barras vermelho/verde, tipografia condensada — confirmado por
+screenshot), "Resumo financeiro" aparecendo dentro de Financeira com o
+novo estilo `.dist-finha` (Detalhamento em negrito/destaque). Sem erro
+no console nos dois projetos.

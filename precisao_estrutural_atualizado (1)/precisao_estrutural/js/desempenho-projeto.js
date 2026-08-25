@@ -588,8 +588,7 @@ function trocarDimensaoDesempenho() {
     if (!sel || !area || !desempCacheFiltro) return;
     const dim = sel.value;
     const info = DESEMP_DIMENSOES[dim];
-    const pctBonif = dim === 'porExecutor' ? desempCacheFiltro.pctBonificacao : null;
-    area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag, pctBonif);
+    area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag);
 }
 
 function carregarPainelDesempenho(nomeProjeto) {
@@ -720,7 +719,14 @@ function carregarPainelDistribuicoes(nomeProjeto) {
 // todas as linhas do MESMO gráfico) — barra do maior vira 50% (toca a
 // extremidade), as outras proporcionais. Cada linha pode ter uma
 // `meta` (texto pequeno embaixo do rótulo, ex: "6 lançamentos · 166h").
-function distDivChart(linhas) {
+// `formatarValor`, se informado, troca o formato do rótulo numérico
+// (padrão: formatarMoeda, pra manter as 3 chamadas de Financeira
+// intactas) — usado pelos gráficos de horas de Produtividade
+// (retomada 2026-08-25, parte 42), que passam um formatador de horas
+// em vez de R$. O resto do desenho (barra divergente, cor pos/neg) é
+// igual pros dois casos — só a UNIDADE do número muda.
+function distDivChart(linhas, formatarValor) {
+    formatarValor = formatarValor || formatarMoeda;
     const maxAbs = Math.max.apply(null, linhas.map(l => Math.abs(l.valor)).concat([0.01]));
     let html = '<div class="dist-divchart">';
     linhas.forEach(l => {
@@ -729,7 +735,7 @@ function distDivChart(linhas) {
         html += '<div class="dist-divrow' + (l.emph ? ' emph' : '') + '">' +
             '<div class="dist-label">' + escapeHtml(l.label) + '</div>' +
             '<div class="dist-track"><div class="zero"></div><div class="bar ' + (pos ? 'pos' : 'neg') + '" style="width:' + pct.toFixed(2) + '%;"></div></div>' +
-            '<div class="dist-value ' + (pos ? 'pos' : 'neg') + ' dist-num">' + (pos ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(l.valor)) + '</div>' +
+            '<div class="dist-value ' + (pos ? 'pos' : 'neg') + ' dist-num">' + (pos ? '+ ' : '&minus; ') + formatarValor(Math.abs(l.valor)) + '</div>' +
             '</div>';
         if (l.meta) html += '<div class="dist-divrow"><div class="dist-subrow-meta">' + l.meta + '</div><div></div><div></div></div>';
     });
@@ -747,6 +753,15 @@ function distKpi(rotulo, valor, sub2, critical) {
     return '<div class="dist-kpi"><div class="dist-eyebrow">' + rotulo + '</div>' +
         '<div class="dist-val dist-num' + (critical ? ' critical' : '') + '">' + valor + '</div>' +
         '<div class="dist-sub2">' + sub2 + '</div></div>';
+}
+
+// Linha de "funil financeiro" (rótulo à esquerda, valor à direita) —
+// substitui a antiga finLinha() (removida, ficou sem nenhum uso depois
+// que "Resumo financeiro" saiu de Produtividade nesta mesma retomada),
+// com a paleta .dist-* própria de Financeira em vez da antiga
+// .desemp-linha-fin.
+function distFinLinha(rotulo, valor, classe) {
+    return '<div class="dist-finha' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span><span class="dist-num">' + valor + '</span></div>';
 }
 
 function renderizarDistribuicoesProjeto(nomeProjeto, d) {
@@ -854,6 +869,33 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
         html += '</div></div>';
     }
 
+    // --- Resumo financeiro (retomada 2026-08-25, parte 42: movido de
+    // Produtividade pra cá — pedido do usuário: "o resumo financeiro
+    // deve estar na aba Financeiro") ---
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Do Valor do Contrato at&eacute; a Verba de cada Etapa</div></div>';
+    html += '<div class="dist-panel"><div class="dist-fingrid"><div>';
+    html += distFinLinha('Valor do Contrato', formatarMoeda(fin.valorContrato));
+    html += distFinLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorImpostos), 'deducao');
+    html += distFinLinha('Valor L&iacute;quido', formatarMoeda(fin.valorLiquido), 'subtotal');
+    html += distFinLinha('Verba Global p/ Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', formatarMoeda(fin.valorAnalista));
+    html += distFinLinha('Parcela para Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', formatarMoeda(fin.valorSupervisor));
+    html += distFinLinha('Parcela para Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', formatarMoeda(fin.valorEscritorio));
+    html += '</div><div>';
+    fin.etapas.forEach(e => {
+        html += distFinLinha(escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', formatarMoeda(e.verbaLiquida), e.ehDetalhamento ? 'emph' : '');
+    });
+    html += distFinLinha('Total', formatarMoeda(fin.totalVerbaEtapas), 'subtotal');
+    html += distFinLinha('Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', formatarMoeda(fin.valorFundoGarantidor));
+    html += '</div></div>';
+    if (fin.temEtapaDetalhamento) {
+        html += '<div class="dist-fingrid" style="margin-top:14px;"><div>';
+        html += distFinLinha('Verba Detalhamento', formatarMoeda(fin.verbaDetalhamentoBruta));
+        html += distFinLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorFundoLucros), 'deducao');
+        html += distFinLinha('Verba l&iacute;quida p/ Pavimentos', formatarMoeda(fin.verbaLiquidaPavimentos), 'subtotal');
+        html += '</div><div></div></div>';
+    }
+    html += '</div></div>';
+
     // --- Nota de dados ---
     html += '<div class="dist-datanote"><span class="tag">Nota de dados</span><div>' +
         '<p>Todos os valores acima vêm dos mesmos c&aacute;lculos j&aacute; usados nas orelhas Desempenho e Bonifica&ccedil;&atilde;o deste projeto &mdash; "Horas Previsto" segue a conven&ccedil;&atilde;o de Pontos do Cadastro de Tarefas (n&atilde;o &aacute;rea &times; produtividade).</p>' +
@@ -889,24 +931,23 @@ function renderizarDesempenhoProjeto(d) {
 
     let html = '';
 
-    // --- KPIs ---
+    // --- KPIs (retomada 2026-08-25, parte 42: separar Produtividade/
+    // Financeiro — pedido do usuário: "informações sobre desempenho
+    // medido por horas, índices de produtividade, etc" ficam aqui;
+    // dinheiro (CUSTO DO DETALHAMENTO, Saldo de Verba) foi pra
+    // Financeira, ver renderizarDistribuicoesProjeto()) ---
     html += '<div class="desemp-grid-kpi">';
     html += kpiCard('Horas Consumidas', horasRealizadoDet.toFixed(1) + 'h', 'previsto: ' + horasPrevistoDet.toFixed(1) + 'h', pctHoras <= 110 ? 'good' : (pctHoras <= 200 ? 'warn' : 'bad'), (pctHoras >= 100 ? '+' : '') + (pctHoras - 100).toFixed(0) + '% do previsto');
-    html += kpiCard('CUSTO DO DETALHAMENTO', formatarMoeda(custoDetalhamento), 'verba do Detalhamento: ' + formatarMoeda(verbaDetalhamento), pctCustoVsVerbaDet <= 0 ? 'good' : 'bad', (pctCustoVsVerbaDet >= 0 ? '+' : '') + pctCustoVsVerbaDet.toFixed(0) + '% vs verba');
     html += kpiCard('% CONCLUÍDA', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
-    html += kpiCardMultiplo('Resultado da Etapa', [
-        { label: 'Saldo de Horas', valor: (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + ' h', cor: saldoHorasDet >= 0 ? 'bom' : 'ruim' },
-        { label: 'Saldo de Verba', valor: (saldoVerbaDet >= 0 ? '+' : '&minus;') + ' ' + formatarMoeda(Math.abs(saldoVerbaDet)), cor: saldoVerbaDet >= 0 ? 'bom' : 'ruim' }
-    ]);
+    html += kpiCard('SALDO DE HORAS', (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + 'h', 'previsto ' + formatarNumero(horasPrevistoDet) + 'h &minus; realizado ' + formatarNumero(horasRealizadoDet) + 'h', saldoHorasDet >= 0 ? 'good' : 'bad', saldoHorasDet >= 0 ? 'sobrando' : 'estourado');
     html += '</div>';
 
     // --- Tabela única com filtro de dimensão (pedido do usuário: 1
     // tabela só, com filtro suficiente pra ver os dados agrupados como
     // quem estiver manipulando quiser, em vez de 4 tabelas fixas) ---
-    const pctBonificacao = obterPctBonificacao(d.nomeProjeto);
-    desempCacheFiltro = { tab: tab, pctBonificacao: pctBonificacao };
-    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho <span class="desemp-tag">previsto &times; realizado &times; índice &times; desvio &times; verba &times; custo real</span></p>';
-    html += '<p class="desemp-painel-legenda">Previsto = soma dos Pontos do Cadastro de Tarefas. Índice = Realizado &divide; Previsto. Linhas sem nenhuma hora realizada não entram na lista. Na linha TOTAL, "Horas Previsto" mostra o % de horas já consumidas e "Custo Real" mostra o % da verba já consumida.</p>';
+    desempCacheFiltro = { tab: tab };
+    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho <span class="desemp-tag">previsto &times; realizado &times; índice &times; desvio</span></p>';
+    html += '<p class="desemp-painel-legenda">Previsto = soma dos Pontos do Cadastro de Tarefas. Índice = Realizado &divide; Previsto. Linhas sem nenhuma hora realizada não entram na lista. Na linha TOTAL, "Horas Previsto" mostra o % de horas já consumidas.</p>';
     html += '<div class="desemp-filtro-linha"><label for="desemp-filtro-dimensao">Agrupar por:</label>' +
         '<select id="desemp-filtro-dimensao" onchange="trocarDimensaoDesempenho()">' +
         '<option value="porEtapa">Etapa</option>' +
@@ -932,77 +973,70 @@ function renderizarDesempenhoProjeto(d) {
         html += '</tbody></table></div>';
     }
 
-    // --- Resumo financeiro ---
-    html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Resumo financeiro</p>';
-    html += '<p class="desemp-painel-legenda">Do Valor do Contrato até a Verba de cada Etapa — mesmo caminho que a Distribuição de Custos já calcula, reunido numa foto só.</p>';
-    html += '<div class="desemp-grid-financeiro"><div>';
-    html += '<p class="desemp-bloco-titulo">Do contrato às parcelas</p>';
-    html += finLinha('Valor do Contrato', formatarMoeda(fin.valorContrato));
-    html += finLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorImpostos), 'deducao');
-    html += finLinha('Valor Líquido', formatarMoeda(fin.valorLiquido), 'subtotal');
-    html += finLinha('Verba Global p/ Produção (' + fin.pctAnalista.toFixed(0) + '%)', formatarMoeda(fin.valorAnalista));
-    html += finLinha('Parcela para Supervisão (' + fin.pctSupervisor.toFixed(0) + '%)', formatarMoeda(fin.valorSupervisor));
-    html += finLinha('Parcela para Escritório (' + fin.pctEscritorio.toFixed(0) + '%)', formatarMoeda(fin.valorEscritorio));
-    html += '</div><div>';
-    html += '<p class="desemp-bloco-titulo">Verba líquida por Etapa</p>';
-    html += '<table class="desemp-tabela"><thead><tr><th>Etapa</th><th>%</th><th>Verba</th></tr></thead><tbody>';
-    fin.etapas.forEach(e => {
-        html += '<tr' + (e.ehDetalhamento ? ' class="desemp-destaque"' : '') + '><td>' + escapeHtml(e.nome) + '</td><td class="num">' + e.pctEtapa.toFixed(1).replace('.0', '') + '%</td><td class="num">' + formatarMoeda(e.verbaLiquida) + '</td></tr>';
-    });
-    html += '</tbody><tfoot><tr><td>Total</td><td></td><td class="num">' + formatarMoeda(fin.totalVerbaEtapas) + '</td></tr>';
-    html += '<tr><td>Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)</td><td></td><td class="num">' + formatarMoeda(fin.valorFundoGarantidor) + '</td></tr></tfoot>';
-    html += '</table></div></div>';
-    if (fin.temEtapaDetalhamento) {
-        html += '<p class="desemp-bloco-titulo" style="margin-top:16px;">Detalhamento &rarr; Pavimentos</p>';
-        html += '<div class="desemp-grid-financeiro"><div>';
-        html += finLinha('Verba Detalhamento', formatarMoeda(fin.verbaDetalhamentoBruta));
-        html += finLinha('Fundo Distribuição de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorFundoLucros), 'deducao');
-        html += finLinha('Verba líquida p/ Pavimentos', formatarMoeda(fin.verbaLiquidaPavimentos), 'subtotal');
-        html += '</div><div></div></div>';
+    // --- Gráficos de desvio de horas (pedido do usuário: "use
+    // gráficos considerando as horas... usando como referência os
+    // gráficos que estão na orelha Financeira") — mesmo componente
+    // `distDivChart()` que Financeira usa pra lucro/resultado em R$
+    // (Resultado por técnico/pavimento/atividade), só que alimentado
+    // com Saldo de Horas (Previsto − Realizado, positivo = sobrando/
+    // bom, negativo = estourado/ruim — mesma convenção de "Saldo" já
+    // usada no KPI acima) em vez de lucro, e formatado em horas em vez
+    // de R$ (`formatarValor` novo parâmetro de distDivChart()). Pior
+    // caso (maior estouro) primeiro, como o "Diagnóstico por
+    // atividade" de Financeira já faz. ---
+    const formatarHorasChart = v => formatarNumero(v) + ' h';
+    function graficoDesvioHoras(titulo, nota, linhas) {
+        if (linhas.length === 0) return '';
+        const ordenadas = linhas.slice().sort((a, b) => (a.previsto - a.realizado) - (b.previsto - b.realizado));
+        const itens = ordenadas.map((l, i) => ({
+            label: (l.chave === 'porExecutor') ? nomeExecutorExibicao(l.nome) : l.nome,
+            valor: l.previsto - l.realizado,
+            emph: i === 0 || i === ordenadas.length - 1,
+            meta: 'previsto ' + formatarNumero(l.previsto) + 'h &middot; realizado ' + formatarNumero(l.realizado) + 'h'
+        }));
+        return '<div class="dist-section"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
+            '<div class="dist-panel">' + distDivChart(itens, formatarHorasChart) + '</div></div>';
     }
-    html += '</div>';
+    html += graficoDesvioHoras('Desvio de horas por Executor', 'previsto &minus; realizado, por pessoa', tab.porExecutor.map(l => Object.assign({ chave: 'porExecutor' }, l)));
+    html += graficoDesvioHoras('Desvio de horas por Pavimento', 'previsto &minus; realizado, por pavimento', tab.porPavimento);
+    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa);
 
     return html;
 }
 
 // Uma das 4 tabelas (Por Etapa/Pavimento/Tarefa/Executor) — mesmo
 // formato pras 4, só muda o rótulo da 1ª coluna e as linhas.
-// `pctBonificacao`, se informado, acrescenta uma 8ª coluna "Bonificação
-// (R$)" no fim (só usada na tabela "Por Executor" — documento de
-// referência de Bonificação, 2026-08-20).
-function tabelaDesempenho(titulo, chave, linhas, totais, tag, pctBonificacao) {
+// Retomada 2026-08-25 (parte 42, separar Produtividade/Financeiro):
+// esta tabela só existe dentro da orelha Produtividade — perdeu as
+// colunas Verba/Custo/Bonificação (dinheiro), que não fazem mais
+// sentido aqui (pedido do usuário: "Previsto/Realizado/Índice/Desvio,
+// com relação às horas e não aos custos/verbas"). Antes tinha um
+// parâmetro `pctBonificacao` opcional pra uma 8ª coluna só na tabela
+// "Por Executor" — removido junto (só existia pra alimentar a coluna
+// de dinheiro que saiu).
+function tabelaDesempenho(titulo, chave, linhas, totais, tag) {
     if (linhas.length === 0) return '';
     const indiceTotal = totais.previsto > 0 ? (totais.realizado / totais.previsto * 100) : 0;
-    const pctVerbaTotal = totais.verba > 0 ? (totais.custo / totais.verba * 100) : 0;
     const desvioTotal = totais.realizado - totais.previsto;
-    const comBonificacao = pctBonificacao !== undefined && pctBonificacao !== null;
 
     let html = '<p class="desemp-subtitulo-bloco">' + escapeHtml(titulo) + (tag ? ' <span class="desemp-tag">' + escapeHtml(tag) + '</span>' : '') + '</p>';
-    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th><th>Verba (R$)</th><th>Custo Real (R$)</th>' + (comBonificacao ? '<th>Bonificação (R$)</th>' : '') + '</tr></thead><tbody>';
+    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th></tr></thead><tbody>';
     linhas.forEach(l => {
         const indice = l.previsto > 0 ? (l.realizado / l.previsto * 100) : 0;
         const desvio = l.realizado - l.previsto;
         const nomeExibicao = (chave === 'porExecutor' && typeof nomeParaExibicao === 'function') ? nomeParaExibicao(l.nome) : l.nome;
-        const bonificacao = comBonificacao ? l.lucro * pctBonificacao / 100 : 0;
         html += '<tr><td>' + escapeHtml(nomeExibicao) + '</td>' +
             '<td class="num">' + formatarNumero(l.previsto) + ' h</td>' +
             '<td class="num">' + formatarNumero(l.realizado) + ' h</td>' +
             '<td class="num">' + indice.toFixed(1).replace('.', ',') + '%</td>' +
             '<td class="num ' + (desvio >= 0 ? 'desemp-desvio-ruim' : 'desemp-desvio-bom') + '">' + (desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvio)) + ' h</td>' +
-            '<td class="num">' + formatarMoeda(l.verba) + '</td>' +
-            '<td class="num">' + formatarMoeda(l.custo) + '</td>' +
-            (comBonificacao ? '<td class="num ' + (bonificacao >= 0 ? 'desemp-desvio-bom' : 'desemp-desvio-ruim') + '">' + (bonificacao >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(bonificacao)) + '</td>' : '') +
             '</tr>';
     });
-    const bonificacaoTotal = comBonificacao ? linhas.reduce((s, l) => s + l.lucro, 0) * pctBonificacao / 100 : 0;
     html += '</tbody><tfoot><tr><td>TOTAL</td>' +
         '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '% consumido</td>' +
         '<td class="num">' + formatarNumero(totais.realizado) + ' h</td>' +
         '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '%</td>' +
         '<td class="num">' + (desvioTotal >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvioTotal)) + ' h</td>' +
-        '<td class="num">' + formatarMoeda(totais.verba) + '</td>' +
-        '<td class="num">' + pctVerbaTotal.toFixed(1).replace('.', ',') + '% da verba</td>' +
-        (comBonificacao ? '<td class="num">' + (bonificacaoTotal >= 0 ? '+' : '&minus;') + formatarMoeda(Math.abs(bonificacaoTotal)) + '</td>' : '') +
         '</tr></tfoot>';
     html += '</table>';
     return html;
@@ -1030,10 +1064,6 @@ function kpiCardMultiplo(rotulo, itens) {
     });
     html += '</div>';
     return html;
-}
-
-function finLinha(rotulo, valor, classe) {
-    return '<div class="desemp-linha-fin' + (classe ? ' desemp-' + classe : '') + '"><span>' + rotulo + '</span><span>' + valor + '</span></div>';
 }
 
 function formatarNumero(v) {
