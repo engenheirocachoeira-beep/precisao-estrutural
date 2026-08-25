@@ -82,6 +82,42 @@ function resolverLocalizacaoPorNivel(arv, path) {
     return resultado;
 }
 
+// Classifica um executor num dos 5 "papéis" que o usuário pediu pra
+// filtrar no Relatório de Custos — 3 vêm direto de `nivel`
+// (administrador/supervisor/analista); `executor` não é um papel em
+// si, então pra ele olha o `cargo` (mesmo padrão de prefixo que
+// `funcionarioEhEstagiario()`, distribuicao-lucro.js, já usa) e separa
+// entre 'detalhista'/'estagiario'. Sem `banco_funcionarios` batendo
+// com o nome (funcionário desligado/renomeado) ou cargo fora dos 2
+// prefixos conhecidos, devolve `null` — linha não bate com NENHUMA
+// opção do filtro, mas também não quebra nada (só não aparece se um
+// papel específico for escolhido).
+function papelFuncionarioRelatorio(nomeExecutor) {
+    const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+    const f = funcionarios.find(x => x.nome === nomeExecutor);
+    if (!f) return null;
+    if (f.nivel === 'administrador' || f.nivel === 'supervisor' || f.nivel === 'analista') return f.nivel;
+    if (f.nivel === 'executor') {
+        const cargo = (f.cargo || '').toLowerCase();
+        if (cargo.indexOf('detalhista') === 0) return 'detalhista';
+        if (cargo.indexOf('estagiário') === 0) return 'estagiario';
+    }
+    return null;
+}
+
+// Lista FIXA (não "valores distintos que aparecem nos dados", mesmo
+// padrão de STATUS_TAREFA_OPCOES mais abaixo) — pedido do usuário:
+// "filtros também por administrador, supervisor, analista, detalhista,
+// estagiário", as 5 opções ficam sempre disponíveis no filtro mesmo
+// que, no momento, não exista nenhuma sessão de alguma delas.
+const PAPEIS_FUNCIONARIO_OPCOES = [
+    { valor: 'administrador', rotulo: 'Administrador' },
+    { valor: 'supervisor', rotulo: 'Supervisor' },
+    { valor: 'analista', rotulo: 'Analista' },
+    { valor: 'detalhista', rotulo: 'Detalhista' },
+    { valor: 'estagiario', rotulo: 'Estagiário' }
+];
+
 // Uma linha por SESSÃO DE TRABALHO, de todos os projetos/executores.
 // `caminho` no mesmo formato usado em todo o resto do projeto
 // (`nomeProjeto|fIdx-eIdx-sIdx-tIdx`), útil pra rastrear de volta à
@@ -122,6 +158,7 @@ function coletarLinhasSessaoTrabalho() {
                     pavimento: pavimentoNome,
                     tarefa: tarefa.nome,
                     executor: tarefa.executor,
+                    papel: papelFuncionarioRelatorio(tarefa.executor),
                     data: dataSessaoISO,
                     horas: horas,
                     valorHora: valorHora,
@@ -277,8 +314,12 @@ function aplicarFiltrosRelatorio(linhas, filtros) {
     return linhas.filter(l => {
         if (filtros.projeto && l.projeto !== filtros.projeto) return false;
         if (filtros.etapa && l.etapa !== filtros.etapa) return false;
+        if (filtros.setor && l.setor !== filtros.setor) return false;
+        if (filtros.pavimento && l.pavimento !== filtros.pavimento) return false;
+        if (filtros.tarefa && l.tarefa !== filtros.tarefa) return false;
         if (filtros.cliente && l.cliente !== filtros.cliente) return false;
         if (filtros.executor && l.executor !== filtros.executor) return false;
+        if (filtros.papel && l.papel !== filtros.papel) return false;
         if (filtros.status && l.status !== filtros.status) return false;
         if (filtros.campoData && (filtros.dataDe || filtros.dataAte)) {
             const dataLinha = l[filtros.campoData];
@@ -926,7 +967,7 @@ function renderizarOpcoesFiltroRelatorioCustos() {
     const linhas = coletarLinhasSessaoTrabalho();
     const distintos = (campo) => Array.from(new Set(linhas.map(l => l[campo]).filter(Boolean))).sort();
 
-    ['projeto', 'etapa', 'cliente', 'executor'].forEach(campo => {
+    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(campo => {
         const sel = document.getElementById('rel-custos-filtro-' + campo);
         if (!sel) return;
         const valorAtual = sel.value;
@@ -934,14 +975,28 @@ function renderizarOpcoesFiltroRelatorioCustos() {
         sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + v + '">' + rotulo(v) + '</option>').join('');
         sel.value = valorAtual;
     });
+
+    // Papel é lista FIXA (PAPEIS_FUNCIONARIO_OPCOES), não "valores que
+    // aparecem nos dados" — mesmo espírito do filtro de Status no
+    // motor genérico (renderizarOpcoesFiltroRelatorio()).
+    const selPapel = document.getElementById('rel-custos-filtro-papel');
+    if (selPapel) {
+        const valorAtual = selPapel.value;
+        selPapel.innerHTML = '<option value="">-- Todos --</option>' + PAPEIS_FUNCIONARIO_OPCOES.map(p => '<option value="' + p.valor + '">' + p.rotulo + '</option>').join('');
+        selPapel.value = valorAtual;
+    }
 }
 
 function lerFiltrosRelatorioCustos() {
     return {
         projeto: document.getElementById('rel-custos-filtro-projeto').value || null,
         etapa: document.getElementById('rel-custos-filtro-etapa').value || null,
+        setor: document.getElementById('rel-custos-filtro-setor').value || null,
+        pavimento: document.getElementById('rel-custos-filtro-pavimento').value || null,
+        tarefa: document.getElementById('rel-custos-filtro-tarefa').value || null,
         cliente: document.getElementById('rel-custos-filtro-cliente').value || null,
         executor: document.getElementById('rel-custos-filtro-executor').value || null,
+        papel: document.getElementById('rel-custos-filtro-papel').value || null,
         dataDe: document.getElementById('rel-custos-filtro-data-de').value || null,
         dataAte: document.getElementById('rel-custos-filtro-data-ate').value || null,
         campoData: 'data'
@@ -949,7 +1004,7 @@ function lerFiltrosRelatorioCustos() {
 }
 
 function limparFiltrosRelatorioCustos() {
-    ['projeto', 'etapa', 'cliente', 'executor'].forEach(c => {
+    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor', 'papel'].forEach(c => {
         const el = document.getElementById('rel-custos-filtro-' + c);
         if (el) el.value = '';
     });

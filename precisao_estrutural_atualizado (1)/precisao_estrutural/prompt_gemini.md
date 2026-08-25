@@ -9043,3 +9043,67 @@ sessão no banco inteiro — em 100% delas a soma dos executores-filhos
 bate exato com o total da Tarefa-mãe (0 inconsistências) e nenhum
 executor apareceu com neto (sempre folha, como esperado). Sem erro no
 console.
+
+## Retomada em 2026-08-24 (parte 37) — Relatório de Custos ganha filtros por Setor/Pavimento/Tarefa e por Papel do executor
+
+Dois pedidos em sequência do usuário, ambos na tela fixa "Relatório de
+Custos".
+
+1. **"Acrescente neste relatório também um filtro cada um dos níveis
+   da estrutura de projeto"** — a árvore (parte 36) já tinha os 6
+   níveis (Projeto/Etapa/Setor/Pavimento/Tarefa/Executor), mas o painel
+   de filtro só tinha Projeto/Etapa/Cliente/Executor — Setor,
+   Pavimento e Tarefa não davam pra filtrar direto. Acrescentados os 3
+   `<select>` que faltavam (`index.html`, mesmo padrão visual dos
+   existentes) + `renderizarOpcoesFiltroRelatorioCustos()` populando os
+   3 com valores distintos reais + `lerFiltrosRelatorioCustos()` /
+   `limparFiltrosRelatorioCustos()` lendo/limpando os 3. Como
+   `coletarLinhasSessaoTrabalho()` já carregava `setor`/`pavimento`/
+   `tarefa` em cada linha (usados só pra montar a árvore até agora), só
+   precisou ensinar o motor de filtro **genérico e compartilhado**
+   `aplicarFiltrosRelatorio()` a reconhecer esses 3 campos — automático
+   e sem risco pro "Relatório Personalizado" (que usa a mesma função,
+   simplesmente não passa esses filtros se não tiver os campos na
+   tela).
+
+2. **"Filtros também por administrador, supervisor, analista,
+   detalhista, estagiário"** — pedido logo em seguida, no meio da
+   implementação do item 1. Novo filtro "Papel" com essas 5 opções
+   FIXAS (lista `PAPEIS_FUNCIONARIO_OPCOES`, mesmo espírito do
+   `STATUS_TAREFA_OPCOES` do motor genérico — sempre aparecem todas,
+   mesmo sem dado atual de alguma). Como "papel" não é um campo que já
+   existe na sessão, nova função `papelFuncionarioRelatorio(nome)`
+   busca o funcionário em `banco_funcionarios` e classifica: `nivel`
+   'administrador'/'supervisor'/'analista' viram o próprio papel
+   direto; `nivel` 'executor' olha o `cargo` (mesmo prefixo que
+   `funcionarioEhEstagiario()`, distribuicao-lucro.js, já usa) pra
+   separar 'detalhista' de 'estagiario'. Funcionário não encontrado ou
+   com cargo fora desses 2 prefixos devolve `null` (não quebra nada, só
+   não aparece se um papel específico for escolhido no filtro). Esse
+   papel é calculado e gravado (`l.papel`) em cada linha já dentro de
+   `coletarLinhasSessaoTrabalho()`, e o motor genérico ganhou mais um
+   `if (filtros.papel ...)`.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_filtros_custos_papel.js`) com um `banco_funcionarios` fake de 6
+pessoas (1 de cada papel + 1 sem cargo reconhecido) — os 5 papéis
+classificados certo, os 2 casos sem-match deram `null` como esperado;
+filtro por papel/setor/pavimento/tarefa isolando exatamente a linha
+certa em todos os 4 testes. Testado no navegador com dados reais (via
+`fetch({cache:'no-store'})` + `new Function`, contornando o cache
+agressivo do navegador de preview local desta sessão — os 4 selects
+novos foram injetados manualmente no DOM só pro teste, já que o
+`index.html` também estava servindo versão cacheada): os 4 filtros
+novos populam certo (Papel com as 5 opções fixas; Pavimento/Tarefa com
+valores reais; Setor só com "—", porque os projetos reais não usam
+esse nível — não é bug); filtro por Tarefa="DT_Vigas" isolou
+exatamente essa tarefa (54 linhas); filtro por Papel="detalhista"
+isolou 126 linhas, todas de executores que a função classificou
+corretamente como detalhista (Luiza Crestani, Daniel de Carvalho
+Araujo); filtro por Papel="estagiario" corretamente deu 0 linhas (não
+tem estagiário nos dados atuais). Um erro solto apareceu no console
+durante o teste, rastreado até um item de menu completamente não
+relacionado ("Distribuição de Lucro (Estagiários)", `index.html`
+linha 48) — confirmado como resquício de sessão anterior, não algo
+causado por este código (os testes limpos, rodados depois, não geraram
+nenhum erro novo).
