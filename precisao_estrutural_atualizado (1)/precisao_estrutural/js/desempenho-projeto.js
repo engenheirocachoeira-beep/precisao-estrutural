@@ -168,8 +168,19 @@ function agruparLinhasDesempenho(linhas, chaveFn) {
 
 // --- 4) MONTAGEM DAS 4 TABELAS + TOTAL (mesmo pro todas as 4 — é o
 // mesmo conjunto de folhas, só agrupado diferente) ---
+// Bug relatado pelo usuário: a soma da coluna Verba (e, pelo mesmo
+// motivo, a de Custo) estava somando TODAS as etapas do projeto, não
+// só Detalhamento — porque calcularLinhasFolhaComVerba() devolve as
+// folhas do projeto INTEIRO (é usada também em telas de escopo maior),
+// e esta era a ÚNICA das 5 chamadas dela neste arquivo que esquecia de
+// filtrar `.pavimentoNome` (só folha de Pavimento, ou seja, dentro da
+// Etapa Detalhamento, tem esse campo preenchido — as outras 4 chamadas,
+// linhas ~313/432/521/829, já fazem esse filtro). Sem o filtro, "por
+// Tarefa"/"por Executor" também vazavam tarefas de outras etapas pra
+// dentro desta tela, que é (desde a reforma "DETALHAMENTO - ANÁLISE
+// PRODUTIVIDADE") inteiramente sobre a Etapa Detalhamento.
 function calcularTabelasDesempenho(nomeProjeto) {
-    const linhas = calcularLinhasFolhaComVerba(nomeProjeto);
+    const linhas = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome);
     const totais = linhas.reduce((t, l) => ({
         previsto: t.previsto + l.pontos, realizado: t.realizado + l.horas,
         verba: t.verba + l.verba, custo: t.custo + l.custo

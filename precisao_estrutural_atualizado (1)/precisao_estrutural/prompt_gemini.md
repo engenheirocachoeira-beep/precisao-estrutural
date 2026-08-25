@@ -9309,3 +9309,52 @@ quiser): restilizar o sub-menu de 4 abas da Distribuição de Custos
 Pavimento"/"Verba por Tarefa") pro mesmo padrão pílula+breadcrumb que
 Detalhamento ganhou — desenhado no mockup ("Opção 7 revisada") mas
 não pedido explicitamente ainda.
+
+## Retomada em 2026-08-25 (parte 41) — Corrige soma da coluna Verba somando etapas erradas na aba Detalhamento
+
+Reportado pelo usuário: "a soma da coluna Verba deve ser somente a
+soma das etapa[s] detalhamento. O número que está aparecendo é a soma
+da verba de todas as etapas (descontada do Fundo Garantidor)".
+
+Causa raiz em `js/desempenho-projeto.js`: `calcularLinhasFolhaComVerba()`
+devolve as folhas do PROJETO INTEIRO (é uma função de escopo mais
+amplo, reaproveitada por 5 lugares diferentes no arquivo). As outras
+4 chamadas (linhas ~313/432/521/829 — Diagnóstico, Bonificação,
+Distribuições) já filtram `.filter(l => l.pavimentoNome)` antes de
+usar (só folha dentro de um Pavimento tem esse campo preenchido, e só
+a Etapa Detalhamento tem Pavimento como nível — é o filtro "de fato"
+que restringe a Detalhamento). `calcularTabelasDesempenho()` — a
+função por trás da tabela única com filtro "Agrupar por" desta aba —
+era a ÚNICA das 5 que esquecia esse filtro, então `totais.verba` (e
+`totais.custo`) somavam as folhas de TODAS as etapas do projeto
+(Pré-Lançamento, Lançamento, Análise, Cargas, Detalhamento), não só
+Detalhamento — e "Agrupar por: Etapa"/"Executor" também vazavam
+tarefas/pessoas de outras etapas pra dentro de uma aba que, desde a
+reforma "DETALHAMENTO - ANÁLISE PRODUTIVIDADE", é inteiramente sobre a
+Etapa Detalhamento.
+
+**Correção**: uma linha — `calcularLinhasFolhaComVerba(nomeProjeto)`
+virou `calcularLinhasFolhaComVerba(nomeProjeto).filter(l =>
+l.pavimentoNome)` em `calcularTabelasDesempenho()`, igualando ao
+padrão que as outras 4 chamadas já seguiam.
+
+**Verificação**: `node --check` limpo. Node isolado (novo
+`teste_verba_detalhamento_fix.js`, mesmo harness `vm` de sempre, dados
+reais do Home Garden): `porEtapa` passou a mostrar SÓ 1 linha
+("DETALHAMENTO", verba R$10.400,55) em vez de 5. A diferença restante
+entre esse total e `fin.verbaDetalhamentoBruta` (R$10.947,95, o valor
+BRUTO da etapa, mostrado no cartão "CUSTO DO DETALHAMENTO" no topo da
+tela) não é um erro — é exatamente os 5% do Fundo de Distribuição de
+Lucros já descontado na cascata pra Pavimentos (R$547,40 = 5% de
+R$10.947,95, bate exato); a tabela sempre operou com a verba LÍQUIDA
+por tarefa/pavimento, então a soma dela nunca deveria bater com a
+verba BRUTA da etapa — são dois números diferentes e igualmente
+corretos no mesmo funil financeiro, não uma inconsistência a mais pra
+resolver. Confirmado o mesmo padrão (só 1 etapa, mesma proporção de
+diferença ~5%) também no AP Praia, um segundo projeto real com números
+totalmente diferentes. Testado no navegador local via
+`fetch({cache:'no-store'})` + `new Function` (contornando o cache do
+navegador de preview já registrado nesta sessão) nos dois projetos —
+resultados idênticos aos do teste Node. Sem erro novo no console (o
+único erro presente é o de sempre, não relacionado, já rastreado ao
+item de menu "Distribuição de Lucro").
