@@ -9953,3 +9953,62 @@ Não sincronizado em `modulos_isolados/distribuicao-custos/index.html`
 maior e pré-existente (ainda tem a aba "Verba para Detalhamento",
 removida do app principal numa reforma anterior desta sessão), mesmo
 precedente já registrado antes.
+
+## Retomada em 2026-08-25 (parte 53) — Correção da parte 52: abas voltam pro topo, o CONTEÚDO é que vira cartão de meia página
+
+Usuário corrigiu a parte 52: "Não era essa minha intenção. Mantenha as
+sub-abas no topo como antes. O conteúdo das sub-abas é que devem estar
+em uma coluna que ocupe metade da tela e apareçam em forma de cartões.
+Na sub-aba verba por tarefa Retorne ao status de antes da última
+alteração (estava boa). As demais sub-abas devem ter suas linhas
+redimensionadas quanto às alturas, tomando como base as altura das
+linhas da sub-aba verba global para produção."
+
+Eu tinha entendido errado: virei as PRÓPRIAS abas (Orçamento Global/
+Verba Global para Produção/Verba por Pavimento/Verba por Tarefa) numa
+coluna de cartões à esquerda. O pedido real era o oposto — abas
+continuam uma barra horizontal normal no topo (como sempre foram); é
+o CONTEÚDO de cada aba que vira um cartão de largura travada em 50%.
+
+**`index.html`**: revertido o split de `.tab-bar` — os 2 botões
+("Estrutura de Projeto"/"Trocar Projeto") voltaram pra dentro da
+`.tab-bar`, junto dos 4 `.tab-selector`, exatamente como era antes da
+parte 52. Removidos os wrappers `.dc-toolbar`/`.dc-abas-layout`/
+`.dc-abas-conteudo` (não existem mais). Tabela principal de "Verba por
+Pavimento" (`#vp-tabela-body`) ganhou a classe `tabela-compacta` (só
+tinha antes na tabela de Setores) — precisa dela pra herdar a régua de
+altura de linha (ver CSS abaixo).
+
+**`estilos.css`**:
+1. Nova regra `#dc-conteudo-principal .tab-content` (aplica a QUALQUER
+   `.tab-content` dentro da tela de Orçamento): cartão de verdade
+   (borda + sombra leve + padding 16px) com `max-width: 50%`.
+   `#conteudo-verba-por-tarefa` é explicitamente EXCLUÍDO logo depois
+   (fundo/borda/sombra/padding/max-width todos voltam a `none` /
+   normal) — essa aba já tem sua própria grade `.vt-grid` de 3 colunas
+   que precisa da largura cheia, exatamente o "estava boa, retorne"
+   que o usuário pediu.
+2. Removida a compactação que só existia em `#conteudo-orcamento-global`
+   (`.form-section`/`.form-grid` com padding/gap reduzidos, adicionada
+   numa sessão anterior pra caber 4 itens sem rolar) — agora usa a
+   MESMA régua padrão (`.form-grid` gap 10px) que "Verba Global para
+   Produção" já usa no campo que foi limpo na parte 51. Isso by itself
+   já iguala a altura das linhas entre as duas abas.
+3. A regra de "altura de linha fixa em 28px" (`tbody tr`/`tfoot tr`/
+   `td`), que já existia só pra `#conteudo-distribuicao-analista
+   table.tabela-compacta`, ganhou os mesmos seletores pra
+   `#conteudo-verba-pavimento table.tabela-compacta` — agora as 2
+   tabelas de "Verba por Pavimento" (Setores e Pavimentos) têm linha de
+   28px, igual à tabela de Etapas de "Verba Global para Produção".
+
+**Verificação**: `node --check` limpo, `estilos.css` (chaves) e
+`index.html` (`<div>`) com contagem balanceada. Testado no navegador
+local (porta nova 5715) no projeto piloto "AP PRAIA (SAVOIA) - SETOR
+B": confirmado visualmente a barra de abas de volta ao topo, horizontal,
+com os 2 botões; "Orçamento Global" e "Verba por Pavimento" renderizando
+como cartão com borda, `max-width:50%` computado; "Verba por Tarefa"
+confirmado via `getBoundingClientRect()`/`getComputedStyle()` com
+`maxWidth:"none"`, `border:"none"`, largura real 632px (cheia) — igual
+a antes da parte 52; linha de tabela de "Verba por Pavimento" com
+`height:"28px"` computado, batendo com "Verba Global para Produção".
+Sem erro no console.

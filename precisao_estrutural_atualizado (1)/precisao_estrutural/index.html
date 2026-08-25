@@ -403,20 +403,15 @@
                     </div>
 
                     <div id="dc-conteudo-principal" style="display:none; flex: 1; overflow-y: auto;">
-                    <div class="dc-toolbar">
-                        <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
-                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;">🔁 Trocar Projeto</button>
-                    </div>
-
-                    <div class="dc-abas-layout">
                     <div class="tab-bar">
                         <div id="aba-orcamento-global" class="tab-selector active" onclick="alternarAbaDistribuicao('orcamento-global')">Orçamento Global</div>
                         <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Verba Global para Produção</div>
                         <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
                         <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
+                        <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
+                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;">🔁 Trocar Projeto</button>
                     </div>
 
-                    <div class="dc-abas-conteudo">
                     <div id="conteudo-orcamento-global" class="tab-content">
                         <div class="form-panel" style="border:none; padding:0;">
                             <div class="form-section">
@@ -536,7 +531,7 @@
                             </div>
                         </div>
                         <div class="table-wrapper" style="max-height:400px;">
-                            <table>
+                            <table class="tabela-compacta">
                                 <thead><tr>
                                     <th style="width:130px;">Pavimento</th>
                                     <th style="width:110px;">Área</th>
@@ -562,8 +557,6 @@
                         <div style="max-height:600px; overflow-y:auto;">
                             <div id="vt-grid-pavimentos" class="vt-grid"></div>
                         </div>
-                    </div>
-                    </div>
                     </div>
                     </div>
                 </div>
