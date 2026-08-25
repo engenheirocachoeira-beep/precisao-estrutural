@@ -773,23 +773,29 @@
         #panel-distribuicoes-projeto .dist-fixo-card .dist-amount { font-size: 20px; font-weight: 700; }
         #panel-distribuicoes-projeto .dist-fixo-card .dist-desc { font-size: 12px; color: var(--dist-ink-muted); }
 
-        /* "Resumo financeiro" — retomada 2026-08-25 (parte 42, separar
-           Produtividade/Financeiro): movido pra cá de Produtividade
-           (pedido do usuário). Estilo próprio (.dist-finha), não
-           reaproveitando .desemp-linha-fin (essa é escopada só a
-           #panel-desempenho-projeto/#panel-bonificacao-projeto e tem
-           outra paleta) — o resumo agora mora dentro de Financeira,
-           então segue a mesma linguagem visual .dist-* do resto dessa
-           página, pra não parecer um bloco emprestado de outra tela. */
-        #panel-distribuicoes-projeto .dist-fingrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-fingrid { grid-template-columns: 1fr; } }
-        #panel-distribuicoes-projeto .dist-finha { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--dist-border); color: var(--dist-ink-2); }
-        #panel-distribuicoes-projeto .dist-finha:last-child { border-bottom: none; }
-        #panel-distribuicoes-projeto .dist-finha span:last-child { font-weight: 700; color: var(--dist-ink); }
-        #panel-distribuicoes-projeto .dist-finha.emph { color: var(--dist-ink); font-weight: 700; }
-        #panel-distribuicoes-projeto .dist-finha.deducao span:last-child { color: var(--dist-critical); }
-        #panel-distribuicoes-projeto .dist-finha.subtotal { font-weight: 700; }
-        #panel-distribuicoes-projeto .dist-finha.subtotal span { color: var(--dist-ink); }
+        /* "Resumo financeiro" / "Índices Globais" — parte 50 (pedido do
+           usuário, print de planilha de referência: tabela agrupada
+           com colunas Previsto/Realizado/Diferença). Substituiu
+           .dist-fingrid/.dist-finha (removidas, ficaram sem uso).
+           `.dist-orc-panel` empilha os vários `.dist-orctab` (um por
+           bloco: "Valor Global", "Divisão Global", etc) com espaço
+           entre eles — cada tabela já é 100% da largura do painel
+           (a coluna esquerda inteira já é meia página, não faz
+           sentido dividir de novo em sub-colunas). */
+        #panel-distribuicoes-projeto .dist-orc-panel { display: flex; flex-direction: column; gap: 18px; }
+        #panel-distribuicoes-projeto .dist-orctab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        #panel-distribuicoes-projeto .dist-orctab th, #panel-distribuicoes-projeto .dist-orctab td { padding: 6px 8px; }
+        #panel-distribuicoes-projeto .dist-orc-titulo th { text-align: left; background: var(--dist-ink); color: var(--dist-surface); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+        #panel-distribuicoes-projeto .dist-orc-cab th { text-align: right; background: var(--dist-surface-2); color: var(--dist-ink-2); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-orc-cab th:first-child { text-align: left; }
+        #panel-distribuicoes-projeto .dist-orctab tbody tr { border-bottom: 1px solid var(--dist-border); }
+        #panel-distribuicoes-projeto .dist-orctab tbody tr:last-child { border-bottom: none; }
+        #panel-distribuicoes-projeto .dist-orctab td:first-child { color: var(--dist-ink-2); }
+        #panel-distribuicoes-projeto .dist-orctab td.dist-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-orc-emph td { font-weight: 700; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-orc-emph td.dist-num { color: var(--dist-accent); }
+        #panel-distribuicoes-projeto .dist-orc-subtotal { border-top: 2px solid var(--dist-border-strong); background: var(--dist-surface-2); }
+        #panel-distribuicoes-projeto .dist-orc-subtotal td { font-weight: 700; color: var(--dist-ink); }
 
         #panel-distribuicoes-projeto .dist-callout { margin-top: 14px; background: var(--dist-critical-soft); border: 1px solid var(--dist-critical); border-radius: 3px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
         #panel-distribuicoes-projeto .dist-callout.good { background: var(--dist-good-soft); border-color: var(--dist-good); }

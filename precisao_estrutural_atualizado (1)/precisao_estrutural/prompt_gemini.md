@@ -9733,3 +9733,97 @@ técnico", "Resultado por pavimento", "Diagnóstico por atividade"],
 larguras praticamente iguais (437px/480px, split ~50/50 com gap).
 Confirmado visualmente por screenshot que as duas colunas renderizam
 lado a lado corretamente. Sem erro no console.
+
+## Retomada em 2026-08-25 (parte 50) — Resumo financeiro reformulado em tabela Previsto×Realizado×Diferença + novo bloco Índices Globais
+
+Usuário mandou um print de planilha Excel (blocos "VALOR GLOBAL" /
+"DIVISÃO GLOBAL" / "DIVISÃO PRODUÇÃO-ETAPAS", cada um com colunas
+Previsto/Realizado/Diferença e uma linha "Valor Líquido" em destaque)
+pedindo algo assim pro Resumo Financeiro, mantendo o layout de 2
+colunas da parte 49 (orçamento à esquerda, resultado por pavimento/
+técnico/diagnóstico à direita), e um novo bloco "Índices Globais"
+logo abaixo do Resumo Financeiro, mesma largura de coluna:
+- Pre&ccedil;o por m&sup2; Global = Valor do Contrato &divide; &aacute;rea do projeto.
+- Pre&ccedil;o por m&sup2; Detalh&aacute;vel = Verba do Detalhamento &divide; soma das &aacute;reas dos pavimentos detalh&aacute;veis.
+
+Antes de implementar, 2 perguntas via AskUserQuestion (decisão
+financeira real, sem chute):
+1. **O que "Realizado" significa** nas linhas do orçamento, já que o
+   sistema só rastreia HORAS realmente apontadas (não há valor
+   financeiro "pago de fato" separado do orçado para Impostos,
+   Parcelas, Verba de Etapa, etc)? Usuário escolheu: **"Recalcular com
+   base nas horas reais"**.
+2. **Qual área usar** no denominador de "Preço/m² Detalhável"? Usuário
+   escolheu a Área Equivalente já existente na aba Verba por Pavimento
+   (mesma régua que o sistema já usa pra ratear a Verba entre
+   pavimentos).
+
+**Lógica implementada** (única fonte de "horas reais" no sistema é a
+Etapa Detalhamento — as demais etapas, "Bloco Fixo", já recebem o
+valor cheio da própria Verba independente de hora, mesmo modelo que
+`calcularBonificacaoProjeto()` já usa):
+- `pctExecucaoDet = Horas Realizado da Etapa Detalhamento ÷ Horas
+  Previsto` (1 se não houver Horas Previsto, evita divisão por zero).
+- `verbaDetalhamentoRealizada = fin.verbaDetalhamentoBruta ×
+  pctExecucaoDet` — SÓ a linha "Detalhamento" (e tudo que deriva dela:
+  Verba Detalhamento, Fundo Distribuição de Lucros, Verba líquida p/
+  Pavimentos, Preço/m² Detalhável) usa esse valor recalculado; todas
+  as outras linhas (Valor do Contrato, Impostos, Parcelas, as 4 outras
+  Etapas, Fundo Garantidor) têm Realizado = Previsto (Diferença "—"),
+  porque não dependem de hora nenhuma no modelo atual do sistema.
+- Fundo Garantidor **não** deriva das etapas individuais no código (é
+  uma fatia % calculada de cima, sobre a Verba Global p/ Produção) —
+  por isso fica igual em Previsto/Realizado, mesmo a etapa Detalhamento
+  tendo mudado (decisão explícita, documentada no código pra não
+  parecer esquecimento).
+
+**`js/desempenho-projeto.js`**:
+1. `calcularResumoFinanceiroProjeto()` ganhou `areaTotalEquivalente`
+   no retorno (vem de `calcularListaPavimentosComVerbaSalva()`, que já
+   era chamada ali mesmo — só passou a expor o campo).
+2. `distFinLinha()`/`.dist-fingrid`/`.dist-finha` **removidas**
+   (ficaram sem nenhum uso) — substituídas por `distOrcLinha()` +
+   `tabelaOrcamentoBloco(titulo, linhas, subtotal)`, que desenham uma
+   `<table class="dist-orctab">` de verdade (título do bloco + cabeçalho
+   Previsto/Realizado/Diferença + linhas + subtotal em destaque),
+   calculando Diferença = Realizado − Previsto (mostra "—" quando
+   ~zero, igual à planilha de referência).
+3. `renderizarDistribuicoesProjeto()`: "Resumo financeiro" agora monta
+   4 `tabelaOrcamentoBloco()` — "Valor Global" (Contrato/Impostos/
+   Líquido), "Divisão Global" (Parcelas Produção/Supervisão/
+   Escritório), "Divisão Produção — Etapas" (as 5 Etapas + Fundo
+   Garantidor + subtotal "Valor Líquido" que bate com a Parcela
+   Produção quando Realizado=Previsto em tudo), e "Distribuição p/
+   Pavimentos" (Verba Detalhamento/Fundo Distribuição de Lucros/Verba
+   líquida p/ Pavimentos). Novo bloco "Índices Globais" logo depois,
+   ainda dentro de `.dist-col-orcamento`, com 1 `tabelaOrcamentoBloco()`
+   "Preço por m²" (Global e Detalhável).
+
+**`estilos.css`**: `.dist-fingrid`/`.dist-finha` removidas; novo
+`.dist-orc-panel` (empilha os `.dist-orctab` de um painel, cada
+tabela já 100% da largura da coluna) + `.dist-orctab`/`.dist-orc-titulo`
+(barra escura com o nome do bloco)/`.dist-orc-cab` (cabeçalho
+Previsto/Realizado/Diferença)/`.dist-orc-emph` (linha Detalhamento em
+destaque, cor de acento)/`.dist-orc-subtotal` (linha "Valor Líquido",
+borda grossa + fundo levemente diferente) — linguagem visual própria
+de tabela, dentro da paleta `--dist-*` já existente (não copiou o azul
+do Excel da planilha de referência, adaptou pro estilo "relatório
+editorial" que esta página já tem).
+
+**Verificação**: `node --check` limpo, `estilos.css` com chaves
+balanceadas (352 aberturas/352 fechamentos). Testado no navegador
+local (porta nova 5711) no projeto piloto "AP PRAIA (SAVOIA) - SETOR
+B" via inspeção direta do DOM (`querySelectorAll('table.dist-orctab')`)
+— confirmados os 5 blocos com os valores certos e a matemática batendo:
+Detalhamento previsto R$29.791,89 → realizado R$2.731,58 (raz&atilde;o
+9,17%, que bate com Horas Realizado/Previsto reais do projeto:
+69,50h/758,00h); "Valor Líquido" do bloco Etapas realizado
+R$58.059,37 = soma das 4 etapas fixas (inalteradas) + Detalhamento
+realizado + Fundo Garantidor (também confirmado por soma manual);
+Fundo Distribuição de Lucros realizado R$136,58 = 5% × R$2.731,58
+exato; Preço/m² Detalhável caiu de R$2,13 (previsto) pra R$0,19
+(realizado), mesma proporção. Coluna direita (Resultado por técnico/
+pavimento, Diagnóstico) confirmada intacta. Sem erro no console. Não
+foi possível tirar screenshot nesta rodada (Browser pane fora de
+exibição no ambiente de teste) — verificação feita 100% via inspeção
+do DOM renderizado, não apenas cálculo isolado.

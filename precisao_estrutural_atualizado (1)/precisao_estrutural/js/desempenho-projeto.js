@@ -277,7 +277,12 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
         // essa sim sempre presente, calculada em listarPavimentosDoProjeto).
         valorFundoLucros: dadosPavimentos ? dadosPavimentos.pavimentos.reduce((s, p) => s + (p.valorFundoLucros || 0), 0) : 0,
         verbaLiquidaPavimentos: dadosPavimentos ? dadosPavimentos.verbaLiquida : 0,
-        temEtapaDetalhamento: !!etapaDetalhamento
+        temEtapaDetalhamento: !!etapaDetalhamento,
+        // Item novo (Índices Globais, pedido do usuário): área
+        // equivalente somada dos pavimentos da Etapa Detalhamento — a
+        // MESMA régua que a aba "Verba por Pavimento" já usa pra
+        // ratear a Verba entre pavimentos (não a área física bruta).
+        areaTotalEquivalente: dadosPavimentos ? dadosPavimentos.areaTotalEquivalente : 0
     };
 }
 
@@ -755,13 +760,30 @@ function distKpi(rotulo, valor, sub2, critical) {
         '<div class="dist-sub2">' + sub2 + '</div></div>';
 }
 
-// Linha de "funil financeiro" (rótulo à esquerda, valor à direita) —
-// substitui a antiga finLinha() (removida, ficou sem nenhum uso depois
-// que "Resumo financeiro" saiu de Produtividade nesta mesma retomada),
-// com a paleta .dist-* própria de Financeira em vez da antiga
-// .desemp-linha-fin.
-function distFinLinha(rotulo, valor, classe) {
-    return '<div class="dist-finha' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span><span class="dist-num">' + valor + '</span></div>';
+// Tabela "bloco de orçamento" (Previsto × Realizado × Diferença) —
+// pedido do usuário (print de planilha de referência): substituiu
+// distFinLinha()/.dist-finha (removidas, ficaram sem uso — o Resumo
+// financeiro inteiro passou a usar este formato). `linhas` =
+// [{label, previsto, realizado, emph?}]; `subtotal` (mesmo formato,
+// sem `emph`) é desenhado com destaque (negrito + borda), tipo "Valor
+// Líquido" nas planilhas de referência. Diferença = Realizado −
+// Previsto; quando é ~zero mostra "—" (igual à planilha de
+// referência, que só marca diferença quando ela existe de fato).
+function distOrcLinha(l, classe) {
+    const dif = l.realizado - l.previsto;
+    const difTexto = Math.abs(dif) < 0.005 ? '&mdash;' : ((dif >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(dif)));
+    return '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td>' + l.label + '</td>' +
+        '<td class="dist-num">' + formatarMoeda(l.previsto) + '</td>' +
+        '<td class="dist-num">' + formatarMoeda(l.realizado) + '</td>' +
+        '<td class="dist-num">' + difTexto + '</td></tr>';
+}
+function tabelaOrcamentoBloco(titulo, linhas, subtotal) {
+    let html = '<table class="dist-orctab"><thead><tr class="dist-orc-titulo"><th colspan="4">' + titulo + '</th></tr>' +
+        '<tr class="dist-orc-cab"><th></th><th>Previsto</th><th>Realizado</th><th>Diferen&ccedil;a</th></tr></thead><tbody>';
+    linhas.forEach(l => { html += distOrcLinha(l, l.emph ? 'dist-orc-emph' : ''); });
+    if (subtotal) html += distOrcLinha(subtotal, 'dist-orc-subtotal');
+    html += '</tbody></table>';
+    return html;
 }
 
 function renderizarDistribuicoesProjeto(nomeProjeto, d) {
@@ -831,28 +853,68 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     // "orçamento" à esquerda — pedido do usuário: "na coluna à
     // esquerda todo o orçamento. Valor do contrato, impostos, valor
     // líquido, valor destinado para cada etapa, fundos, distribuição") ---
+    // Parte 50 (reformulação, pedido do usuário com print de planilha
+    // de referência): "REALIZADO" decidido via AskUserQuestion —
+    // "recalcular com base nas horas reais". Única etapa com Horas
+    // Previsto/Realizado rastreadas é Detalhamento (as demais, "Bloco
+    // Fixo", recebem o valor cheio da própria Verba independente de
+    // hora — mesmo modelo que Bonificação já usa, ver
+    // calcularBonificacaoProjeto()) — então só a Verba dela é
+    // recalculada, proporcional à execução de horas:
+    // Realizado = Previsto × (Horas Realizado ÷ Horas Previsto). O
+    // Fundo Garantidor NÃO deriva das etapas individuais no código
+    // (é uma fatia % de cima, sobre a Verba Global p/ Produção) —
+    // fica igual em Previsto/Realizado.
+    const etapaDetTab = d.tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
+    const horasPrevistoDetFin = etapaDetTab ? etapaDetTab.previsto : 0;
+    const horasRealizadoDetFin = etapaDetTab ? etapaDetTab.realizado : 0;
+    const pctExecucaoDet = horasPrevistoDetFin > 0 ? (horasRealizadoDetFin / horasPrevistoDetFin) : 1;
+    const verbaDetalhamentoRealizada = fin.verbaDetalhamentoBruta * pctExecucaoDet;
+
     html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Do Valor do Contrato at&eacute; a Verba de cada Etapa</div></div>';
-    html += '<div class="dist-panel"><div class="dist-fingrid"><div>';
-    html += distFinLinha('Valor do Contrato', formatarMoeda(fin.valorContrato));
-    html += distFinLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorImpostos), 'deducao');
-    html += distFinLinha('Valor L&iacute;quido', formatarMoeda(fin.valorLiquido), 'subtotal');
-    html += distFinLinha('Verba Global p/ Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', formatarMoeda(fin.valorAnalista));
-    html += distFinLinha('Parcela para Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', formatarMoeda(fin.valorSupervisor));
-    html += distFinLinha('Parcela para Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', formatarMoeda(fin.valorEscritorio));
-    html += '</div><div>';
-    fin.etapas.forEach(e => {
-        html += distFinLinha(escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', formatarMoeda(e.verbaLiquida), e.ehDetalhamento ? 'emph' : '');
-    });
-    html += distFinLinha('Total', formatarMoeda(fin.totalVerbaEtapas), 'subtotal');
-    html += distFinLinha('Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', formatarMoeda(fin.valorFundoGarantidor));
-    html += '</div></div>';
+    html += '<div class="dist-panel dist-orc-panel">';
+
+    html += tabelaOrcamentoBloco('Valor Global', [
+        { label: 'Valor do Contrato', previsto: fin.valorContrato, realizado: fin.valorContrato },
+        { label: 'Impostos (' + fin.pctImpostos.toFixed(0) + '%)', previsto: -fin.valorImpostos, realizado: -fin.valorImpostos }
+    ], { label: 'Valor L&iacute;quido', previsto: fin.valorLiquido, realizado: fin.valorLiquido });
+
+    html += tabelaOrcamentoBloco('Divis&atilde;o Global', [
+        { label: 'Parcela Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', previsto: fin.valorAnalista, realizado: fin.valorAnalista },
+        { label: 'Parcela Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', previsto: fin.valorSupervisor, realizado: fin.valorSupervisor },
+        { label: 'Parcela Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', previsto: fin.valorEscritorio, realizado: fin.valorEscritorio }
+    ], { label: 'Valor L&iacute;quido', previsto: fin.valorAnalista + fin.valorSupervisor + fin.valorEscritorio, realizado: fin.valorAnalista + fin.valorSupervisor + fin.valorEscritorio });
+
+    const linhasEtapasOrc = fin.etapas.map(e => ({
+        label: escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)',
+        previsto: e.verbaLiquida,
+        realizado: e.ehDetalhamento ? verbaDetalhamentoRealizada : e.verbaLiquida,
+        emph: e.ehDetalhamento
+    }));
+    linhasEtapasOrc.push({ label: 'Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', previsto: fin.valorFundoGarantidor, realizado: fin.valorFundoGarantidor });
+    const totalEtapasRealizado = fin.totalVerbaEtapas - fin.verbaDetalhamentoBruta + verbaDetalhamentoRealizada;
+    html += tabelaOrcamentoBloco('Divis&atilde;o Produ&ccedil;&atilde;o &mdash; Etapas', linhasEtapasOrc,
+        { label: 'Valor L&iacute;quido', previsto: fin.totalVerbaEtapas + fin.valorFundoGarantidor, realizado: totalEtapasRealizado + fin.valorFundoGarantidor });
+
     if (fin.temEtapaDetalhamento) {
-        html += '<div class="dist-fingrid" style="margin-top:14px;"><div>';
-        html += distFinLinha('Verba Detalhamento', formatarMoeda(fin.verbaDetalhamentoBruta));
-        html += distFinLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorFundoLucros), 'deducao');
-        html += distFinLinha('Verba l&iacute;quida p/ Pavimentos', formatarMoeda(fin.verbaLiquidaPavimentos), 'subtotal');
-        html += '</div><div></div></div>';
+        const fundoLucrosRealizado = fin.pctFundoLucros / 100 * verbaDetalhamentoRealizada;
+        html += tabelaOrcamentoBloco('Distribui&ccedil;&atilde;o p/ Pavimentos', [
+            { label: 'Verba Detalhamento', previsto: fin.verbaDetalhamentoBruta, realizado: verbaDetalhamentoRealizada },
+            { label: 'Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', previsto: -fin.valorFundoLucros, realizado: -fundoLucrosRealizado }
+        ], { label: 'Verba l&iacute;quida p/ Pavimentos', previsto: fin.verbaLiquidaPavimentos, realizado: verbaDetalhamentoRealizada - fundoLucrosRealizado });
     }
+    html += '</div></div>';
+
+    // --- Índices Globais (pedido do usuário) ---
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>&Iacute;ndices Globais</h2><div class="dist-note">Valor por m&sup2;</div></div>';
+    html += '<div class="dist-panel dist-orc-panel">';
+    const precoM2Global = meta.area > 0 ? fin.valorContrato / meta.area : 0;
+    const precoM2DetPrevisto = fin.areaTotalEquivalente > 0 ? fin.verbaDetalhamentoBruta / fin.areaTotalEquivalente : 0;
+    const precoM2DetRealizado = fin.areaTotalEquivalente > 0 ? verbaDetalhamentoRealizada / fin.areaTotalEquivalente : 0;
+    html += tabelaOrcamentoBloco('Pre&ccedil;o por m&sup2;', [
+        { label: 'Global (Valor do Contrato &divide; &aacute;rea do projeto)', previsto: precoM2Global, realizado: precoM2Global },
+        { label: 'Detalh&aacute;vel (Verba Detalhamento &divide; &aacute;rea equivalente dos pavimentos)', previsto: precoM2DetPrevisto, realizado: precoM2DetRealizado }
+    ]);
     html += '</div></div>';
 
     html += '</div><div class="dist-col-realizado">';
