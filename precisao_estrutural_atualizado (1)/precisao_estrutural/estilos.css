@@ -734,18 +734,20 @@
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
 
         /* Pedido do usuário (2026-08-25): orelha Produtividade em 2
-           colunas de meia página — esquerda só com os 3 KPIs
-           (empilhados, não mais lado a lado); direita com as tabelas de
-           Desempenho + os 3 gráficos de "Desvio de horas", também
-           empilhados numa coluna só (cada um já ocupa meia página, não
-           faria sentido dividir de novo). `.desemp-grid-kpi` (row de 4
-           cartões) só vira coluna de 1 aqui dentro — a versão usada em
-           Bonificação (fora de `.desemp-col-kpis`) continua em linha,
-           sem mudança. Padding do `.dist-panel` reduzido um pouco pra
-           "encaixar melhor" o conteúdo na coluna mais estreita. */
+           colunas de meia página — esquerda com os 3 KPIs (empilhados,
+           não mais lado a lado) + os 3 gráficos de "Desvio de horas"
+           logo abaixo deles (pedido revisado: "os quadros com os
+           desvios de hora devem ficar todos na coluna da esquerda,
+           abaixo dos campos horas consumidas, % concluída e saldo de
+           horas"); direita só com as 2 tabelas de Desempenho.
+           `.desemp-grid-kpi` (row de 4 cartões) só vira coluna de 1
+           aqui dentro — a versão usada em Bonificação (fora de
+           `.desemp-col-kpis`) continua em linha, sem mudança. Padding
+           do `.dist-panel` (dos gráficos) reduzido um pouco pra
+           "encaixar melhor" na coluna mais estreita. */
         #panel-desempenho-projeto .desemp-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
         #panel-desempenho-projeto .desemp-col-kpis .desemp-grid-kpi { grid-template-columns: 1fr; }
-        #panel-desempenho-projeto .desemp-col-conteudo .dist-panel { padding: 16px 18px; }
+        #panel-desempenho-projeto .desemp-col-kpis .dist-panel { padding: 16px 18px; }
         @media (max-width: 900px) { #panel-desempenho-projeto .desemp-layout-2col { grid-template-columns: 1fr; } }
 
         #panel-distribuicoes-projeto .dist-tech-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: stretch; }

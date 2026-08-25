@@ -9618,3 +9618,30 @@ esquerda vazia abaixo dos KPIs (esperado). Confirmado via
 `getBoundingClientRect()` que `.desemp-col-kpis` e `.desemp-col-conteudo`
 têm exatamente a mesma largura (459px cada, split 50/50 real). Sem
 erro no console.
+
+## Retomada em 2026-08-25 (parte 47) — Produtividade: os 3 gráficos de desvio de horas voltam pra coluna esquerda, abaixo dos KPIs
+
+Pedido do usuário, ajustando a parte 46: "os quadros com os desvios de
+hora devem ficar todos na coluna da esquerda, abaixo dos campos horas
+consumidas, % concluída e saldo de horas." Simples troca de lado: os 3
+`graficoDesvioHoras(...)` (Executor/Pavimento/Tarefa) saíram de dentro
+de `.desemp-col-conteudo` (direita) e entraram em `.desemp-col-kpis`
+(esquerda), logo depois do `.desemp-grid-kpi` dos 3 cartões — mesma
+ordem visual, só trocou de coluna. A coluna direita (`.desemp-col-
+conteudo`) agora tem só as 2 tabelas ("Desempenho" filtrável +
+"Desempenho por Executor").
+
+**`js/desempenho-projeto.js`**: reordenou o bloco de código (a função
+`graficoDesvioHoras` e as 3 chamadas) pra antes do `html +=
+'</div><div class="desemp-col-conteudo">'` — sem mudança de lógica de
+cálculo, só de onde o HTML gerado é inserido. **`estilos.css`**:
+`.desemp-col-conteudo .dist-panel { padding: 16px 18px; }` virou
+`.desemp-col-kpis .dist-panel { ... }` (o padding reduzido segue os
+gráficos pra onde eles foram); comentário do bloco atualizado.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5707) no projeto piloto "AP PRAIA (SAVOIA) - SETOR B":
+confirmado visualmente os 3 gráficos de desvio aparecendo na coluna
+esquerda, abaixo dos KPIs (rolando a coluna); coluna direita mostrando
+só a tabela "Desempenho por Executor" nesse ponto de rolagem. Sem erro
+no console.

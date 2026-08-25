@@ -931,15 +931,12 @@ function renderizarDesempenhoProjeto(d) {
 
     let html = '';
 
-    // --- Layout em 2 colunas (pedido do usuário, 2026-08-25: "colocar
-    // os campos horas consumidas, % concluída e saldo de horas em uma
-    // coluna que ocupe metade da página... as tabelas desempenho... e
-    // os desvios de horas [todos]... numa coluna à direita, ocupando
-    // metade da página") — coluna esquerda só com os 3 KPIs
-    // empilhados; coluna direita com as 2 tabelas + os 3 gráficos de
-    // desvio, tudo empilhado numa coluna só (não mais 2 gráficos por
-    // linha como na versão anterior — agora a própria coluna já é
-    // meia página, dividir de novo ficaria estreito demais). ---
+    // --- Layout em 2 colunas (pedido do usuário, 2026-08-25, revisado
+    // de novo: "os quadros com os desvios de hora devem ficar todos na
+    // coluna da esquerda, abaixo dos campos horas consumidas, %
+    // concluída e saldo de horas") — coluna esquerda com os 3 KPIs +
+    // os 3 gráficos de "Desvio de horas", todos empilhados; coluna
+    // direita só com as 2 tabelas de Desempenho. ---
     html += '<div class="desemp-layout-2col"><div class="desemp-col-kpis">';
 
     // --- KPIs (retomada 2026-08-25, parte 42: separar Produtividade/
@@ -952,6 +949,39 @@ function renderizarDesempenhoProjeto(d) {
     html += kpiCard('% CONCLUÍDA', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
     html += kpiCard('SALDO DE HORAS', (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + 'h', 'previsto ' + formatarNumero(horasPrevistoDet) + 'h &minus; realizado ' + formatarNumero(horasRealizadoDet) + 'h', saldoHorasDet >= 0 ? 'good' : 'bad', saldoHorasDet >= 0 ? 'sobrando' : 'estourado');
     html += '</div>';
+
+    // --- Gráficos de desvio de horas (pedido do usuário: "use
+    // gráficos considerando as horas... usando como referência os
+    // gráficos que estão na orelha Financeira") — mesmo componente
+    // `distDivChart()` que Financeira usa pra lucro/resultado em R$
+    // (Resultado por técnico/pavimento/atividade), só que alimentado
+    // com Saldo de Horas (Previsto − Realizado, positivo = sobrando/
+    // bom, negativo = estourado/ruim — mesma convenção de "Saldo" já
+    // usada no KPI acima) em vez de lucro, e formatado em horas em vez
+    // de R$ (`formatarValor` novo parâmetro de distDivChart()). Pior
+    // caso (maior estouro) primeiro, como o "Diagnóstico por
+    // atividade" de Financeira já faz. Ficam na coluna esquerda,
+    // abaixo dos KPIs (pedido do usuário). ---
+    const formatarHorasChart = v => formatarNumero(v) + ' h';
+    function graficoDesvioHoras(titulo, nota, linhas) {
+        if (linhas.length === 0) return '';
+        const ordenadas = linhas.slice().sort((a, b) => (a.previsto - a.realizado) - (b.previsto - b.realizado));
+        const itens = ordenadas.map((l, i) => ({
+            label: (l.chave === 'porExecutor') ? nomeExecutorExibicao(l.nome) : l.nome,
+            valor: l.previsto - l.realizado,
+            emph: i === 0 || i === ordenadas.length - 1,
+            // Pedido do usuário: previsto/realizado em 2 linhas, com o
+            // número de horas alinhado numa coluna (ver .dist-metaduo
+            // no CSS) — 1 linha só ("previsto Xh · realizado Yh") ficava
+            // apertada demais na coluna de meia página.
+            meta: '<div class="dist-metaduo"><span>previsto</span><span>' + formatarNumero(l.previsto) + ' h</span><span>realizado</span><span>' + formatarNumero(l.realizado) + ' h</span></div>'
+        }));
+        return '<div class="dist-section"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
+            '<div class="dist-panel">' + distDivChart(itens, formatarHorasChart) + '</div></div>';
+    }
+    html += graficoDesvioHoras('Desvio de horas por Executor', 'previsto &minus; realizado, por pessoa', tab.porExecutor.map(l => Object.assign({ chave: 'porExecutor' }, l)));
+    html += graficoDesvioHoras('Desvio de horas por Pavimento', 'previsto &minus; realizado, por pavimento', tab.porPavimento);
+    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa);
 
     html += '</div><div class="desemp-col-conteudo">';
 
@@ -985,41 +1015,6 @@ function renderizarDesempenhoProjeto(d) {
         });
         html += '</tbody></table></div>';
     }
-
-    // --- Gráficos de desvio de horas (pedido do usuário: "use
-    // gráficos considerando as horas... usando como referência os
-    // gráficos que estão na orelha Financeira") — mesmo componente
-    // `distDivChart()` que Financeira usa pra lucro/resultado em R$
-    // (Resultado por técnico/pavimento/atividade), só que alimentado
-    // com Saldo de Horas (Previsto − Realizado, positivo = sobrando/
-    // bom, negativo = estourado/ruim — mesma convenção de "Saldo" já
-    // usada no KPI acima) em vez de lucro, e formatado em horas em vez
-    // de R$ (`formatarValor` novo parâmetro de distDivChart()). Pior
-    // caso (maior estouro) primeiro, como o "Diagnóstico por
-    // atividade" de Financeira já faz. ---
-    const formatarHorasChart = v => formatarNumero(v) + ' h';
-    function graficoDesvioHoras(titulo, nota, linhas) {
-        if (linhas.length === 0) return '';
-        const ordenadas = linhas.slice().sort((a, b) => (a.previsto - a.realizado) - (b.previsto - b.realizado));
-        const itens = ordenadas.map((l, i) => ({
-            label: (l.chave === 'porExecutor') ? nomeExecutorExibicao(l.nome) : l.nome,
-            valor: l.previsto - l.realizado,
-            emph: i === 0 || i === ordenadas.length - 1,
-            // Pedido do usuário: previsto/realizado em 2 linhas, com o
-            // número de horas alinhado numa coluna (ver .dist-metaduo
-            // no CSS) — 1 linha só ("previsto Xh · realizado Yh") ficava
-            // apertada demais na coluna de meia página.
-            meta: '<div class="dist-metaduo"><span>previsto</span><span>' + formatarNumero(l.previsto) + ' h</span><span>realizado</span><span>' + formatarNumero(l.realizado) + ' h</span></div>'
-        }));
-        return '<div class="dist-section"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
-            '<div class="dist-panel">' + distDivChart(itens, formatarHorasChart) + '</div></div>';
-    }
-    // Pedido do usuário (2026-08-25): os 3 gráficos empilhados numa
-    // coluna só, dentro da coluna direita de meia página (antes eram 2
-    // por linha, em largura cheia — ver .desemp-col-conteudo no CSS).
-    html += graficoDesvioHoras('Desvio de horas por Executor', 'previsto &minus; realizado, por pessoa', tab.porExecutor.map(l => Object.assign({ chave: 'porExecutor' }, l)));
-    html += graficoDesvioHoras('Desvio de horas por Pavimento', 'previsto &minus; realizado, por pavimento', tab.porPavimento);
-    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa);
 
     html += '</div></div>'; // fecha .desemp-col-conteudo e .desemp-layout-2col
 
