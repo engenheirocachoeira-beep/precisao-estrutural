@@ -709,6 +709,20 @@
         #panel-distribuicoes-projeto .dist-tolerance .tag { font-size: 10.5px; font-weight: 700; color: var(--dist-critical); background: var(--dist-critical-soft); border-radius: 2px; padding: 1px 6px; letter-spacing: 0.04em; }
         #panel-distribuicoes-projeto .dist-tolerance .tag.ok { color: var(--dist-good); background: var(--dist-good-soft); }
 
+        /* Pedido do usuário (2026-08-25): orelha Financeira em 2
+           colunas de meia página — esquerda com tudo que é orçamento
+           ("Como a Verba Global é dividida" + "Resumo financeiro":
+           Valor do Contrato, Impostos, Valor Líquido, Verba de cada
+           Etapa, Fundos, Distribuição pra Pavimentos); direita com os
+           resultados efetivamente realizados ("Resultado por
+           técnico/pavimento", "Diagnóstico por atividade"). Padding
+           do `.dist-panel` reduzido um pouco nas 2 colunas pra
+           "encaixar melhor" na largura mais estreita — mesmo padrão
+           já usado na orelha Produtividade (`.desemp-layout-2col`). */
+        #panel-distribuicoes-projeto .dist-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
+        #panel-distribuicoes-projeto .dist-layout-2col .dist-panel { padding: 16px 18px; }
+        @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-layout-2col { grid-template-columns: 1fr; } }
+
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divchart { display: flex; flex-direction: column; gap: 9px; }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-label { font-size: 12.5px; color: var(--dist-ink-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

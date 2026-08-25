@@ -9677,3 +9677,59 @@ tinha esse padrão (confirmado por busca de todas as ocorrências de
 HORAS inspecionado via DOM, mostrando agora "previsto 294,60h −
 realizado 400,00h" com o sinal de menos de verdade, batendo com os
 números do print original (previsto 294,6h, realizado 400,00h).
+
+## Retomada em 2026-08-25 (parte 49) — Financeira: layout em 2 colunas (orçamento à esquerda, valores realizados à direita)
+
+Pedido do usuário: "Na aba detalhamento financeiro coloque na coluna à
+esquerda todo o orçamento. Valor do contrato, impostos, valor líquido,
+valor destinado para cada etapa, fundos, distribuição. Na coluna à
+direita os valores efetivamente realizados." Mesmo padrão de 2 colunas
+já aplicado em Produtividade (partes 46/47), agora em
+`renderizarDistribuicoesProjeto()` (orelha Detalhamento → Financeira).
+
+**Mapeamento**: a lista do usuário ("Valor do contrato, impostos,
+valor líquido, valor destinado para cada etapa, fundos, distribuição")
+bate quase item a item com as linhas que "Resumo financeiro" já
+mostrava (Valor do Contrato → Impostos → Valor Líquido → Verba de cada
+Etapa → Fundo Garantidor → Fundo Distribuição de Lucros → Verba
+líquida p/ Pavimentos) — então essa seção inteira foi pra coluna
+esquerda. "Como a Verba Global é dividida" (barra segmentada Bloco
+Fixo/Detalhamento/Margem) também é só planejamento/orçamento — nenhum
+valor realizado envolvido — então entrou na esquerda também, embora
+não citada literalmente na lista do usuário. Coluna direita = os 3
+blocos que de fato comparam com o realizado: "Resultado por técnico",
+"Resultado por pavimento", "Diagnóstico por atividade" (todos
+`lucro`/`custo` calculados a partir de horas REALMENTE apontadas).
+Masthead + "Números do contrato" (KPIs, que misturam valores
+orçados e realizados numa mesma linha de cartões) e "Nota de dados"
+ficaram de fora da divisão — continuam largura cheia, como
+intro/resumo e rodapé.
+
+**`js/desempenho-projeto.js`**: envolveu o miolo da função num novo
+`<div class="dist-layout-2col"><div class="dist-col-orcamento">` logo
+depois de "Números do contrato"; dentro dela ficaram "Como a Verba
+Global é dividida" e — MOVIDO pra cá (antes ficava por último, antes
+da Nota de dados) — o bloco inteiro "Resumo financeiro" (sem nenhuma
+mudança de cálculo, só de posição no HTML). Depois vem `</div><div
+class="dist-col-realizado">`, e nessa segunda div ficaram "Resultado
+por técnico/pavimento" e "Diagnóstico por atividade" (também sem
+mudança de lógica). Fecha as duas divs + o wrapper logo antes da Nota
+de dados.
+
+**`estilos.css`**: nova `#panel-distribuicoes-projeto .dist-layout-2col`
+(grid 2 colunas, só gap horizontal — mesmo padrão de
+`.desemp-layout-2col` da Produtividade) + padding reduzido do
+`.dist-panel` dentro das colunas (`16px 18px`) + media query
+`max-width:900px` → 1 coluna. `.dist-tech-row` (usado dentro de
+"Resultado por técnico", grid interno 1.4fr/1fr) não precisou de
+ajuste — continua legível mesmo dentro da coluna de meia página.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5709) no projeto piloto "AP PRAIA (SAVOIA) - SETOR B", via
+`getBoundingClientRect()` + inspeção dos `<h2>` de cada coluna:
+confirmado `.dist-col-orcamento` = ["Como a Verba Global é dividida",
+"Resumo financeiro"] e `.dist-col-realizado` = ["Resultado por
+técnico", "Resultado por pavimento", "Diagnóstico por atividade"],
+larguras praticamente iguais (437px/480px, split ~50/50 com gap).
+Confirmado visualmente por screenshot que as duas colunas renderizam
+lado a lado corretamente. Sem erro no console.

@@ -800,6 +800,14 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     html += distKpi('Desvio contra o or&ccedil;ado', (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)), (pctDesvioPool >= 0 ? 'estouro' : 'sobra') + ' de ' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '%', poolLucroTotal < 0);
     html += '</div></div>';
 
+    // --- Layout em 2 colunas (pedido do usuário, 2026-08-25: "na
+    // coluna à esquerda todo o orçamento... na coluna à direita os
+    // valores efetivamente realizados") — esquerda com o que é
+    // planejamento/orçado (divisão da Verba Global + Resumo
+    // financeiro); direita com os resultados de fato apurados
+    // (Resultado por técnico/pavimento, Diagnóstico por atividade). ---
+    html += '<div class="dist-layout-2col"><div class="dist-col-orcamento">';
+
     // --- Como a comissão é dividida ---
     const pctFixo = bonif.valorGlobalProducao > 0 ? bonif.totalFixo / bonif.valorGlobalProducao * 100 : 0;
     const pctPool = bonif.valorGlobalProducao > 0 ? bonif.poolVerba / bonif.valorGlobalProducao * 100 : 0;
@@ -817,6 +825,37 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
         '</div>';
     html += '<div class="dist-tolerance"><span class="tag' + (foraTolerancia ? '' : ' ok') + '">' + (foraTolerancia ? 'Fora da toler&acirc;ncia' : 'Dentro da toler&acirc;ncia') + '</span> o pool de detalhamento foi executado por <b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b> &mdash; ' + formatarMoeda(Math.abs(poolLucroTotal)) + (poolLucroTotal >= 0 ? ' abaixo' : ' acima') + ' do que este bloco or&ccedil;ava.</div>';
     html += '</div></div>';
+
+    // --- Resumo financeiro (retomada 2026-08-25, parte 42: movido de
+    // Produtividade pra cá; parte 49: reposicionado aqui, na coluna
+    // "orçamento" à esquerda — pedido do usuário: "na coluna à
+    // esquerda todo o orçamento. Valor do contrato, impostos, valor
+    // líquido, valor destinado para cada etapa, fundos, distribuição") ---
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Do Valor do Contrato at&eacute; a Verba de cada Etapa</div></div>';
+    html += '<div class="dist-panel"><div class="dist-fingrid"><div>';
+    html += distFinLinha('Valor do Contrato', formatarMoeda(fin.valorContrato));
+    html += distFinLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorImpostos), 'deducao');
+    html += distFinLinha('Valor L&iacute;quido', formatarMoeda(fin.valorLiquido), 'subtotal');
+    html += distFinLinha('Verba Global p/ Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', formatarMoeda(fin.valorAnalista));
+    html += distFinLinha('Parcela para Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', formatarMoeda(fin.valorSupervisor));
+    html += distFinLinha('Parcela para Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', formatarMoeda(fin.valorEscritorio));
+    html += '</div><div>';
+    fin.etapas.forEach(e => {
+        html += distFinLinha(escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', formatarMoeda(e.verbaLiquida), e.ehDetalhamento ? 'emph' : '');
+    });
+    html += distFinLinha('Total', formatarMoeda(fin.totalVerbaEtapas), 'subtotal');
+    html += distFinLinha('Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', formatarMoeda(fin.valorFundoGarantidor));
+    html += '</div></div>';
+    if (fin.temEtapaDetalhamento) {
+        html += '<div class="dist-fingrid" style="margin-top:14px;"><div>';
+        html += distFinLinha('Verba Detalhamento', formatarMoeda(fin.verbaDetalhamentoBruta));
+        html += distFinLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorFundoLucros), 'deducao');
+        html += distFinLinha('Verba l&iacute;quida p/ Pavimentos', formatarMoeda(fin.verbaLiquidaPavimentos), 'subtotal');
+        html += '</div><div></div></div>';
+    }
+    html += '</div></div>';
+
+    html += '</div><div class="dist-col-realizado">';
 
     // --- Resultado por técnico ---
     html += '<div class="dist-section"><div class="dist-section-head"><h2>Resultado por t&eacute;cnico</h2><div class="dist-note">custo executado &times; resultado (lucro/sobra)</div></div>';
@@ -869,32 +908,7 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
         html += '</div></div>';
     }
 
-    // --- Resumo financeiro (retomada 2026-08-25, parte 42: movido de
-    // Produtividade pra cá — pedido do usuário: "o resumo financeiro
-    // deve estar na aba Financeiro") ---
-    html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Do Valor do Contrato at&eacute; a Verba de cada Etapa</div></div>';
-    html += '<div class="dist-panel"><div class="dist-fingrid"><div>';
-    html += distFinLinha('Valor do Contrato', formatarMoeda(fin.valorContrato));
-    html += distFinLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorImpostos), 'deducao');
-    html += distFinLinha('Valor L&iacute;quido', formatarMoeda(fin.valorLiquido), 'subtotal');
-    html += distFinLinha('Verba Global p/ Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', formatarMoeda(fin.valorAnalista));
-    html += distFinLinha('Parcela para Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', formatarMoeda(fin.valorSupervisor));
-    html += distFinLinha('Parcela para Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', formatarMoeda(fin.valorEscritorio));
-    html += '</div><div>';
-    fin.etapas.forEach(e => {
-        html += distFinLinha(escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', formatarMoeda(e.verbaLiquida), e.ehDetalhamento ? 'emph' : '');
-    });
-    html += distFinLinha('Total', formatarMoeda(fin.totalVerbaEtapas), 'subtotal');
-    html += distFinLinha('Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', formatarMoeda(fin.valorFundoGarantidor));
-    html += '</div></div>';
-    if (fin.temEtapaDetalhamento) {
-        html += '<div class="dist-fingrid" style="margin-top:14px;"><div>';
-        html += distFinLinha('Verba Detalhamento', formatarMoeda(fin.verbaDetalhamentoBruta));
-        html += distFinLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', '&minus; ' + formatarMoeda(fin.valorFundoLucros), 'deducao');
-        html += distFinLinha('Verba l&iacute;quida p/ Pavimentos', formatarMoeda(fin.verbaLiquidaPavimentos), 'subtotal');
-        html += '</div><div></div></div>';
-    }
-    html += '</div></div>';
+    html += '</div></div>'; // fecha .dist-col-realizado e .dist-layout-2col
 
     // --- Nota de dados ---
     html += '<div class="dist-datanote"><span class="tag">Nota de dados</span><div>' +
