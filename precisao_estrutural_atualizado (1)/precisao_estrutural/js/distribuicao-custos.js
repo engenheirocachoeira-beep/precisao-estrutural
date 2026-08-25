@@ -256,7 +256,7 @@ function carregarAbaDistribuicaoAnalista() {
     const pctAnalista = parseFloat(document.getElementById('dc-pct-analista').value) || 0;
     dcaValorAnalistaAtual = pctAnalista / 100 * valorLiquido;
 
-    document.getElementById('dca-valor-analista-ref').innerText = formatarMoeda(dcaValorAnalistaAtual);
+    document.getElementById('dca-valor-analista-ref').value = formatarMoeda(dcaValorAnalistaAtual);
 
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
@@ -851,8 +851,8 @@ function renderizarTabelasVerbaPavimento() {
     const pctFundoLucrosAoVivo = inputFundoLucros ? (parseFloat(inputFundoLucros.value) || 0) : undefined;
     const { pavimentos, areaTotalEquivalente, verbaLiquida, verbasPorEtapa, valorFundoLucrosTotal } = calcularListaPavimentosComVerba(nomeProjeto, pctFundoLucrosAoVivo);
 
-    document.getElementById('vp-area-total-equivalente').innerText = areaTotalEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    document.getElementById('vp-verba-liquida-ref').innerText = formatarMoeda(verbaLiquida);
+    document.getElementById('vp-area-total-equivalente').value = areaTotalEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('vp-verba-liquida-ref').value = formatarMoeda(verbaLiquida);
     // Pedido do usuário: valor em R$ do Fundo de Lucros ao lado do %.
     const elValorFundoLucros = document.getElementById('vp-valor-fundo-lucros');
     if (elValorFundoLucros) elValorFundoLucros.value = formatarMoeda(valorFundoLucrosTotal);

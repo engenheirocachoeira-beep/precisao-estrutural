@@ -9827,3 +9827,68 @@ pavimento, Diagnóstico) confirmada intacta. Sem erro no console. Não
 foi possível tirar screenshot nesta rodada (Browser pane fora de
 exibição no ambiente de teste) — verificação feita 100% via inspeção
 do DOM renderizado, não apenas cálculo isolado.
+
+## Retomada em 2026-08-25 (parte 51) — Aba Orçamento: remove comentário do campo "Verba Global para Produção" e usa o mesmo padrão de campo nas outras abas
+
+Pedido do usuário: "Retire o comentário do campo em azul (Verba Global
+para produção (calculada.....) e, depois de retirar, use o layout
+como modelo para as outras abas em termos de largura da coluna,
+espaçamento entre linhas, etc. Mantenha o contexto e as atribuições
+existentes em cada aba."
+
+**Antes**: 2 caixas azuis (`background:#eff6ff`) com um parágrafo de
+texto explicativo misturado com o valor calculado em negrito — uma na
+aba "Verba Global para Produção" (`Verba Global para Produção
+(calculada na aba Orçamento Global), a ser dividida entre as
+etapas — o Fundo Garantidor (última linha) fica automaticamente com o
+que sobra dos 100%: R$ X`) e outra igual na aba "Verba por Pavimento"
+(`Área Total Equivalente: X | Verba da Etapa "Detalhamento" (aba
+anterior), já líquida do Fundo Distribuição de Lucros abaixo,
+cascateada até os Pavimentos: R$ Y`) — nenhuma das duas usava o
+`.form-grid`/`.form-group` que a aba "Orçamento Global" já usa pros
+seus próprios campos calculados (ex.: "Verba Global para Produção" da
+Aba 1, linha ~440).
+
+**Depois**: as 2 caixas viraram campos `.form-group` de verdade — MESMO
+padrão visual da Aba 1 (`<label>` uppercase 11px + `<input readonly>`
+fundo `#eff6ff`, negrito, azul), dentro de `.form-grid` (grid de 12
+colunas, gap 10px — a mesma classe global, não uma cópia), com largura
+de coluna proporcional ao conteúdo (`col-4` pra 1 campo sozinho na aba
+"Verba Global para Produção", `col-6` + `col-6` pra 2 campos lado a
+lado na aba "Verba por Pavimento" — mesma convenção de largura que a
+Aba 1 já usa pros seus próprios pares de campos). O texto explicativo
+foi cortado (só o rótulo do campo ficou, com a fonte entre parênteses
+quando fazia sentido: "(aba Orçamento Global)") — a tabela logo abaixo
+de cada campo já deixa claro o que é o quê, sem precisar do parágrafo.
+
+**`index.html`**: as 2 divs viraram `.form-grid` > `.form-group` >
+`label` + `input readonly`, com os MESMOS `id`s de antes
+(`dca-valor-analista-ref`, `vp-area-total-equivalente`,
+`vp-verba-liquida-ref`) — só a tag mudou (`<b>` → `<input>`).
+**`js/distribuicao-custos.js`**: as 3 linhas que escreviam
+`.innerText = ...` nesses elementos viraram `.value = ...` (elemento
+agora é `<input>`, não `<b>`) — só essas 3 linhas, nenhuma lógica de
+cálculo mudou.
+
+**Fora de escopo, decidido conscientemente**: a caixa azul de
+"Coparticipações no Detalhamento" (Aba 1, item 4) não foi tocada — o
+usuário só nomeou a de "Verba Global para Produção" e aquela outra
+caixa tem instrução de uso genuína (não é só um valor duplicado), não
+um comentário redundante. A linha "% Fundo Distribuição de Lucros"
+(logo abaixo dos 2 novos campos, na aba Verba por Pavimento) também
+não foi tocada — é uma linha de CONTROLE (input editável + botão
+Salvar), não um par label/valor como as que foram convertidas.
+`modulos_isolados/distribuicao-custos/index.html` tem os mesmos 2
+comentários, mas esse módulo isolado já está com drift estrutural bem
+maior (ainda tem a aba "Verba para Detalhamento" que foi REMOVIDA do
+app principal numa reforma anterior desta sessão) — não tentei
+sincronizar essa mudança pequena lá, mesmo precedente já registrado
+antes pra esse módulo específico.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5712) no projeto piloto "AP PRAIA (SAVOIA) - SETOR B" via
+inspeção do DOM: `dca-valor-analista-ref.value` = "R$ 85.119,68",
+`vp-area-total-equivalente.value` = "14.011,00",
+`vp-verba-liquida-ref.value` = "R$ 28.302,29" — todos os 3 campos
+populados corretamente como `<input readonly>` dentro de
+`.form-group col-4`/`.form-group col-6`. Sem erro no console.

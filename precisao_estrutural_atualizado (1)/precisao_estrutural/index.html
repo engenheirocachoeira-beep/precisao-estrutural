@@ -468,8 +468,8 @@
                         </div>
                         <div id="dca-conteudo" style="display:none;">
                             <div class="tab-projeto-header">Projeto: <b id="dca-projeto-ref">—</b></div>
-                            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                                Verba Global para Produção (calculada na aba Orçamento Global), a ser dividida entre as etapas — o Fundo Garantidor (última linha) fica automaticamente com o que sobra dos 100%: <b id="dca-valor-analista-ref">R$ 0,00</b>
+                            <div class="form-grid" style="margin-bottom:15px;">
+                                <div class="form-group col-4"><label>Verba Global para Produção (aba Orçamento Global):</label><input type="text" id="dca-valor-analista-ref" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                             </div>
                             <div class="table-wrapper" style="max-height:400px;">
                                 <table class="tabela-compacta">
@@ -503,10 +503,9 @@
 
                     <div id="conteudo-verba-pavimento" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vp-projeto-ref">—</b></div>
-                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                            Área Total Equivalente: <b id="vp-area-total-equivalente">0</b>
-                            &nbsp;|&nbsp;
-                            Verba da Etapa "Detalhamento" (aba anterior), já líquida do Fundo Distribuição de Lucros abaixo, cascateada até os Pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                        <div class="form-grid" style="margin-bottom:15px;">
+                            <div class="form-group col-6"><label>Área Total Equivalente:</label><input type="text" id="vp-area-total-equivalente" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                            <div class="form-group col-6"><label>Verba Líquida (Etapa Detalhamento):</label><input type="text" id="vp-verba-liquida-ref" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; font-size:13px;">
                             <label>% Fundo Distribuição de Lucros <small style="color:#94a3b8;">(descontado da verba da Etapa "Detalhamento" antes de cascatear pelos Pavimentos)</small>:</label>
