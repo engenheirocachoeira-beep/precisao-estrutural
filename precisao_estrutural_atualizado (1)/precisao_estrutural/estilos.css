@@ -458,12 +458,15 @@
         @media (max-width: 700px) { .vt-grid { grid-template-columns: 1fr; } }
         /* Pedido do usuário: cartão de Pavimento com a MESMA cara dos
            cartões do Kanban (ver .kb-cartao acima) — borda + sombra
-           suave, não só uma borda seca. */
+           suave, não só uma borda seca. Borda escurecida e engrossada
+           (pedido do usuário, 2026-08-25: "os limites estão difíceis
+           de visualizar" — o cinza claro original quase não contrastava
+           com o fundo da página). */
         .vt-card {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
+            border: 2px solid #94a3b8;
             border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
             overflow: hidden;
         }
         .vt-card-header {
