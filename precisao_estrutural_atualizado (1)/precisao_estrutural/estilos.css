@@ -733,18 +733,20 @@
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(odd) { text-align: left; }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
 
-        /* Pedido do usuário: orelha Produtividade — os 3 gráficos de
-           "Desvio de horas" (Executor/Pavimento/Tarefa) lado a lado em
-           2 colunas em vez de empilhados em largura cheia (que sobrava
-           espaço em telas largas); o de Tarefa (normalmente a lista
-           mais longa) ganha a linha inteira pra si
-           (.desemp-grafico-full). Padding do .dist-panel reduzido um
-           pouco aqui dentro pra "encaixar melhor" o conteúdo na coluna
-           mais estreita (pedido do usuário: "adequando os espaços"). */
-        #panel-desempenho-projeto .desemp-graficos-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 24px; }
-        #panel-desempenho-projeto .desemp-graficos-2col .dist-panel { padding: 16px 18px; }
-        #panel-desempenho-projeto .desemp-graficos-2col .desemp-grafico-full { grid-column: 1 / -1; }
-        @media (max-width: 900px) { #panel-desempenho-projeto .desemp-graficos-2col { grid-template-columns: 1fr; } }
+        /* Pedido do usuário (2026-08-25): orelha Produtividade em 2
+           colunas de meia página — esquerda só com os 3 KPIs
+           (empilhados, não mais lado a lado); direita com as tabelas de
+           Desempenho + os 3 gráficos de "Desvio de horas", também
+           empilhados numa coluna só (cada um já ocupa meia página, não
+           faria sentido dividir de novo). `.desemp-grid-kpi` (row de 4
+           cartões) só vira coluna de 1 aqui dentro — a versão usada em
+           Bonificação (fora de `.desemp-col-kpis`) continua em linha,
+           sem mudança. Padding do `.dist-panel` reduzido um pouco pra
+           "encaixar melhor" o conteúdo na coluna mais estreita. */
+        #panel-desempenho-projeto .desemp-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
+        #panel-desempenho-projeto .desemp-col-kpis .desemp-grid-kpi { grid-template-columns: 1fr; }
+        #panel-desempenho-projeto .desemp-col-conteudo .dist-panel { padding: 16px 18px; }
+        @media (max-width: 900px) { #panel-desempenho-projeto .desemp-layout-2col { grid-template-columns: 1fr; } }
 
         #panel-distribuicoes-projeto .dist-tech-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: stretch; }
         @media (max-width: 720px) { #panel-distribuicoes-projeto .dist-tech-row { grid-template-columns: 1fr; } }

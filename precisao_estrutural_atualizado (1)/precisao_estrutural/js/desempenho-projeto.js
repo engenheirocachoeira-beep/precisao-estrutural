@@ -931,6 +931,17 @@ function renderizarDesempenhoProjeto(d) {
 
     let html = '';
 
+    // --- Layout em 2 colunas (pedido do usuário, 2026-08-25: "colocar
+    // os campos horas consumidas, % concluída e saldo de horas em uma
+    // coluna que ocupe metade da página... as tabelas desempenho... e
+    // os desvios de horas [todos]... numa coluna à direita, ocupando
+    // metade da página") — coluna esquerda só com os 3 KPIs
+    // empilhados; coluna direita com as 2 tabelas + os 3 gráficos de
+    // desvio, tudo empilhado numa coluna só (não mais 2 gráficos por
+    // linha como na versão anterior — agora a própria coluna já é
+    // meia página, dividir de novo ficaria estreito demais). ---
+    html += '<div class="desemp-layout-2col"><div class="desemp-col-kpis">';
+
     // --- KPIs (retomada 2026-08-25, parte 42: separar Produtividade/
     // Financeiro — pedido do usuário: "informações sobre desempenho
     // medido por horas, índices de produtividade, etc" ficam aqui;
@@ -941,6 +952,8 @@ function renderizarDesempenhoProjeto(d) {
     html += kpiCard('% CONCLUÍDA', d.pctConcluido.toFixed(0) + '%', 'ponderado pela verba de cada Etapa', d.pctConcluido >= 99.5 ? 'good' : 'warn', d.pctConcluido >= 99.5 ? 'concluído' : 'em andamento');
     html += kpiCard('SALDO DE HORAS', (saldoHorasDet >= 0 ? '+' : '&minus;') + ' ' + formatarNumero(Math.abs(saldoHorasDet)) + 'h', 'previsto ' + formatarNumero(horasPrevistoDet) + 'h &minus; realizado ' + formatarNumero(horasRealizadoDet) + 'h', saldoHorasDet >= 0 ? 'good' : 'bad', saldoHorasDet >= 0 ? 'sobrando' : 'estourado');
     html += '</div>';
+
+    html += '</div><div class="desemp-col-conteudo">';
 
     // --- Tabela única com filtro de dimensão (pedido do usuário: 1
     // tabela só, com filtro suficiente pra ver os dados agrupados como
@@ -985,7 +998,7 @@ function renderizarDesempenhoProjeto(d) {
     // caso (maior estouro) primeiro, como o "Diagnóstico por
     // atividade" de Financeira já faz. ---
     const formatarHorasChart = v => formatarNumero(v) + ' h';
-    function graficoDesvioHoras(titulo, nota, linhas, classeExtra) {
+    function graficoDesvioHoras(titulo, nota, linhas) {
         if (linhas.length === 0) return '';
         const ordenadas = linhas.slice().sort((a, b) => (a.previsto - a.realizado) - (b.previsto - b.realizado));
         const itens = ordenadas.map((l, i) => ({
@@ -994,22 +1007,21 @@ function renderizarDesempenhoProjeto(d) {
             emph: i === 0 || i === ordenadas.length - 1,
             // Pedido do usuário: previsto/realizado em 2 linhas, com o
             // número de horas alinhado numa coluna (ver .dist-metaduo
-            // no CSS) — antes era 1 linha só ("previsto Xh · realizado
-            // Yh"), apertada demais agora que os gráficos ficaram lado
-            // a lado em 2 colunas.
+            // no CSS) — 1 linha só ("previsto Xh · realizado Yh") ficava
+            // apertada demais na coluna de meia página.
             meta: '<div class="dist-metaduo"><span>previsto</span><span>' + formatarNumero(l.previsto) + ' h</span><span>realizado</span><span>' + formatarNumero(l.realizado) + ' h</span></div>'
         }));
-        return '<div class="dist-section' + (classeExtra ? ' ' + classeExtra : '') + '"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
+        return '<div class="dist-section"><div class="dist-section-head"><h2>' + titulo + '</h2><div class="dist-note">' + nota + '</div></div>' +
             '<div class="dist-panel">' + distDivChart(itens, formatarHorasChart) + '</div></div>';
     }
-    // Pedido do usuário: os 3 gráficos lado a lado em 2 colunas (era
-    // empilhado em largura cheia) — o de Tarefa (lista normalmente mais
-    // longa) ganha a linha inteira pra si (.desemp-grafico-full).
-    html += '<div class="desemp-graficos-2col">';
+    // Pedido do usuário (2026-08-25): os 3 gráficos empilhados numa
+    // coluna só, dentro da coluna direita de meia página (antes eram 2
+    // por linha, em largura cheia — ver .desemp-col-conteudo no CSS).
     html += graficoDesvioHoras('Desvio de horas por Executor', 'previsto &minus; realizado, por pessoa', tab.porExecutor.map(l => Object.assign({ chave: 'porExecutor' }, l)));
     html += graficoDesvioHoras('Desvio de horas por Pavimento', 'previsto &minus; realizado, por pavimento', tab.porPavimento);
-    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa, 'desemp-grafico-full');
-    html += '</div>';
+    html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa);
+
+    html += '</div></div>'; // fecha .desemp-col-conteudo e .desemp-layout-2col
 
     return html;
 }

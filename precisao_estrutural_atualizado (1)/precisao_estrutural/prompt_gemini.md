@@ -9556,3 +9556,65 @@ horas ficam alinhados numa coluna comum entre as 2 linhas. Sem erro
 no console. Nenhum módulo isolado tem cópia de
 `js/desempenho-projeto.js` nem do painel `#panel-desempenho-projeto`
 — nada pra sincronizar.
+
+## Retomada em 2026-08-25 (parte 46) — Produtividade: layout geral em 2 colunas (KPIs à esquerda, tabelas + gráficos à direita)
+
+Pedido do usuário, reformulando a parte 45 de novo: "colocar os campos
+horas consumidas, % concluída e saldo de horas em uma coluna que ocupe
+metade da página. Modifique a largura das tabelas desempenho para que
+caibam em uma só coluna, a direita, ocupando metade da página. Coloque
+os desvios de horas (todas) em uma coluna a direita, com largura que
+ocupe apenas metade da página." Interpretado como: a orelha inteira
+vira 2 colunas de 50/50 — esquerda só com os 3 cartões de KPI
+(empilhados verticalmente, não mais em linha); direita com as 2
+tabelas de Desempenho + os 3 gráficos de "Desvio de horas", TODOS
+empilhados numa coluna só (a própria coluna já é meia página — dividir
+de novo em 2 sub-colunas, como a parte 45 tinha feito pros gráficos,
+deixaria cada um estreito demais e contradiz o pedido de "uma coluna
+[só]").
+
+**`js/desempenho-projeto.js`** (`renderizarDesempenhoProjeto()`):
+envolveu tudo num novo `<div class="desemp-layout-2col">` com 2 filhos
+diretos — `<div class="desemp-col-kpis">` (só o `.desemp-grid-kpi` com
+os 3 cartões) e `<div class="desemp-col-conteudo">` (as 2
+`.desemp-painel` + os 3 `graficoDesvioHoras(...)`). Reverteu a parte
+45: `.desemp-graficos-2col` (grid 2 colunas pros gráficos) e o
+parâmetro `classeExtra`/`.desemp-grafico-full` de `graficoDesvioHoras()`
+saíram — os 3 gráficos voltam a ser só `<div class="dist-section">`
+simples, empilhados na ordem natural dentro de `.desemp-col-conteudo`.
+`.dist-metaduo` (previsto/realizado em 2 linhas alinhadas, da parte
+45) foi MANTIDO — continua fazendo sentido com a coluna de meia
+página.
+
+**`estilos.css`**: `.desemp-graficos-2col`/`.desemp-grafico-full`
+removidas (ficaram sem nenhum uso, confirmado por busca no arquivo
+inteiro antes de apagar). Novas: `.desemp-layout-2col` (`display:grid;
+grid-template-columns: 1fr 1fr`, só gap horizontal — o espaçamento
+vertical dentro de cada coluna continua vindo das margens que
+`.desemp-painel`/`.dist-section` já tinham, sem duplicar);
+`.desemp-col-kpis .desemp-grid-kpi { grid-template-columns: 1fr; }`
+— sobrescreve só AQUI DENTRO a régua de 4 colunas que
+`.desemp-grid-kpi` normalmente tem (a versão usada em Bonificação,
+fora de `.desemp-col-kpis`, não foi tocada e continua em linha, já que
+o seletor original `:is(#panel-desempenho-projeto,
+#panel-bonificacao-projeto) .desemp-grid-kpi` não foi alterado — só
+adicionei uma regra mais específica por cima, restrita a
+`#panel-desempenho-projeto .desemp-col-kpis`). `.desemp-col-conteudo
+.dist-panel` manteve o padding reduzido (`16px 18px`) que a parte 45
+já tinha adicionado pra coluna mais estreita. Media query
+`max-width:900px` → 1 coluna (empilha KPIs acima do conteúdo), mesmo
+breakpoint já usado noutros pontos do arquivo. As tabelas
+(`.desemp-tabela`) não precisaram de nenhuma mudança própria — já
+eram `width:100%` fluido, então se encaixam sozinhas na coluna de
+meia página.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5706) no projeto piloto "AP PRAIA (SAVOIA) - SETOR B":
+confirmado visualmente os 3 KPIs empilhados na coluna esquerda, a
+tabela "Desempenho" começando no topo da coluna direita; rolando mais
+pra baixo, "Desempenho por Executor" e os 3 gráficos de desvio (agora
+empilhados, não mais 2 por linha) também na coluna direita, com a
+esquerda vazia abaixo dos KPIs (esperado). Confirmado via
+`getBoundingClientRect()` que `.desemp-col-kpis` e `.desemp-col-conteudo`
+têm exatamente a mesma largura (459px cada, split 50/50 real). Sem
+erro no console.
