@@ -10012,3 +10012,35 @@ confirmado via `getBoundingClientRect()`/`getComputedStyle()` com
 a antes da parte 52; linha de tabela de "Verba por Pavimento" com
 `height:"28px"` computado, batendo com "Verba Global para Produção".
 Sem erro no console.
+
+## Retomada em 2026-08-25 (parte 54) — Financeira: alinha a coluna esquerda com o título do relatório
+
+Pedido do usuário: "Na aba Detalhamento-Financeira, aumente a largura
+da primeira coluna até que o limite esquerdo dela fique alinhada com o
+título da aba pela esquerda."
+
+**Causa raiz** (medida via `getBoundingClientRect()` no navegador,
+não só lida no CSS): a caixa do `.dist-masthead` e a caixa do
+`.dist-panel` (dentro de `.dist-col-orcamento`) começam exatamente no
+MESMO x (279,45px) — não há nenhum desalinhamento na posição das
+CAIXAS. A diferença vem do `padding-left`: `.dist-masthead` usa 30px,
+`.dist-panel` (dentro do layout de 2 colunas) usa só 18px — por isso o
+título ("AP PRAIA...") aparecia ~12px mais à direita que o conteúdo
+das tabelas/barra segmentada da coluna esquerda.
+
+**`estilos.css`**: nova regra `#panel-distribuicoes-projeto
+.dist-col-orcamento .dist-panel { padding-left: 30px; }` — só a
+PRIMEIRA coluna (`.dist-col-orcamento`); a segunda
+(`.dist-col-realizado`, com Resultado por técnico/pavimento/
+Diagnóstico) continua com os 18px de sempre, sem pedido do usuário pra
+mudar. Como `padding-left` afeta TODO o conteúdo do painel de uma vez
+(tabelas `.dist-orctab` e a barra segmentada `.dist-segbar`), tudo na
+coluna esquerda passou a alinhar com o título junto.
+
+**Verificação**: `estilos.css` com chaves balanceadas. Testado no
+navegador local (porta nova 5718, projeto piloto "AP PRAIA (SAVOIA) -
+SETOR B") via `getBoundingClientRect()`: `h1` do masthead e a primeira
+célula da tabela "Valor Global" (e a barra segmentada) agora ambos em
+x=310,45px — alinhamento exato; painel da coluna direita continua em
+x=279,45px, inalterado. Confirmado visualmente por screenshot. Sem
+erro no console.

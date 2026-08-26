@@ -752,6 +752,16 @@
         #panel-distribuicoes-projeto .dist-layout-2col .dist-panel { padding: 16px 18px; }
         @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-layout-2col { grid-template-columns: 1fr; } }
 
+        /* Pedido do usuário: o conteúdo da 1ª coluna (Orçamento) ficava
+           uns 12px mais à esquerda que o título do relatório
+           (`.dist-masthead h1`) — a caixa do masthead e a do painel
+           começam no MESMO x (279px, confirmado via
+           getBoundingClientRect), só que o masthead tem padding-left
+           30px e o painel só 18px. Igualando o padding-left resolve
+           sem mexer em mais nada. Só a 1ª coluna — a 2ª
+           (`.dist-col-realizado`) fica com os 18px de sempre. */
+        #panel-distribuicoes-projeto .dist-col-orcamento .dist-panel { padding-left: 30px; }
+
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divchart { display: flex; flex-direction: column; gap: 9px; }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; }
         :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-label { font-size: 12.5px; color: var(--dist-ink-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
