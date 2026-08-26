@@ -822,11 +822,40 @@
            (a coluna esquerda inteira já é meia página, não faz
            sentido dividir de novo em sub-colunas). */
         #panel-distribuicoes-projeto .dist-orc-panel { display: flex; flex-direction: column; gap: 18px; }
-        #panel-distribuicoes-projeto .dist-orctab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-        #panel-distribuicoes-projeto .dist-orctab th, #panel-distribuicoes-projeto .dist-orctab td { padding: 6px 8px; }
+        /* Pedido do usuário: coluna "Diferença" (e Previsto/Realizado)
+           apareciam desalinhadas verticalmente de um bloco pro outro —
+           causa: "Valor Global"/"Divisão Global"/"Divisão Produção —
+           Etapas"/etc são 5 <table> SEPARADAS, cada uma com
+           table-layout:auto (padrão), então cada tabela distribuía a
+           largura das colunas sozinha, conforme o texto mais comprido
+           da SUA PRÓPRIA coluna de rótulo — resultado: a coluna
+           Diferença começava num X diferente em cada tabela (medido:
+           de 625px a 656px, variação de 30px). `table-layout:fixed` +
+           largura declarada nas células do cabeçalho (`.dist-orc-cab`)
+           faz as 5 tabelas usarem a MESMA proporção de colunas,
+           alinhando Previsto/Realizado/Diferença verticalmente ao
+           longo de toda a seção. */
+        #panel-distribuicoes-projeto .dist-orctab { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+        #panel-distribuicoes-projeto .dist-orctab th, #panel-distribuicoes-projeto .dist-orctab td { padding: 6px 3px; overflow-wrap: break-word; }
+        #panel-distribuicoes-projeto .dist-orctab td:first-child { padding-left: 8px; }
         #panel-distribuicoes-projeto .dist-orc-titulo th { text-align: left; background: var(--dist-ink); color: var(--dist-surface); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
         #panel-distribuicoes-projeto .dist-orc-cab th { text-align: right; background: var(--dist-surface-2); color: var(--dist-ink-2); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--dist-border-strong); }
-        #panel-distribuicoes-projeto .dist-orc-cab th:first-child { text-align: left; }
+        #panel-distribuicoes-projeto .dist-orc-cab th:first-child { text-align: left; width: 22%; padding-left: 8px; }
+        #panel-distribuicoes-projeto .dist-orc-cab th:nth-child(2),
+        #panel-distribuicoes-projeto .dist-orc-cab th:nth-child(3),
+        #panel-distribuicoes-projeto .dist-orc-cab th:nth-child(4) { width: 26%; }
+        /* Valores em R$ são o dado mais importante desta tabela — a
+           coluna de rótulo aceita quebrar em 2 linhas (texto quebra
+           bem), mas um valor monetário partido no meio do número fica
+           ilegível. `.dist-num` (classe compartilhada com o resto do
+           relatório) usa fonte monoespaçada — mais larga por caractere
+           que a fonte padrão, por isso precisou de medição própria
+           (não bastava medir na fonte do body): testado com o valor
+           mais longo da tabela real ("− R$ 27.060,31", 14 caracteres)
+           na fonte monoespaçada real — só coube sem quebrar a partir
+           de 9px. */
+        #panel-distribuicoes-projeto .dist-orctab td.dist-num,
+        #panel-distribuicoes-projeto .dist-orc-cab th:not(:first-child) { font-size: 9px; }
         #panel-distribuicoes-projeto .dist-orctab tbody tr { border-bottom: 1px solid var(--dist-border); }
         #panel-distribuicoes-projeto .dist-orctab tbody tr:last-child { border-bottom: none; }
         #panel-distribuicoes-projeto .dist-orctab td:first-child { color: var(--dist-ink-2); }

@@ -10107,3 +10107,58 @@ custo pra testar a cascata ao vivo — validada isoladamente em Node com
 3 cenários sintéticos (sem estouro / estouro só no Fundo Garantidor /
 estouro que alcança a Parcela Produção), todos batendo com o
 esperado. Sem erro no console.
+
+## Retomada em 2026-08-25 (parte 56) — Resumo financeiro: alinha a coluna Diferença (e Previsto/Realizado) entre os 5 blocos
+
+Pedido do usuário (maiúsculas no original): "Detalhamento-Financeiro-
+coluna Diferença. Valores desalinhados, ajustar largura da coluna e
+alinhar valores na horizontal."
+
+**Causa raiz** (medida via `getBoundingClientRect()`, não só lida no
+CSS): "Valor Global"/"Divisão Global"/"Divisão Produção — Etapas"/
+"Distribuição p/ Pavimentos"/"Preço por m&sup2;" são 5 `<table>`
+SEPARADAS (uma por `tabelaOrcamentoBloco()`), cada uma com
+`table-layout: auto` (padrão) — cada tabela distribuía a largura das
+suas 4 colunas sozinha, conforme o texto mais comprido da SUA PRÓPRIA
+coluna de rótulo. Resultado: a borda esquerda da coluna "Diferença"
+começava num X diferente em cada tabela (medido: de 625px a 656px,
+30px de variação) — dava a impressão de valores "desalinhados" ao
+rolar a página e comparar visualmente entre blocos.
+
+**Fix**: `table-layout: fixed` em `.dist-orctab` + largura declarada
+em % nas células do cabeçalho (`.dist-orc-cab th`) — mesma proporção
+(rótulo 22%, Previsto/Realizado/Diferença 26% cada) em TODAS as 5
+tabelas, então as 4 colunas agora caem exatamente no mesmo X em
+qualquer bloco da seção.
+
+**Efeito colateral encontrado e corrigido durante o teste**: fixar a
+largura da coluna fez os valores em R$ (mais longos, ex.:
+"&minus; R$ 27.060,31") quebrarem no MEIO do número pra 2 linhas — ilegível.
+Causa: `.dist-num` (classe compartilhada com o resto do relatório) usa
+fonte monoespaçada (`ui-monospace`/`SF Mono`/etc, mais larga por
+caractere que a fonte padrão) — medir a largura necessária na fonte
+errada (padrão, não monoespaçada) escondeu o problema numa primeira
+tentativa. Corrigido medindo a largura real do texto mais longo NA
+FONTE MONOESPAÇADA de verdade (via `span` temporário) — só coube sem
+quebrar a partir de 9px; reduzido o padding horizontal das células
+(6px&rarr;3px) e rebalanceada a proporção das colunas (rótulo 22%,
+numéricas 26% cada) pra abrir mais espaço pros números. A coluna de
+rótulo aceita quebrar em 2 linhas quando o texto é longo (texto quebra
+bem, sem ficar ilegível) — só os valores monetários precisavam ficar
+numa linha só.
+
+**`estilos.css`**: `.dist-orctab { table-layout: fixed; }`;
+`.dist-orc-cab th:first-child { width: 22% }`, demais `th { width: 26%
+}`; padding geral `6px 3px` (rótulo mantém `padding-left: 8px`
+próprio); `.dist-orctab td.dist-num`/`.dist-orc-cab th:not(:first-child)`
+com `font-size: 9px`.
+
+**Verificação**: `estilos.css` com chaves balanceadas. Testado no
+navegador local (portas novas 5721→5724, iterando 3 vezes até
+resolver o efeito colateral do wrap) no projeto piloto "AP PRAIA
+(SAVOIA) - SETOR B": confirmado via `getBoundingClientRect()` que a
+borda esquerda da coluna Diferença é EXATAMENTE a mesma (555,98px) nas
+5 tabelas; confirmado via `Range.getClientRects().length` (mede
+quebra de linha de verdade, não só overflow) que nenhuma das 57
+células de valor monetário quebra mais em 2 linhas (chegou a ter 15
+quebrando antes do ajuste de fonte/padding). Sem erro no console.
