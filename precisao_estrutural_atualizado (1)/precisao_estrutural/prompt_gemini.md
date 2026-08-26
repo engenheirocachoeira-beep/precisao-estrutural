@@ -10044,3 +10044,66 @@ célula da tabela "Valor Global" (e a barra segmentada) agora ambos em
 x=310,45px — alinhamento exato; painel da coluna direita continua em
 x=279,45px, inalterado. Confirmado visualmente por screenshot. Sem
 erro no console.
+
+## Retomada em 2026-08-25 (parte 55) — Detalhamento Realizado vira Custo Real, com cascata de absorção de estouro (Fundo Garantidor → Parcela Produção)
+
+Pedido do usuário (maiúsculas no original): "Na planilha Divisão
+Produção Etapas da mesma aba - coluna Realizado linha Detalhamento, o
+valor deve ser o Custo Real do Detalhamento. Eventual saldo negativo
+deve ser diminuído da Verba do Fundo Garantidor até seu valor total.
+Caso ainda permaneça negativo, o eventual saldo negativo deve ser
+reduzido da parcela Realizado da Parcela de Produção."
+
+Antes (parte 50): "Realizado" da linha Detalhamento era a Verba
+PREVISTA escalada pelo % de execução em horas (Horas Realizado &divide;
+Horas Previsto) — uma estimativa de earned-value. Agora: é literalmente
+o CUSTO REAL apurado (`bonif.poolCusto`, o mesmo número já mostrado no
+headline/KPI "Custo Real do Detalhamento" desta mesma página) — sem
+nenhuma escala, é o valor de fato gasto.
+
+**Cascata de absorção** (só entra em ação quando Custo Real > Verba
+Previsto, ou seja, estouro):
+1. `saldoDetalhamento = Verba Prevista do Detalhamento &minus; Custo Real`
+   (mesma convenção "Saldo" de sempre no sistema: negativo = estouro).
+2. Se negativo, o `deficit` (valor absoluto do estouro) é descontado
+   PRIMEIRO do Fundo Garantidor — até no máximo o valor total dele
+   (não fica negativo).
+3. Se ainda sobrar deficit depois de zerar o Fundo Garantidor, o
+   restante é descontado do Realizado da linha "Parcela Produção" (no
+   bloco "Divisão Global", logo acima na mesma coluna).
+Testado com 3 cenários sintéticos em Node (sem estouro / estouro
+pequeno absorvido só pelo Fundo Garantidor / estouro grande que também
+reduz a Parcela Produção) — os 3 se comportam exatamente como
+descrito.
+
+**`js/desempenho-projeto.js`** (`renderizarDistribuicoesProjeto()`):
+novo bloco de cálculo (`custoRealDetalhamento`, `saldoDetalhamento`,
+`deficitDetalhamento`, `absorcaoFundoGarantidor`,
+`fundoGarantidorRealizado`, `deficitRestante`,
+`parcelaProducaoRealizado`) logo antes da montagem das tabelas.
+"Divisão Global": linha "Parcela Produção" usa
+`realizado: parcelaProducaoRealizado` (`emph` só quando
+`deficitRestante > 0`, pra destacar visualmente só quando ela é
+realmente afetada); subtotal "Valor Líquido" ajustado. "Divisão
+Produção — Etapas": linha Detalhamento usa
+`realizado: custoRealDetalhamento` (sem escala); linha Fundo
+Garantidor usa `realizado: fundoGarantidorRealizado` (`emph` só quando
+`absorcaoFundoGarantidor > 0`); subtotal "Valor Líquido" ajustado.
+**Fora de escopo, decisão consciente**: `verbaDetalhamentoRealizada`
+(a variável com a escala por horas da parte 50) foi MANTIDA — ainda
+alimenta "Distribuição p/ Pavimentos" e "Índices Globais", que o
+usuário não pediu pra mudar desta vez; as duas variáveis (custo real
+vs. verba escalada) agora coexistem, cada uma no bloco que faz sentido
+pra ela.
+
+**Verificação**: `node --check` limpo. Testado no navegador local
+(porta nova 5719) em 2 projetos reais — "AP PRAIA (SAVOIA) - SETOR B"
+(Custo Real R$27.718,74 &lt; Verba R$29.791,89 — sem estouro, linha
+Detalhamento mostra Realizado = Custo Real, Diferença &minus;R$2.073,14,
+Fundo Garantidor e Parcela Produção inalterados) e "HOME GARDEN -
+SETOR C" (Custo Real R$10.756,57 &lt; Verba R$10.947,95 — também sem
+estouro). Nenhum dos 2 projetos reais disponíveis tinha estouro de
+custo pra testar a cascata ao vivo — validada isoladamente em Node com
+3 cenários sintéticos (sem estouro / estouro só no Fundo Garantidor /
+estouro que alcança a Parcela Produção), todos batendo com o
+esperado. Sem erro no console.

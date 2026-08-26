@@ -854,17 +854,36 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     // esquerda todo o orçamento. Valor do contrato, impostos, valor
     // líquido, valor destinado para cada etapa, fundos, distribuição") ---
     // Parte 50 (reformulação, pedido do usuário com print de planilha
-    // de referência): "REALIZADO" decidido via AskUserQuestion —
+    // de referência): tabela Previsto×Realizado×Diferença.
+    // Parte 55 (pedido do usuário, revisando a parte 50): a linha
+    // Detalhamento da tabela "Divisão Produção — Etapas" deixou de
+    // usar uma verba escalada por % de horas — agora é literalmente o
+    // CUSTO REAL do Detalhamento (`bonif.poolCusto`, o mesmo valor já
+    // mostrado no headline/KPI "Custo Real do Detalhamento"). Um
+    // eventual estouro (saldo negativo = Verba Previsto − Custo Real)
+    // é absorvido em cascata: primeiro descontado do Fundo Garantidor
+    // (até zerá-lo), e só o que sobrar depois disso é descontado da
+    // Parcela Produção (Divisão Global). Isso NÃO mexe em
+    // `verbaDetalhamentoRealizada` (variável separada, ainda usada só
+    // pra "Distribuição p/ Pavimentos"/"Índices Globais" — blocos que
+    // o usuário não pediu pra mudar desta vez).
+    const custoRealDetalhamento = bonif.poolCusto;
+    const saldoDetalhamento = fin.verbaDetalhamentoBruta - custoRealDetalhamento;
+    const deficitDetalhamento = saldoDetalhamento < 0 ? -saldoDetalhamento : 0;
+    const absorcaoFundoGarantidor = Math.min(deficitDetalhamento, fin.valorFundoGarantidor);
+    const fundoGarantidorRealizado = fin.valorFundoGarantidor - absorcaoFundoGarantidor;
+    const deficitRestante = deficitDetalhamento - absorcaoFundoGarantidor;
+    const parcelaProducaoRealizado = fin.valorAnalista - deficitRestante;
+
+    // Parte 50: "REALIZADO" das demais linhas (que não dependem do
+    // custo real do Detalhamento) decidido via AskUserQuestion —
     // "recalcular com base nas horas reais". Única etapa com Horas
     // Previsto/Realizado rastreadas é Detalhamento (as demais, "Bloco
     // Fixo", recebem o valor cheio da própria Verba independente de
     // hora — mesmo modelo que Bonificação já usa, ver
-    // calcularBonificacaoProjeto()) — então só a Verba dela é
-    // recalculada, proporcional à execução de horas:
-    // Realizado = Previsto × (Horas Realizado ÷ Horas Previsto). O
-    // Fundo Garantidor NÃO deriva das etapas individuais no código
-    // (é uma fatia % de cima, sobre a Verba Global p/ Produção) —
-    // fica igual em Previsto/Realizado.
+    // calcularBonificacaoProjeto()); o Fundo Garantidor NÃO derivava
+    // das etapas individuais nesta variável auxiliar (é só usada pra
+    // "Distribuição p/ Pavimentos"/"Índices Globais" abaixo).
     const etapaDetTab = d.tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
     const horasPrevistoDetFin = etapaDetTab ? etapaDetTab.previsto : 0;
     const horasRealizadoDetFin = etapaDetTab ? etapaDetTab.realizado : 0;
@@ -880,21 +899,21 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     ], { label: 'Valor L&iacute;quido', previsto: fin.valorLiquido, realizado: fin.valorLiquido });
 
     html += tabelaOrcamentoBloco('Divis&atilde;o Global', [
-        { label: 'Parcela Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', previsto: fin.valorAnalista, realizado: fin.valorAnalista },
+        { label: 'Parcela Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', previsto: fin.valorAnalista, realizado: parcelaProducaoRealizado, emph: deficitRestante > 0 },
         { label: 'Parcela Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', previsto: fin.valorSupervisor, realizado: fin.valorSupervisor },
         { label: 'Parcela Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', previsto: fin.valorEscritorio, realizado: fin.valorEscritorio }
-    ], { label: 'Valor L&iacute;quido', previsto: fin.valorAnalista + fin.valorSupervisor + fin.valorEscritorio, realizado: fin.valorAnalista + fin.valorSupervisor + fin.valorEscritorio });
+    ], { label: 'Valor L&iacute;quido', previsto: fin.valorAnalista + fin.valorSupervisor + fin.valorEscritorio, realizado: parcelaProducaoRealizado + fin.valorSupervisor + fin.valorEscritorio });
 
     const linhasEtapasOrc = fin.etapas.map(e => ({
         label: escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)',
         previsto: e.verbaLiquida,
-        realizado: e.ehDetalhamento ? verbaDetalhamentoRealizada : e.verbaLiquida,
+        realizado: e.ehDetalhamento ? custoRealDetalhamento : e.verbaLiquida,
         emph: e.ehDetalhamento
     }));
-    linhasEtapasOrc.push({ label: 'Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', previsto: fin.valorFundoGarantidor, realizado: fin.valorFundoGarantidor });
-    const totalEtapasRealizado = fin.totalVerbaEtapas - fin.verbaDetalhamentoBruta + verbaDetalhamentoRealizada;
+    linhasEtapasOrc.push({ label: 'Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', previsto: fin.valorFundoGarantidor, realizado: fundoGarantidorRealizado, emph: absorcaoFundoGarantidor > 0 });
+    const totalEtapasRealizado = fin.totalVerbaEtapas - fin.verbaDetalhamentoBruta + custoRealDetalhamento;
     html += tabelaOrcamentoBloco('Divis&atilde;o Produ&ccedil;&atilde;o &mdash; Etapas', linhasEtapasOrc,
-        { label: 'Valor L&iacute;quido', previsto: fin.totalVerbaEtapas + fin.valorFundoGarantidor, realizado: totalEtapasRealizado + fin.valorFundoGarantidor });
+        { label: 'Valor L&iacute;quido', previsto: fin.totalVerbaEtapas + fin.valorFundoGarantidor, realizado: totalEtapasRealizado + fundoGarantidorRealizado });
 
     if (fin.temEtapaDetalhamento) {
         const fundoLucrosRealizado = fin.pctFundoLucros / 100 * verbaDetalhamentoRealizada;
