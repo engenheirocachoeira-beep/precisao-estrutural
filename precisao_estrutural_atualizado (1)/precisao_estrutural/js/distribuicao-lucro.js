@@ -203,7 +203,7 @@ function apurarDistribuicaoLucro() {
     tbody.innerHTML = r.linhas.map(l => {
         const nomeExibicao = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(l.nome) : l.nome;
         return '<tr>' +
-            '<td>' + nomeExibicao + '</td>' +
+            '<td>' + escapeHtml(nomeExibicao) + '</td>' +
             '<td style="text-align:center;">' + l.pontos.toFixed(1) + '</td>' +
             '<td style="text-align:center;">' + formatarMoeda(l.valorIgualitario) + '</td>' +
             '<td style="text-align:center;">' + formatarMoeda(l.valorProporcional) + '</td>' +

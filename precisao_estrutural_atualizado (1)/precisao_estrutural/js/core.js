@@ -27,6 +27,15 @@
 // não tinha (ver migração v11, abaixo). O fallback aqui (split do
 // nome) só entra em cenários residuais: nome sem cadastro
 // correspondente encontrado, ou (por segurança) campo vazio.
+// Movida de desempenho-projeto.js pra cá (auditoria de segurança,
+// 2026-08-26): precisa estar num arquivo carregado CEDO — core.js é o
+// primeiro — pra ficar disponível pra todo arquivo que monta HTML via
+// innerHTML com texto vindo de formulário (nome de cliente,
+// funcionário, tarefa etc.), não só pra quem a definia originalmente.
+function escapeHtml(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function nomeParaExibicao(nomeCompleto) {
     if (!nomeCompleto) return '';
     const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
@@ -1160,7 +1169,7 @@ function tentarLogin() {
 
     const cabecalho = document.getElementById('cabecalho-usuario-logado');
     if (cabecalho) {
-        cabecalho.innerHTML = '👤 ' + nomeParaExibicao(usuarioLogado.nome) +
+        cabecalho.innerHTML = '👤 ' + escapeHtml(nomeParaExibicao(usuarioLogado.nome)) +
             ' <span style="color:#94a3b8;">(' + usuarioLogado.nivel + ')</span> ' +
             '<button type="button" onclick="sair()" style="background:none; border:1px solid #475569; color:#cbd5e1; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:11px;">Sair</button>';
     }
@@ -1202,7 +1211,7 @@ function renderizarCabecalhoIdentidadeTeste() {
         .slice()
         .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     const opcoes = funcionarios.map(f =>
-        '<option value="' + f.nome.replace(/"/g, '&quot;') + '"' + (usuarioLogado && f.nome === usuarioLogado.nome ? ' selected' : '') + '>' + nomeParaExibicao(f.nome) + ' (' + f.nivel + ')</option>'
+        '<option value="' + escapeHtml(f.nome) + '"' + (usuarioLogado && f.nome === usuarioLogado.nome ? ' selected' : '') + '>' + escapeHtml(nomeParaExibicao(f.nome)) + ' (' + escapeHtml(f.nivel) + ')</option>'
     ).join('');
 
     const cabecalho = document.getElementById('cabecalho-usuario-logado');

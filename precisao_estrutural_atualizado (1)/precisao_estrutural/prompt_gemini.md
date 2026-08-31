@@ -10162,3 +10162,59 @@ borda esquerda da coluna Diferença é EXATAMENTE a mesma (555,98px) nas
 quebra de linha de verdade, não só overflow) que nenhuma das 57
 células de valor monetário quebra mais em 2 linhas (chegou a ter 15
 quebrando antes do ajuste de fonte/padding). Sem erro no console.
+
+## Retomada em 2026-08-26 (parte 57) — Auditoria de segurança: escapa HTML em todo lugar que monta tela com texto de formulário
+
+Pedido do usuário: análise crítica de arquitetura/banco de dados
+(relatório publicado como Artifact, achados medidos direto no código —
+XSS armazenado era o item mais crítico), seguido de "aplique" pra
+corrigir o achado.
+
+**Causa**: `escapeHtml()` existia desde a reforma de Financeira (parte
+50), mas morava dentro de `desempenho-projeto.js` e só era chamada
+pelas próprias 24 linhas daquele arquivo. Os outros 14 arquivos que
+montam tela via `innerHTML +=` com nome de cliente/funcionário/tarefa/
+projeto/etapa/pavimento/setor/catálogo — texto que o próprio usuário
+digita em formulário — inseriam esse texto direto, sem escapar nada.
+Um nome contendo `<script>` ou similar executaria pra qualquer pessoa
+que abrisse a tela onde aquele nome aparece.
+
+**Fix, arquivo por arquivo** (89 pontos ao todo, além dos 24 que já
+existiam em `desempenho-projeto.js`):
+1. `escapeHtml()` **movida pra `core.js`** (carrega primeiro) — ficou
+   disponível globalmente antes de qualquer outro arquivo precisar
+   dela.
+2. `cadastros.js` (7), `kanban.js` (10), `distribuicao-custos.js` (9),
+   `arvore.js` (15), `relatorios.js` (8), `aprovacoes-calendario.js`
+   (13), `atribuicao-tarefas.js` (9), `feriados.js` (1),
+   `distribuicao-lucro.js` (1), `bi.js` (2), `painel-progresso.js`
+   (4), `catalogo-lego.js` (4): todo campo de texto livre (nome,
+   motivo, cargo, cpf, cnpj, codinome, unidade física etc.) que ia
+   direto pro `innerHTML`, dentro de `<td>`, `<option>`, atributo
+   `value="..."` ou `title="..."`, passou a ser envolvido em
+   `escapeHtml(...)`.
+3. **Correções de alavancagem** (uma função só, usada em vários
+   lugares): `construirOpcoesExecutor()` (`atribuicao-tarefas.js`,
+   usada por `distribuicao-custos.js` também) e `formatarValorColuna()`
+   (`relatorios.js`, o formatador central de TODA célula do motor de
+   Relatórios — só o `return valor` do tipo "texto" precisava de
+   escape, os outros `return` já eram número/data formatados) — corrigir
+   essas 2 funções cobriu dezenas de pontos de uma vez só.
+4. `sync-provisorio.js` (o único dos 15 arquivos com `innerHTML` que
+   ficou de fora): auditado e confirmado seguro sem mudança nenhuma —
+   só insere texto estático (overlay "Sincronizando...") e usa
+   `.textContent` (não `innerHTML`) pro texto dinâmico.
+5. Bug lateral corrigido de passagem: `js/arvore.js` (lista de
+   projetos) não escapava nem a aspa simples no `onclick` — um nome de
+   projeto com `'` já quebrava o atributo ANTES mesmo da questão de
+   XSS. Corrigido junto (`nomeJs`, mesmo padrão usado nos outros
+   arquivos).
+
+**Verificação**: `node --check` limpo nos 14 arquivos tocados. Varredura
+final por 2 padrões de grep no `js/` inteiro — nenhuma linha com
+`innerHTML` restante que referencie `.nome`/`.executor`/`.motivo`/
+`.cargo`/`.cpf`/`.cnpj`/`.codinome`/`.tarefa`/`.projeto`/`.cliente`
+sem passar por `escapeHtml`. `escapeHtml(` agora aparece em 14 dos 19
+arquivos principais (era 1 antes). Não testado no navegador linha por
+linha (mudança mecânica e ampla demais pra clicar em cada tela) — a
+verificação foi por grep sistemático + `node --check`, não por clique.

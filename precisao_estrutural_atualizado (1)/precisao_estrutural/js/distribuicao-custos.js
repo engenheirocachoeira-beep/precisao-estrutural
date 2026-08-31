@@ -139,7 +139,7 @@ function renderizarPortalProjetosDistribuicao(projetos) {
     tbody.innerHTML = '';
     projetos.forEach(proj => {
         const nomeJs = proj.nome.replace(/'/g, "\\'");
-        tbody.innerHTML += '<tr class="clickable-row" onclick="escolherProjetoDistribuicaoInicial(\'' + nomeJs + '\')"><td># <strong>' + (proj.prefixo || "PRJ") + '</strong></td><td>' + proj.nome + '</td></tr>';
+        tbody.innerHTML += '<tr class="clickable-row" onclick="escolherProjetoDistribuicaoInicial(\'' + nomeJs + '\')"><td># <strong>' + escapeHtml(proj.prefixo || "PRJ") + '</strong></td><td>' + escapeHtml(proj.nome) + '</td></tr>';
     });
 }
 
@@ -341,7 +341,7 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     // quadro). `data-etapa` continua com o nome real da Etapa (usado
     // pra salvar) — só o texto exibido muda.
     const ehDetalhamento = !ehFundoGarantidor && nomeLinha.toLowerCase().includes('detalhamento');
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (ehDetalhamento ? 'Verba Detalhamento - Analista' : nomeLinha);
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (ehDetalhamento ? 'Verba Detalhamento - Analista' : escapeHtml(nomeLinha));
 
     let celulaPct;
     if (ehFundoGarantidor) {
@@ -355,7 +355,7 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     } else {
         const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
         const pctFormatado = pct === '' ? '' : (parseFloat(pct) || 0).toFixed(2);
-        celulaPct = '<td><div class="campo-percentual" style="width:80px;"><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + nomeLinha + '" value="' + pctFormatado + '" oninput="recalcularTabelaDistribuicaoAnalista()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></td>';
+        celulaPct = '<td><div class="campo-percentual" style="width:80px;"><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + escapeHtml(nomeLinha) + '" value="' + pctFormatado + '" oninput="recalcularTabelaDistribuicaoAnalista()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></td>';
     }
 
     const marcadorLinha = ehFundoGarantidor ? ' data-fundo-garantidor-linha="1"' : '';
@@ -363,7 +363,7 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
         '<td>' + rotulo + '</td>' +
         celulaPct +
         '<td class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
-        '<td style="color:#334155;">' + nomeParaExibicao(nomeAnalista) + '</td>' +
+        '<td style="color:#334155;">' + escapeHtml(nomeParaExibicao(nomeAnalista)) + '</td>' +
         '</tr>';
 }
 
@@ -871,8 +871,8 @@ function renderizarTabelasVerbaPavimento() {
         setoresWrapper.style.display = 'block';
         document.getElementById('vp-setores-tabela-body').innerHTML = setores.map(s => {
             return '<tr>' +
-                '<td>' + s.nome + '</td>' +
-                '<td style="color:#64748b; font-size:11px;">' + s.nomePai + '</td>' +
+                '<td>' + escapeHtml(s.nome) + '</td>' +
+                '<td style="color:#64748b; font-size:11px;">' + escapeHtml(s.nomePai) + '</td>' +
                 '<td class="col-centralizada"><input type="number" step="0.01" value="' + (parseFloat(s.area) || 0).toFixed(2) + '" data-caminho="' + s.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaSetor(this)" onblur="formatarCampoDecimal2(this)" style="width:80px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
                 '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.peso + '" data-caminho="' + s.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaSetor(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
                 '<td class="col-centralizada">' + s.areaEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
@@ -894,7 +894,7 @@ function renderizarTabelasVerbaPavimento() {
 
     tbody.innerHTML = pavimentos.map(p => {
         return '<tr>' +
-            '<td>' + p.nome + '</td>' +
+            '<td>' + escapeHtml(p.nome) + '</td>' +
             '<td><input type="number" step="0.01" value="' + (parseFloat(p.area) || 0).toFixed(2) + '" data-caminho="' + p.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaPavimento(this)" onblur="formatarCampoDecimal2(this)" style="width:90px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
             '<td><input type="number" step="0.01" value="' + p.peso + '" data-caminho="' + p.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaPavimento(this)" style="width:70px; text-align:center;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
             '<td style="text-align:right;">' + p.areaEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
@@ -1033,7 +1033,7 @@ function carregarAbaVerbaPorTarefa() {
             const opcoesExecutor = typeof construirOpcoesExecutor === 'function' ? construirOpcoesExecutor(funcionarios, tarefa.executor) : '';
 
             linhasTarefas += '<tr class="vt-linha-tarefa" data-grupo="' + pav.caminho + '" data-valor-verba="' + pav.valorVerba + '"' + estiloOcultoSeRecolhido + '>' +
-                '<td>' + tarefa.nome + '</td>' +
+                '<td>' + escapeHtml(tarefa.nome) + '</td>' +
                 '<td><select class="vt-select-executor" data-caminho="' + caminhoJs + '" onchange="atribuirExecutorVerbaPorTarefa(this)"' + (podeAtribuir ? '' : ' disabled title="Só Administrador ou Supervisor podem atribuir executor por aqui"') + '>' + opcoesExecutor + '</select></td>' +
                 '<td class="vt-horas-maximas col-centralizada">—</td>' +
                 '<td class="col-centralizada"><input type="number" step="0.1" class="vt-input-pontos" data-caminho="' + caminhoJs + '" value="' + pontos + '" style="width:50px; border:1px solid #cbd5e1; border-radius:4px; padding:2px;" oninput="recalcularGrupoVerbaPorTarefa(this)" onchange="editarPontosVerbaPorTarefa(this)"></td>' +
@@ -1046,7 +1046,7 @@ function carregarAbaVerbaPorTarefa() {
         // linha de conferência (texto auxiliar) some junto com as
         // Tarefas, por ser detalhe, não resumo.
         return '<div class="vt-card">' +
-            '<div class="vt-card-header" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')"><span><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + '</span>' + totalizacaoHeader + '</div>' +
+            '<div class="vt-card-header" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')"><span><span class="tree-toggle-icon">' + seta + '</span> ' + escapeHtml(pav.nome) + '</span>' + totalizacaoHeader + '</div>' +
             '<div class="table-wrapper"><table class="tabela-compacta"><thead><tr>' +
                 '<th>Tarefa</th><th style="width:120px;">Executor</th><th class="col-centralizada" style="width:55px;">H.Máx</th><th class="col-centralizada" style="width:55px;">Pontos</th><th style="width:100px; text-align:right;">Valor</th>' +
             '</tr></thead><tbody>' +

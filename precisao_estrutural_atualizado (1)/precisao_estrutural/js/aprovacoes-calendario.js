@@ -260,10 +260,10 @@ function renderizarPainelAprovacoesCalendario() {
             : '—';
 
         return '<tr>' +
-            '<td>' + nomeParaExibicao(ex.nomeExecutor) + '</td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(ex.nomeExecutor)) + '</td>' +
             '<td>' + periodo + '</td>' +
             '<td class="col-centralizada">' + ex.horas_por_dia + 'h</td>' +
-            '<td>' + (ex.motivo || '—') + '</td>' +
+            '<td>' + escapeHtml(ex.motivo || '—') + '</td>' +
             '<td style="color:' + cor + '; font-weight:bold;">' + rotulo + '</td>' +
             '<td class="col-centralizada">' + acoes + '</td>' +
             '</tr>';
@@ -329,11 +329,11 @@ function renderizarPainelAprovacoesApontamento() {
             : '—';
 
         return '<tr>' +
-            '<td>' + nomeParaExibicao(ap.executor) + '</td>' +
-            '<td>' + ap.tarefaNome + ' <span style="color:#94a3b8; font-size:11px;">(' + ap.projeto + ')</span></td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(ap.executor)) + '</td>' +
+            '<td>' + escapeHtml(ap.tarefaNome) + ' <span style="color:#94a3b8; font-size:11px;">(' + escapeHtml(ap.projeto) + ')</span></td>' +
             '<td>' + formatarDataPrevistaExibicao(ap.data) + '</td>' +
             '<td class="col-centralizada">' + ap.horas + 'h</td>' +
-            '<td>' + (ap.motivo || '—') + '</td>' +
+            '<td>' + escapeHtml(ap.motivo || '—') + '</td>' +
             '<td style="color:' + cor + '; font-weight:bold;">' + rotulo + '</td>' +
             '<td class="col-centralizada">' + acoes + '</td>' +
             '</tr>';
@@ -374,11 +374,11 @@ function renderizarPainelAprovacoesFinalizacoes() {
             : '<span style="color:#94a3b8; font-size:11px;">Aguardando outro aprovador</span>';
 
         return '<tr>' +
-            '<td>' + f.projeto + '</td>' +
-            '<td style="color:#64748b; font-size:12px;">' + f.localizacao + '</td>' +
-            '<td>' + f.tarefa + '</td>' +
-            '<td>' + nomeParaExibicao(f.executor) + (f.responsavel && f.responsavel !== f.executor ? ' <span style="color:#94a3b8; font-size:11px;">(resp: ' + nomeParaExibicao(f.responsavel) + ')</span>' : '') + '</td>' +
-            '<td>' + nomeParaExibicao(f.finalizadaPor) + '</td>' +
+            '<td>' + escapeHtml(f.projeto) + '</td>' +
+            '<td style="color:#64748b; font-size:12px;">' + escapeHtml(f.localizacao) + '</td>' +
+            '<td>' + escapeHtml(f.tarefa) + '</td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(f.executor)) + (f.responsavel && f.responsavel !== f.executor ? ' <span style="color:#94a3b8; font-size:11px;">(resp: ' + escapeHtml(nomeParaExibicao(f.responsavel)) + ')</span>' : '') + '</td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(f.finalizadaPor)) + '</td>' +
             '<td class="col-centralizada">' + f.horasReais.toFixed(2) + 'h</td>' +
             '<td class="col-centralizada">' + acoes + '</td>' +
             '</tr>';
@@ -405,9 +405,9 @@ function renderizarPainelAprovacoesRevisao() {
     tbody.innerHTML = lista.map(s => {
         const caminhoJs = s.caminho.replace(/'/g, "\\'");
         return '<tr>' +
-            '<td>' + s.projeto + '</td>' +
-            '<td>' + s.tarefaNome + '</td>' +
-            '<td>' + nomeParaExibicao(s.quem) + '</td>' +
+            '<td>' + escapeHtml(s.projeto) + '</td>' +
+            '<td>' + escapeHtml(s.tarefaNome) + '</td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(s.quem)) + '</td>' +
             '<td style="font-size:11px; color:#64748b;">' + formatarDataHoraExibicao(s.inicio) + ' → ' + formatarDataHoraExibicao(s.fim) + '</td>' +
             '<td class="col-centralizada">' + s.horas.toFixed(2) + 'h</td>' +
             '<td class="col-centralizada" style="white-space:nowrap;">' +

@@ -40,7 +40,7 @@
                 let desvio = (((mediaApurada - lego.base_h) / lego.base_h) * 100).toFixed(1);
 
                 tbody.innerHTML += '<tr>' +
-                                   '<td><b>'+lego.nome+'</b></td>' +
+                                   '<td><b>'+escapeHtml(lego.nome)+'</b></td>' +
                                    '<td>'+parseFloat(lego.base_h).toFixed(2)+' h/un</td>' +
                                    '<td>'+mediaApurada+' h/un <small style="color:#64748b;">('+contagemDadosValidos+' un)</small></td>' +
                                    '<td style="color:'+(desvio > 0 ? '#ef4444':'#10b981')+'">'+(desvio > 0 ? '+':'')+desvio+'%</td>' +
@@ -107,7 +107,7 @@
                 else totalPrejuizosAbsorvidos += Math.abs(balancoResultadoObra);
 
                 tbody.innerHTML += '<tr>' +
-                                   '<td><b>'+proj.nome+'</b></td>' +
+                                   '<td><b>'+escapeHtml(proj.nome)+'</b></td>' +
                                    '<td><span class="badge-status '+(balancoResultadoObra>=0?'status-finalizada':'status-validacao')+'">'+(balancoResultadoObra>=0?'Superavitário':'Déficit')+'</span></td>' +
                                    '<td>R$ '+custoAcumuladoAnalista.toFixed(2)+'</td>' +
                                    '<td>R$ '+custoAcumuladoEscritorio.toFixed(2)+'</td>' +

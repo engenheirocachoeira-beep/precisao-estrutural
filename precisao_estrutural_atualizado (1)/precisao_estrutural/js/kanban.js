@@ -344,7 +344,7 @@ function renderizarRankingProdutividadeExecutores() {
         const nomeExibicao = typeof nomeParaExibicao === 'function' ? nomeParaExibicao(item.executor) : item.executor;
         return '<tr>' +
             '<td style="text-align:center; font-weight:bold;">' + medalha + '</td>' +
-            '<td>' + nomeExibicao + (item.existe ? '' : ' <small style="color:#94a3b8;">(desligado)</small>') + '</td>' +
+            '<td>' + escapeHtml(nomeExibicao) + (item.existe ? '' : ' <small style="color:#94a3b8;">(desligado)</small>') + '</td>' +
             '<td style="text-align:center;">' + item.pontos.toFixed(1) + '</td>' +
             '<td style="text-align:center;">' + item.horas.toFixed(1) + 'h</td>' +
             '<td style="text-align:center; font-weight:bold;">' + item.produtividade.toFixed(2) + '</td>' +
@@ -374,7 +374,7 @@ function carregarPainelKanban() {
     if (selProjeto) {
         const valorAnteriorProjeto = selProjeto.value;
         selProjeto.innerHTML = '<option value="">-- Todos os Projetos --</option>' +
-            projetosParaMostrar.map(p => '<option value="' + p.nome + '">' + p.nome + '</option>').join('');
+            projetosParaMostrar.map(p => '<option value="' + escapeHtml(p.nome) + '">' + escapeHtml(p.nome) + '</option>').join('');
         selProjeto.value = valorAnteriorProjeto;
     }
 
@@ -389,7 +389,7 @@ function carregarPainelKanban() {
     if (selExecutor) {
         const valorAnteriorExecutor = selExecutor.value;
         selExecutor.innerHTML = '<option value="">-- Todos os Executores --</option>' +
-            funcionariosParaMostrar.map(f => '<option value="' + f.nome + '">' + nomeParaExibicao(f.nome) + '</option>').join('');
+            funcionariosParaMostrar.map(f => '<option value="' + escapeHtml(f.nome) + '">' + escapeHtml(nomeParaExibicao(f.nome)) + '</option>').join('');
         selExecutor.value = valorAnteriorExecutor;
     }
     const colunaExecutor = document.getElementById('kb-filtro-executor-coluna');
@@ -629,7 +629,7 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
     // coletarTarefasParaRevisar()), mostra de quem é, senão ficaria sem
     // contexto nenhum de quem fez o trabalho.
     const linhaExecutorRevisao = (t.executor && nomeExecutorVisualizado && t.executor !== nomeExecutorVisualizado)
-        ? '<div class="kb-cartao-executor-revisao">👤 ' + nomeParaExibicao(t.executor) + '</div>'
+        ? '<div class="kb-cartao-executor-revisao">👤 ' + escapeHtml(nomeParaExibicao(t.executor)) + '</div>'
         : '';
 
     // Contador de retrabalho (ciclo Executor↔Revisor) — só aparece
@@ -798,8 +798,8 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
 
     return '<div class="kb-cartao" draggable="true" style="border-left:4px solid ' + cor + ';' + estiloOpacidade + '" ' +
         'ondragstart="iniciarArrastoCartaoKanban(event, \'' + t.caminho + '\')">' +
-        '<div class="kb-cartao-caminho" style="font-size:10px; color:#94a3b8; margin-bottom:2px;">' + t.projeto + (localizacaoSemTarefaCartao ? ' › ' + localizacaoSemTarefaCartao : '') + '</div>' +
-        '<div class="kb-cartao-tarefa">' + t.tarefa + '</div>' +
+        '<div class="kb-cartao-caminho" style="font-size:10px; color:#94a3b8; margin-bottom:2px;">' + escapeHtml(t.projeto) + (localizacaoSemTarefaCartao ? ' › ' + escapeHtml(localizacaoSemTarefaCartao) : '') + '</div>' +
+        '<div class="kb-cartao-tarefa">' + escapeHtml(t.tarefa) + '</div>' +
         linhaExecutorRevisao +
         linhaVezesEmRevisao +
         '<div class="kb-cartao-pontos">Pontos: ' + (t.pontos || '—') + '</div>' +
@@ -1202,7 +1202,7 @@ function renderizarTabelaExcecoesCalendarioKanban(nomeExecutor) {
         return '<tr>' +
             '<td>' + periodo + '</td>' +
             '<td class="col-centralizada">' + ex.horas_por_dia + 'h</td>' +
-            '<td>' + (ex.motivo || '—') + '</td>' +
+            '<td>' + escapeHtml(ex.motivo || '—') + '</td>' +
             '<td style="color:' + cor + '; font-weight:bold;">' + rotulo + '</td>' +
             '</tr>';
     }).join('');
@@ -1342,7 +1342,7 @@ function renderizarTabelaSessoesRevisaoPendentesKanban(caminho) {
     tbody.innerHTML = pendentes.map(item => {
         const s = item.sessao;
         return '<tr>' +
-            '<td>' + (nomeParaExibicao(s.quem) || '—') + '</td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(s.quem) || '—') + '</td>' +
             '<td>' + (s.inicio ? new Date(s.inicio).toLocaleString('pt-BR') : '—') + '</td>' +
             '<td>' + (parseFloat(s.duracao) || 0).toFixed(2) + 'h</td>' +
             '<td style="text-align:center; white-space:nowrap;">' +
@@ -1375,7 +1375,7 @@ function renderizarTabelaApontamentosManuaisKanban(caminho) {
             return '<tr>' +
                 '<td>' + formatarDataPrevistaExibicao((s.inicio || '').split('T')[0]) + '</td>' +
                 '<td class="col-centralizada">' + parseFloat(s.duracao).toFixed(1) + 'h</td>' +
-                '<td>' + (s.motivo || '—') + '</td>' +
+                '<td>' + escapeHtml(s.motivo || '—') + '</td>' +
                 '<td style="color:' + cor + '; font-weight:bold;">' + rotulo + '</td>' +
                 '</tr>';
         }).join('');
@@ -1401,7 +1401,7 @@ function renderizarTabelaApontamentosManuaisKanban(caminho) {
         return '<tr>' +
             '<td>' + formatarDataPrevistaExibicao(ap.data) + '</td>' +
             '<td class="col-centralizada">' + ap.horas + 'h</td>' +
-            '<td>' + (ap.motivo || '—') + '</td>' +
+            '<td>' + escapeHtml(ap.motivo || '—') + '</td>' +
             '<td style="color:' + cor + '; font-weight:bold;">' + rotulo + '</td>' +
             '</tr>';
     }).join('');

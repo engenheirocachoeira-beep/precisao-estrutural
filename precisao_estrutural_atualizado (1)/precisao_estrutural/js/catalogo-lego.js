@@ -78,9 +78,9 @@
                 if (modulo === 'tarefas') {
                     tbody.innerHTML += '<tr>' +
                         '<td>L-'+idx+'</td>' +
-                        '<td><input type="text" class="cat-input-nome" id="cat-nome-'+idx+'" value="'+item.nome+'" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px;"></td>' +
+                        '<td><input type="text" class="cat-input-nome" id="cat-nome-'+idx+'" value="'+escapeHtml(item.nome)+'" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px;"></td>' +
                         '<td><input type="number" step="0.1" class="cat-input-pontos" id="cat-pontos-'+idx+'" value="'+(item.pontos || '1.0')+'" style="width:80px; border:1px solid #cbd5e1; border-radius:4px; padding:4px;"></td>' +
-                        '<td><input type="text" class="cat-input-unidade" id="cat-unidade-'+idx+'" value="'+(item.unidade_fisica || '')+'" placeholder="ex: m², kg, m³, un" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px;"></td>' +
+                        '<td><input type="text" class="cat-input-unidade" id="cat-unidade-'+idx+'" value="'+escapeHtml(item.unidade_fisica || '')+'" placeholder="ex: m², kg, m³, un" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px;"></td>' +
                         '<td style="text-align:center; white-space:nowrap;">' +
                         '<button class="btn-secondary" style="padding:4px 8px; margin-right:4px;" title="Salvar" onclick="salvarEdicaoTarefaCatalogo('+idx+')">💾</button>' +
                         '<button class="btn-delete" onclick="deletarLegoItem(\''+modulo+'\','+idx+')">🗑️</button>' +
@@ -89,14 +89,14 @@
                     const pctSugeridoAtual = (item.pct_sugerido !== undefined && item.pct_sugerido !== '') ? item.pct_sugerido : '';
                     tbody.innerHTML += '<tr>' +
                         '<td>L-'+idx+'</td>' +
-                        '<td><b>'+item.nome+'</b></td>' +
+                        '<td><b>'+escapeHtml(item.nome)+'</b></td>' +
                         '<td><input type="number" step="0.01" class="cat-input-pct-sugerido" id="cat-pct-sugerido-'+idx+'" value="'+pctSugeridoAtual+'" placeholder="ex: 10" style="width:90px; border:1px solid #cbd5e1; border-radius:4px; padding:4px;"></td>' +
                         '<td style="text-align:center; white-space:nowrap;">' +
                         '<button class="btn-secondary" style="padding:4px 8px; margin-right:4px;" title="Salvar" onclick="salvarEdicaoEtapaCatalogo('+idx+')">💾</button>' +
                         '<button class="btn-delete" onclick="deletarLegoItem(\''+modulo+'\','+idx+')">🗑️</button>' +
                         '</td></tr>';
                 } else {
-                    tbody.innerHTML += '<tr><td>L-'+idx+'</td><td><b>'+item.nome+'</b></td><td style="text-align:center;"><button class="btn-delete" onclick="deletarLegoItem(\''+modulo+'\','+idx+')">🗑️</button></td></tr>';
+                    tbody.innerHTML += '<tr><td>L-'+idx+'</td><td><b>'+escapeHtml(item.nome)+'</b></td><td style="text-align:center;"><button class="btn-delete" onclick="deletarLegoItem(\''+modulo+'\','+idx+')">🗑️</button></td></tr>';
                 }
             });
         }

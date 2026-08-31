@@ -42,7 +42,8 @@
             p.sort((a, b) => a.nome.localeCompare(b.nome));
             const tbody = document.getElementById('tabela-projetos-arvore-body'); tbody.innerHTML = '';
             p.forEach(proj => {
-                tbody.innerHTML += '<tr class="clickable-row" onclick="abrirProjetoNaArvore(\''+proj.nome+'\')"><td># <strong>'+(proj.prefixo || "PRJ")+'</strong></td><td>'+proj.nome+'</td></tr>';
+                const nomeJs = proj.nome.replace(/'/g, "\\'");
+                tbody.innerHTML += '<tr class="clickable-row" onclick="abrirProjetoNaArvore(\''+nomeJs+'\')"><td># <strong>'+escapeHtml(proj.prefixo || "PRJ")+'</strong></td><td>'+escapeHtml(proj.nome)+'</td></tr>';
             });
         }
 
@@ -231,7 +232,7 @@
             if (no.status === "Aguardando Verificação") badgeClass = "status-verificacao";
             if (no.status === "Finalizada") badgeClass = "status-finalizada";
             if (no.status === "Para revisão") badgeClass = "status-validacao";
-            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;">👤 '+(no.executor ? nomeParaExibicao(no.executor) : '⚠️ sem executor')+'</span>' +
+            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;">👤 '+(no.executor ? escapeHtml(nomeParaExibicao(no.executor)) : '⚠️ sem executor')+'</span>' +
                    '<span class="badge-status '+badgeClass+'" style="font-size:8px; margin-left:6px;">'+(no.status || 'Apontada')+'</span>';
         }
 
@@ -271,7 +272,7 @@
                     (ehFolha
                         ? '<span class="tree-toggle-icon" style="color:#cbd5e1;">' + seta + '</span>'
                         : '<span onclick="event.stopPropagation(); alternarRecolhimentoNo(\''+nKey+'\')" class="tree-toggle-icon">' + seta + '</span>') +
-                    '<span>'+icone+'</span> <span style="font-weight:600; color:#334155;">'+no.nome+'</span>' +
+                    '<span>'+icone+'</span> <span style="font-weight:600; color:#334155;">'+escapeHtml(no.nome)+'</span>' +
                     (ehFolha ? infoInlineNoFolha(no) : '') +
                     '<span style="margin-left:auto; display:flex; flex-shrink:0;">' + botoesAdicionar(path, nivel) + '</span>' +
                     '</div>';
@@ -299,7 +300,7 @@
 
             let html = '<div style="font-weight:bold; color:#0a192f; margin-bottom:12px; display:flex; align-items:center; background:#f0f2f5; padding:6px; border-radius:4px; cursor:pointer;" onclick="visualizarNo(\'raiz\')">' +
                        '<span onclick="event.stopPropagation(); alternarRecolhimentoNo(\'raiz\')" class="tree-toggle-icon">' + setaRaiz + '</span>' +
-                       '<span>🏢 ' + projetoSelecionadoAtivo.toUpperCase() + '</span>' +
+                       '<span>🏢 ' + escapeHtml(projetoSelecionadoAtivo.toUpperCase()) + '</span>' +
                        '<button style="margin-left:auto; background:#00b4d8; color:white; border:none; font-size:10px; padding:2px 6px; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); abrirFormEncaixe(\'etapa\', null)">+ Etapa</button>' +
                        '</div>';
 
@@ -320,8 +321,8 @@
             const pecas = JSON.parse(localStorage.getItem('banco_' + catsPorNivel[nivel] + '_lego')) || [];
             const funcs = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
 
-            let optionsHtml = pecas.map(p => '<option value="'+p.nome+'">'+p.nome+'</option>').join('');
-            let funcsHtml = '<option value="">-- Selecione --</option>' + funcs.map(f => '<option value="'+f.nome+'">'+nomeParaExibicao(f.nome)+'</option>').join('');
+            let optionsHtml = pecas.map(p => '<option value="'+escapeHtml(p.nome)+'">'+escapeHtml(p.nome)+'</option>').join('');
+            let funcsHtml = '<option value="">-- Selecione --</option>' + funcs.map(f => '<option value="'+escapeHtml(f.nome)+'">'+escapeHtml(nomeParaExibicao(f.nome))+'</option>').join('');
             let indicesHtml = relacaoIndicesDesempenho.map(i => '<option value="'+i+'">'+i+'</option>').join('');
 
             let onchangeNome = nivel === 'tarefa' ? 'atualizarUnidadeFisicaTarefa()' : '';
@@ -525,16 +526,16 @@
                            '</div>' +
                            '<div class="form-grid" style="margin-top:14px;">' +
                            '<div class="form-group col-12" style="margin-top:14px;"><label>Nome Oficial da Obra:</label>' +
-                           '<input type="text" value="' + projetoSelecionadoAtivo + '" readonly style="width:100%; background:#e2e8f0;">' +
+                           '<input type="text" value="' + escapeHtml(projetoSelecionadoAtivo) + '" readonly style="width:100%; background:#e2e8f0;">' +
                            '</div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Área Total Comercial (m²):</label><input type="number" value="'+(projCadastro ? (projCadastro.area || 0) : 0)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Valor Contratado Líquido (R$):</label><input type="text" value="'+formatarMoeda(valorContratadoLiquido)+'" readonly style="background:#e2e8f0;" title="Valor do contrato menos impostos (% definido na Distribuição de Custos deste projeto)"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Fator de Esbeltez ($F_{esb}$):</label><input type="number" id="edit-p-esb" step="0.1" value="'+(pObj.f_esb || 1.0)+'"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Sensibilidade Analista ($F_{analista}$):</label><input type="number" id="edit-p-sens" step="0.1" value="'+(pObj.f_analista || 1.0)+'"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor:</label><input type="text" value="'+supervisorAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Analista:</label><input type="text" value="'+analistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Detalhista:</label><input type="text" value="'+detalhistaAtual+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Número de Pavimentos:</label><input type="text" value="'+(projCadastro ? (projCadastro.pavimentos || '—') : '—')+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor:</label><input type="text" value="'+escapeHtml(supervisorAtual)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Analista:</label><input type="text" value="'+escapeHtml(analistaAtual)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Detalhista:</label><input type="text" value="'+escapeHtml(detalhistaAtual)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Número de Pavimentos:</label><input type="text" value="'+escapeHtml(projCadastro ? (projCadastro.pavimentos || '—') : '—')+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Área, Valor, Analista, Supervisor, Detalhista e Número de Pavimentos são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
                            '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#00b4d8;">📐 Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
                            '</div></div>' +
@@ -553,7 +554,7 @@
                        '<div class="form-section">' +
                        '<div class="form-section-title">ℹ️ Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
                        '<div class="form-grid" style="margin-top:8px;">' +
-                       '<div class="form-group col-12"><label>Componente Vinculado:</label><input type="text" value="' + no.nome + '" readonly style="background:#e2e8f0;"></div>';
+                       '<div class="form-group col-12"><label>Componente Vinculado:</label><input type="text" value="' + escapeHtml(no.nome) + '" readonly style="background:#e2e8f0;"></div>';
 
             if(nivel === 'setor') {
                 // Item 10 (prompt_gemini.md §14, leva 4): mesma lógica
@@ -595,8 +596,8 @@
             const ehNoDeExecucao = (nivel === 'tarefa') || ehFolha;
 
             if (ehNoDeExecucao) {
-                let fExecs = '<option value="" '+(!no.executor?"selected":"")+'>-- Selecione --</option>' + funcs.map(f => '<option value="'+f.nome+'" '+(f.nome===no.executor?"selected":"")+'>'+nomeParaExibicao(f.nome)+'</option>').join('');
-                let fResps = '<option value="" '+(!no.responsavel?"selected":"")+'>-- Selecione --</option>' + funcs.map(f => '<option value="'+f.nome+'" '+(f.nome===no.responsavel?"selected":"")+'>'+nomeParaExibicao(f.nome)+'</option>').join('');
+                let fExecs = '<option value="" '+(!no.executor?"selected":"")+'>-- Selecione --</option>' + funcs.map(f => '<option value="'+escapeHtml(f.nome)+'" '+(f.nome===no.executor?"selected":"")+'>'+escapeHtml(nomeParaExibicao(f.nome))+'</option>').join('');
+                let fResps = '<option value="" '+(!no.responsavel?"selected":"")+'>-- Selecione --</option>' + funcs.map(f => '<option value="'+escapeHtml(f.nome)+'" '+(f.nome===no.responsavel?"selected":"")+'>'+escapeHtml(nomeParaExibicao(f.nome))+'</option>').join('');
 
                 // Item 15 (prompt_gemini.md §14, leva 4): "Custo Máx
                 // Teto" deixa de ser digitado à mão — passa a ser o
@@ -648,7 +649,7 @@
                         '<div class="form-group col-3" style="margin-top:6px;"><label>Custo Máx Teto:</label><input type="text" value="' + formatarMoeda(custoMaxCalculado) + '" readonly style="background:#e2e8f0;" title="Calculado a partir da Verba desta Tarefa na Distribuição de Custos — não é mais editável aqui."></div>' +
                         '<div class="form-group col-3" style="margin-top:6px;"><label>Horas Limite:</label><input type="text" value="' + hLimiteMax + 'h" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
                         '<div class="form-group col-4" style="margin-top:6px;"><label>Quantidade Física:</label><input type="number" id="edit-t-qtd" value="' + (no.qtd_fisica || 0) + '"'+disabledSeTravada+'></div>' +
-                        '<div class="form-group col-2" style="margin-top:6px;"><label>Unidade:</label><input type="text" value="' + buscarUnidadeFisicaDoCatalogo(no.nome) + '" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
+                        '<div class="form-group col-2" style="margin-top:6px;"><label>Unidade:</label><input type="text" value="' + escapeHtml(buscarUnidadeFisicaDoCatalogo(no.nome)) + '" readonly style="background:#e2e8f0; font-weight:bold; color:#1e40af;"></div>' +
                         '<div class="form-group col-3" style="margin-top:6px;"><label>Pontos:</label><input type="number" id="edit-t-pontos" value="' + (no.pontos || 0) + '"'+disabledSeTravada+'></div>' +
                         '<div class="form-group col-3" style="margin-top:6px;"><label>Verba (R$):</label><input type="number" id="edit-t-verba" value="' + (no.verba || 0) + '"'+disabledSeTravada+'></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Status Operacional:</label><select id="edit-t-status" style="background:white;"'+disabledSeTravada+'>' +

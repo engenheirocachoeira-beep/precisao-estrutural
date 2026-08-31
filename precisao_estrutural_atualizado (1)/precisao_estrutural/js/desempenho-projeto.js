@@ -1197,6 +1197,6 @@ function nomeExecutorExibicao(nome) {
     return typeof nomeParaExibicao === 'function' ? nomeParaExibicao(nome) : nome;
 }
 
-function escapeHtml(s) {
-    return String(s === undefined || s === null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+// escapeHtml() foi movida pra core.js (auditoria de segurança,
+// 2026-08-26) — carregado antes deste arquivo, e agora usada por todo
+// o app, não só aqui.

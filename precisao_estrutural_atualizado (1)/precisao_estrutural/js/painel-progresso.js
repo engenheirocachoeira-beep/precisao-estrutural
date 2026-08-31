@@ -145,7 +145,7 @@ function renderizarPainelProgresso() {
 
         if (etapas.length === 0) {
             return '<div style="margin-bottom:20px;">' +
-                '<div style="font-weight:600; font-size:14px; margin-bottom:8px;">' + proj.nome + '</div>' +
+                '<div style="font-weight:600; font-size:14px; margin-bottom:8px;">' + escapeHtml(proj.nome) + '</div>' +
                 '<div style="font-size:11px; color:#94a3b8;">Sem etapas cadastradas ainda.</div>' +
                 '</div>';
         }
@@ -153,18 +153,18 @@ function renderizarPainelProgresso() {
         const segmentos = etapas.map(e => {
             const pctExibicao = Math.max(0, Math.min(100, Math.round(e.percentual)));
             const corTexto = pctExibicao > 50 ? '#ffffff' : '#0f223f';
-            const tituloTooltip = (e.localizacaoAtual ? (e.etapa + ' — ' + e.localizacaoAtual) : e.etapa).replace(/"/g, '&quot;');
+            const tituloTooltip = escapeHtml(e.localizacaoAtual ? (e.etapa + ' — ' + e.localizacaoAtual) : e.etapa);
             return '<div style="flex:1; min-width:0;" title="' + tituloTooltip + '">' +
                 '<div style="height:26px; background:#e2e8f0; border-radius:4px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center;">' +
                 '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pctExibicao + '%; background:#10b981;"></div>' +
                 '<span style="position:relative; font-size:11px; font-weight:bold; color:' + corTexto + ';">' + pctExibicao + '%</span>' +
                 '</div>' +
-                '<div style="font-size:11px; color:#64748b; margin-top:4px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + e.etapa.replace(/"/g, '&quot;') + '">' + e.etapa + '</div>' +
+                '<div style="font-size:11px; color:#64748b; margin-top:4px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + escapeHtml(e.etapa) + '">' + escapeHtml(e.etapa) + '</div>' +
                 '</div>';
         }).join('');
 
         return '<div style="margin-bottom:24px;">' +
-            '<div style="font-weight:600; font-size:14px; margin-bottom:8px;">' + proj.nome + '</div>' +
+            '<div style="font-weight:600; font-size:14px; margin-bottom:8px;">' + escapeHtml(proj.nome) + '</div>' +
             '<div style="display:flex; gap:4px;">' + segmentos + '</div>' +
             '</div>';
     }).join('');
