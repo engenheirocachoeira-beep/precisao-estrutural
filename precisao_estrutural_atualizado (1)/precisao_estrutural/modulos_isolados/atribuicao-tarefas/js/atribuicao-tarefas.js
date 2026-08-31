@@ -469,9 +469,9 @@ function editarDataLimiteTarefa(inputEl) {
 }
 
 function construirOpcoesExecutor(funcionarios, selecionado, rotuloPlaceholder) {
-    let html = '<option value="">' + (rotuloPlaceholder || 'Sem executor') + '</option>';
+    let html = '<option value="">' + escapeHtml(rotuloPlaceholder || 'Sem executor') + '</option>';
     funcionarios.forEach(f => {
-        html += '<option value="' + f.nome + '"' + (f.nome === selecionado ? ' selected' : '') + '>' + nomeParaExibicao(f.nome) + '</option>';
+        html += '<option value="' + escapeHtml(f.nome) + '"' + (f.nome === selecionado ? ' selected' : '') + '>' + escapeHtml(nomeParaExibicao(f.nome)) + '</option>';
     });
     return html;
 }
@@ -507,7 +507,7 @@ function abrirFiltroColuna(event, campo) {
 
     html += valores.map(v => {
         const marcado = selecionados === null || selecionados.has(v);
-        return '<label><input type="checkbox" data-valor="' + encodeURIComponent(v) + '" ' + (marcado ? 'checked' : '') + ' onchange="alternarValorFiltroColuna(\'' + campo + '\', this)"> ' + valorParaExibicao(campo, v) + '</label>';
+        return '<label><input type="checkbox" data-valor="' + encodeURIComponent(v) + '" ' + (marcado ? 'checked' : '') + ' onchange="alternarValorFiltroColuna(\'' + campo + '\', this)"> ' + escapeHtml(valorParaExibicao(campo, v)) + '</label>';
     }).join('');
 
     painel.innerHTML = html;
@@ -687,7 +687,7 @@ function renderizarPainelAtribuicaoTarefas() {
         const executorJs = t.executor.replace(/'/g, "\\'");
         const indicadorSessao = t.sessaoAtiva ? '🔴 ' : '';
         const estiloAlerta = t.temAlerta ? ' style="background:#fef2f2; color:#b91c1c; font-weight:bold; cursor:pointer;"' : ' style="cursor:pointer;"';
-        const tituloAlerta = t.temAlerta ? ' title="' + t.motivoAlerta.replace(/"/g, '&quot;') + '"' : ' title="Ver/editar sessões de trabalho"';
+        const tituloAlerta = t.temAlerta ? ' title="' + escapeHtml(t.motivoAlerta) + '"' : ' title="Ver/editar sessões de trabalho"';
         const iconeAlerta = t.temAlerta ? '⚠️ ' : '';
 
         // Data de Início: editável só quando dá pra calcular fila (tem
@@ -726,7 +726,7 @@ function renderizarPainelAtribuicaoTarefas() {
         // Só tarefas com executor atribuído são arrastáveis — "Sem
         // Executor" não tem ordem_fila de verdade pra reordenar.
         const arrastavel = t.executor
-            ? ' draggable="true" ondragstart="atDragStart(event, \'' + caminhoJs + '\', \'' + executorJs + '\')" ondragover="atDragOver(event, \'' + executorJs + '\')" ondrop="atDrop(event, \'' + caminhoJs + '\', \'' + executorJs + '\')" title="Arraste pra reordenar a fila de ' + nomeParaExibicao(t.executor) + '"'
+            ? ' draggable="true" ondragstart="atDragStart(event, \'' + caminhoJs + '\', \'' + executorJs + '\')" ondragover="atDragOver(event, \'' + executorJs + '\')" ondrop="atDrop(event, \'' + caminhoJs + '\', \'' + executorJs + '\')" title="Arraste pra reordenar a fila de ' + escapeHtml(nomeParaExibicao(t.executor)) + '"'
             : '';
 
         // Destaque de "Aguardando Verificação" pro Analista — substitui
@@ -748,11 +748,11 @@ function renderizarPainelAtribuicaoTarefas() {
         const localizacaoSemTarefa = partesLocalizacaoLinha.length > 1 ? partesLocalizacaoLinha.slice(0, -1).join(' › ') : '—';
 
         return '<tr data-grupo-pav="' + t.grupoPav + '" data-valor-verba-pav="' + t.valorVerbaPav + '" data-custo-hora="' + t.custoHora + '"' + arrastavel + estiloLinha + '>' +
-            '<td>' + t.projeto + '</td>' +
-            '<td style="color:#64748b;">' + localizacaoSemTarefa + '</td>' +
+            '<td>' + escapeHtml(t.projeto) + '</td>' +
+            '<td style="color:#64748b;">' + escapeHtml(localizacaoSemTarefa) + '</td>' +
             celulaDataInicio +
             celulaDataLimite +
-            '<td>' + t.tarefa + '</td>' +
+            '<td>' + escapeHtml(t.tarefa) + '</td>' +
             '<td class="col-centralizada"><input type="number" step="0.1" value="' + t.pontos + '" class="at-input-pontos" data-caminho="' + t.caminho + '" style="width:55px; text-align:center; border:1px solid #cbd5e1; border-radius:4px; padding:2px;" onchange="editarPontosTarefaAtribuicao(this)"></td>' +
             '<td class="at-pontos-maximo col-centralizada">' + t.pontosMaximo.toFixed(1) + '</td>' +
             '<td><select data-caminho="' + t.caminho + '" style="width:100%;" onchange="atribuirExecutorTarefa(this)"' + (nivelAtualLinha === 'analista' ? ' disabled title="Analista não pode mais atribuir executor — peça pro Supervisor ou Administrador"' : '') + '>' + construirOpcoesExecutor(funcionarios, t.executor) + '</select></td>' +
@@ -1029,7 +1029,7 @@ function renderizarEditorSessoes(caminho) {
     if (!tarefa) { fecharEditorSessoes(); return; }
 
     const caminhoJs = caminho.replace(/'/g, "\\'");
-    let html = '<div style="font-weight:bold; font-size:12px; margin-bottom:8px; padding:0 4px;">Sessões de Trabalho — ' + tarefa.nome + '</div>';
+    let html = '<div style="font-weight:bold; font-size:12px; margin-bottom:8px; padding:0 4px;">Sessões de Trabalho — ' + escapeHtml(tarefa.nome) + '</div>';
 
     if (tarefa.sessao_ativa_inicio) {
         html += '<div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:8px; margin-bottom:8px; font-size:11px;">' +

@@ -464,7 +464,13 @@ function formatarValorColuna(tipo, valor) {
     if (tipo === 'moeda') return 'R$ ' + parseFloat(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (tipo === 'percentual') return parseFloat(valor).toFixed(0) + '%';
     if (tipo === 'data') return valor.split('-').reverse().join('/');
-    return valor;
+    // Auditoria de segurança (2026-08-26): esse é o "tipo texto" padrão
+    // — nome de projeto/tarefa/cliente/executor etc. — o único caso
+    // aqui que carrega texto livre digitado pelo usuário, então é o
+    // único que precisa passar por escapeHtml() antes de virar célula
+    // de tabela (os outros `return` acima só devolvem número/data já
+    // formatados, sem risco).
+    return escapeHtml(valor);
 }
 
 // Junta filtro + agrupamento + seleção de colunas — o que a UI chama pra
@@ -635,7 +641,7 @@ function renderizarSeletorVisoesRelatorio() {
     const sel = document.getElementById('rel-seletor-visao');
     const valorAtual = sel.value;
     sel.innerHTML = '<option value="">-- Nova consulta (sem visão salva) --</option>' +
-        visoes.map(v => '<option value="' + v.id + '">' + (v.fabrica ? '⭐ ' : '') + v.nome + '</option>').join('');
+        visoes.map(v => '<option value="' + v.id + '">' + (v.fabrica ? '⭐ ' : '') + escapeHtml(v.nome) + '</option>').join('');
     sel.value = valorAtual;
 }
 
@@ -719,7 +725,7 @@ function renderizarOpcoesFiltroRelatorio() {
         if (!sel) return;
         const valorAtual = sel.value;
         const rotulo = (v) => campo === 'executor' ? nomeParaExibicao(v) : v;
-        sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + v + '">' + rotulo(v) + '</option>').join('');
+        sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(rotulo(v)) + '</option>').join('');
         sel.value = valorAtual;
     });
 
@@ -959,7 +965,7 @@ function renderizarSeletorVisoesRelatorioCustos() {
     if (!sel) return;
     const valorAtual = sel.value;
     sel.innerHTML = '<option value="">-- Nova consulta (sem visão salva) --</option>' +
-        visoes.map(v => '<option value="' + v.id + '">' + v.nome + '</option>').join('');
+        visoes.map(v => '<option value="' + v.id + '">' + escapeHtml(v.nome) + '</option>').join('');
     sel.value = valorAtual;
 }
 
@@ -1019,7 +1025,7 @@ function renderizarOpcoesFiltroRelatorioCustos() {
         if (!sel) return;
         const valorAtual = sel.value;
         const rotulo = (v) => campo === 'executor' ? nomeParaExibicao(v) : v;
-        sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + v + '">' + rotulo(v) + '</option>').join('');
+        sel.innerHTML = '<option value="">-- Todos --</option>' + distintos(campo).map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(rotulo(v)) + '</option>').join('');
         sel.value = valorAtual;
     });
 }
@@ -1224,7 +1230,7 @@ function renderizarLinhaArvoreCustoRelatorio(no, nivelIndent, uidPai) {
     let html = '<tr id="rc-' + uid + '"' + (uidPai ? ' data-pai-custo="' + uidPai + '"' : '') +
         (nivelIndent === 0 ? '' : ' style="display:none;"') + '>' +
         '<td style="padding-left:' + indent + 'px;' + (temFilhos ? ' cursor:pointer;' : '') + '"' + (temFilhos ? ' onclick="alternarGrupoCustoRelatorio(\'' + uid + '\')"' : '') + '>' +
-        '<span class="tree-toggle-icon"' + (temFilhos ? '' : ' style="color:#cbd5e1;"') + '>' + seta + '</span> ' + nomeExibicao +
+        '<span class="tree-toggle-icon"' + (temFilhos ? '' : ' style="color:#cbd5e1;"') + '>' + seta + '</span> ' + escapeHtml(nomeExibicao) +
         '</td>' + celulasNiveis +
         '</tr>';
 
@@ -1288,7 +1294,7 @@ function renderizarResumoExecutorRelatorioCustos(linhasFiltradas) {
         totalHoras += dados.horas;
         totalCusto += dados.custo;
         return '<tr>' +
-            '<td>' + nomeParaExibicao(executor) + '</td>' +
+            '<td>' + escapeHtml(nomeParaExibicao(executor)) + '</td>' +
             '<td class="col-centralizada">' + formatarHorasHHMM(dados.horas) + '</td>' +
             '<td style="text-align:right;">' + formatarValorColuna('moeda', dados.custo) + '</td>' +
             '</tr>';

@@ -76,7 +76,7 @@ function renderizarTabelaFeriadosCustomizados() {
 
     tbody.innerHTML = lista.map((f, idx) => {
         const [ano, mes, dia] = f.data.split('-');
-        return '<tr><td>' + dia + '/' + mes + '/' + ano + '</td><td>' + f.nome + '</td>' +
+        return '<tr><td>' + dia + '/' + mes + '/' + ano + '</td><td>' + escapeHtml(f.nome) + '</td>' +
             '<td style="text-align:center;"><button class="btn-delete" onclick="deletarFeriadoCustomizado(' + idx + ')">🗑️</button></td></tr>';
     }).join('');
 }

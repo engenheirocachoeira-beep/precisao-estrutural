@@ -81,7 +81,7 @@ function renderizarTabelaFeriadosCustomizados() {
     tbody.innerHTML = lista.map((f, idx) => {
         return '<tr>' +
             '<td><input type="date" value="' + f.data + '" style="border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'data\', this.value)"></td>' +
-            '<td><input type="text" value="' + f.nome.replace(/"/g, '&quot;') + '" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'nome\', this.value)"></td>' +
+            '<td><input type="text" value="' + escapeHtml(f.nome) + '" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'nome\', this.value)"></td>' +
             '<td style="text-align:center;"><button class="btn-delete" onclick="deletarFeriadoCustomizado(' + idx + ')">🗑️</button></td></tr>';
     }).join('');
 }

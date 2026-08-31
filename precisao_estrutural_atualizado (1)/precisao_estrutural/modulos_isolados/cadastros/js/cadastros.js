@@ -205,7 +205,7 @@ function renderizarTabelaClientes() {
     // implícito de cliente/funcionário/projeto em todo lugar. Testado
     // isolado antes de aplicar — ver
     // /home/claude/testes/teste_cadastros_indice_correto.js.
-    c.forEach((cli, idx) => { const nomeJs = cli.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarClienteParaEdicao('${nomeJs}')"><td>C-${String(idx + 1).padStart(3, '0')}</td><td><strong>${cli.nome}</strong></td><td>${cli.cnpj || ''}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarCliente('${nomeJs}')">🗑️</button></td></tr>`; });
+    c.forEach((cli, idx) => { const nomeJs = cli.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarClienteParaEdicao('${nomeJs}')"><td>C-${String(idx + 1).padStart(3, '0')}</td><td><strong>${escapeHtml(cli.nome)}</strong></td><td>${escapeHtml(cli.cnpj || '')}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarCliente('${nomeJs}')">🗑️</button></td></tr>`; });
 }
 function salvarCliente() {
     // Item 17 (prompt_gemini.md §14, leva 4): mesmo .trim() aplicado em
@@ -248,7 +248,7 @@ function renderizarTabelaFuncionarios() {
         const valorHoraAtual = typeof valorHoraVigente === 'function' ? valorHoraVigente(func.nome, hojeISO) : 0;
         const valorHoraExibicao = 'R$ ' + valorHoraAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
         const formaPagamentoExibicao = func.forma_pagamento === 'comissionado' ? 'Comissionado' : 'Por Hora';
-        t.innerHTML += `<tr class="clickable-row" onclick="carregarFuncionarioParaEdicao('${nomeJs}')"><td>${func.cpf}</td><td><strong>${func.nome}</strong></td><td>${func.codinome || '—'}</td><td>${func.cargo}</td><td>${func.nivel}</td><td>${formaPagamentoExibicao}</td><td>${valorHoraExibicao}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarFuncionario('${nomeJs}')">🗑️</button></td></tr>`;
+        t.innerHTML += `<tr class="clickable-row" onclick="carregarFuncionarioParaEdicao('${nomeJs}')"><td>${escapeHtml(func.cpf)}</td><td><strong>${escapeHtml(func.nome)}</strong></td><td>${escapeHtml(func.codinome || '—')}</td><td>${escapeHtml(func.cargo)}</td><td>${escapeHtml(func.nivel)}</td><td>${formaPagamentoExibicao}</td><td>${valorHoraExibicao}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarFuncionario('${nomeJs}')">🗑️</button></td></tr>`;
     });
 }
 function salvarFuncionario() {
@@ -372,14 +372,14 @@ function renderizarTabelaProjetos() {
     // nota completa em renderizarTabelaClientes() (cadastros.js), mesmo
     // bug (item 1/5 da Rodada de Comentários da Gerência, ver
     // prompt_gemini.md §12), mesma correção.
-    p.forEach((proj) => { const nomeJs = proj.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarProjetoParaEdicao('${nomeJs}')"><td><strong>${proj.prefixo || '---'}</strong></td><td>${proj.nome}</td><td>${proj.cliente}</td><td>${proj.analista ? nomeParaExibicao(proj.analista) : '—'}</td><td>${proj.supervisor ? nomeParaExibicao(proj.supervisor) : '—'}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarProjeto('${nomeJs}')">🗑️</button></td></tr>`; });
+    p.forEach((proj) => { const nomeJs = proj.nome.replace(/'/g, "\\'"); t.innerHTML += `<tr class="clickable-row" onclick="carregarProjetoParaEdicao('${nomeJs}')"><td><strong>${escapeHtml(proj.prefixo || '---')}</strong></td><td>${escapeHtml(proj.nome)}</td><td>${escapeHtml(proj.cliente)}</td><td>${proj.analista ? escapeHtml(nomeParaExibicao(proj.analista)) : '—'}</td><td>${proj.supervisor ? escapeHtml(nomeParaExibicao(proj.supervisor)) : '—'}</td><td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-delete" onclick="deletarProjeto('${nomeJs}')">🗑️</button></td></tr>`; });
 }
 function alimentarDropdownsProjeto() {
     const cl = JSON.parse(localStorage.getItem('banco_clientes')) || []; const fu = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
     const dc = document.getElementById('proj-cliente'); const da = document.getElementById('proj-analista'); const ds = document.getElementById('proj-supervisor'); const dd = document.getElementById('proj-detalhista');
-    dc.innerHTML = '<option value="">-- Selecione o Cliente --</option>'; cl.forEach(c => dc.innerHTML += `<option value="${c.nome}">${c.nome}</option>`);
+    dc.innerHTML = '<option value="">-- Selecione o Cliente --</option>'; cl.forEach(c => dc.innerHTML += `<option value="${escapeHtml(c.nome)}">${escapeHtml(c.nome)}</option>`);
     da.innerHTML = '<option value="">-- Selecione --</option>'; ds.innerHTML = '<option value="">-- Selecione --</option>'; dd.innerHTML = '<option value="">-- Selecione --</option>';
-    fu.forEach(f => { da.innerHTML += `<option value="${f.nome}">${nomeParaExibicao(f.nome)}</option>`; ds.innerHTML += `<option value="${f.nome}">${nomeParaExibicao(f.nome)}</option>`; dd.innerHTML += `<option value="${f.nome}">${nomeParaExibicao(f.nome)}</option>`; });
+    fu.forEach(f => { const nomeAttr = escapeHtml(f.nome), nomeTexto = escapeHtml(nomeParaExibicao(f.nome)); da.innerHTML += `<option value="${nomeAttr}">${nomeTexto}</option>`; ds.innerHTML += `<option value="${nomeAttr}">${nomeTexto}</option>`; dd.innerHTML += `<option value="${nomeAttr}">${nomeTexto}</option>`; });
 }
 
 // --- E-MAILS DOS RESPONSÁVEIS (lado do CLIENTE) — item 4 da Rodada de
@@ -440,7 +440,7 @@ function renderizarTabelaEtapasProjeto() {
     }
 
     container.innerHTML = projTempEtapasDefault.map((nome, idx) => {
-        const opcoes = etapasLego.map(e => '<option value="' + e.nome.replace(/"/g, '&quot;') + '"' + (e.nome === nome ? ' selected' : '') + '>' + e.nome + '</option>').join('');
+        const opcoes = etapasLego.map(e => '<option value="' + escapeHtml(e.nome) + '"' + (e.nome === nome ? ' selected' : '') + '>' + escapeHtml(e.nome) + '</option>').join('');
         return '<div style="display:flex; align-items:center; gap:5px; padding:4px 6px; border:1px solid #e2e8f0; border-radius:4px; background:#f8fafc;">' +
             '<select style="flex:1; min-width:0; padding:3px 4px; font-size:12px; background:white; border:1px solid #cbd5e1; border-radius:3px;" onchange="alterarEtapaNaLinhaProjeto(' + idx + ', this.value)">' + opcoes + '</select>' +
             '<button class="btn-delete" style="flex-shrink:0; padding:2px 6px;" onclick="removerEtapaProjeto(' + idx + ')">🗑️</button>' +
@@ -495,7 +495,7 @@ function renderizarTabelaEmailsResponsaveisProjeto() {
     tbody.innerHTML = projTempEmailsResponsaveis.map((item, idx) => {
         const email = typeof item === 'string' ? item : item.email;
         const cargo = typeof item === 'string' ? '' : (item.cargo || '');
-        return '<tr><td>' + email + '</td><td>' + (cargo || '—') + '</td><td style="text-align:center;"><button class="btn-delete" onclick="removerEmailResponsavelProjeto(' + idx + ')">🗑️</button></td></tr>';
+        return '<tr><td>' + escapeHtml(email) + '</td><td>' + escapeHtml(cargo || '—') + '</td><td style="text-align:center;"><button class="btn-delete" onclick="removerEmailResponsavelProjeto(' + idx + ')">🗑️</button></td></tr>';
     }).join('');
 }
 

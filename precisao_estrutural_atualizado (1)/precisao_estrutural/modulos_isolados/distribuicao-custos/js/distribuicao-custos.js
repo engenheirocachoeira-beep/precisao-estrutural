@@ -91,7 +91,7 @@ function carregarPainelDistribuicaoCustos() {
     document.getElementById('dc-portal-busca-projeto').value = '';
 
     const opcoesHtml = '<option value="">-- Selecione um Projeto --</option>' +
-        projetos.map(p => '<option value="' + p.nome + '">' + p.nome + '</option>').join('');
+        projetos.map(p => '<option value="' + escapeHtml(p.nome) + '">' + escapeHtml(p.nome) + '</option>').join('');
     document.getElementById('dc-projeto').innerHTML = opcoesHtml;
 
     document.getElementById('dc-valor-contrato').value = '';
@@ -127,7 +127,7 @@ function renderizarPortalProjetosDistribuicao(projetos) {
     tbody.innerHTML = '';
     projetos.forEach(proj => {
         const nomeJs = proj.nome.replace(/'/g, "\\'");
-        tbody.innerHTML += '<tr class="clickable-row" onclick="escolherProjetoDistribuicaoInicial(\'' + nomeJs + '\')"><td># <strong>' + (proj.prefixo || "PRJ") + '</strong></td><td>' + proj.nome + '</td></tr>';
+        tbody.innerHTML += '<tr class="clickable-row" onclick="escolherProjetoDistribuicaoInicial(\'' + nomeJs + '\')"><td># <strong>' + escapeHtml(proj.prefixo || "PRJ") + '</strong></td><td>' + escapeHtml(proj.nome) + '</td></tr>';
     });
 }
 
@@ -263,15 +263,15 @@ function carregarAbaDistribuicaoAnalista() {
 function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGarantidor, nomeAnalista, pctSugerido) {
     const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
     const verba = (parseFloat(pct) || 0) / 100 * dcaValorAnalistaAtual;
-    const marcador = ehFundoGarantidor ? 'data-fundo-garantidor="1"' : 'data-etapa="' + nomeLinha + '"';
+    const marcador = ehFundoGarantidor ? 'data-fundo-garantidor="1"' : 'data-etapa="' + escapeHtml(nomeLinha) + '"';
     const estiloLinha = ehFundoGarantidor ? ' style="background:#fffbeb;"' : '';
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(vinculado ao projeto)</small>' : nomeLinha;
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i> <small style="color:#94a3b8;">(vinculado ao projeto)</small>' : escapeHtml(nomeLinha);
 
     return '<tr' + estiloLinha + '>' +
         '<td>' + rotulo + '</td>' +
         '<td><input type="number" step="0.01" class="dca-input-pct" ' + marcador + ' value="' + pct + '" style="width:80px;" oninput="recalcularLinhaDistribuicaoAnalista(this)"></td>' +
         '<td class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(verba) + '</td>' +
-        '<td style="color:#334155;">' + nomeParaExibicao(nomeAnalista) + '</td>' +
+        '<td style="color:#334155;">' + escapeHtml(nomeParaExibicao(nomeAnalista)) + '</td>' +
         '</tr>';
 }
 
@@ -571,7 +571,7 @@ function carregarAbaVerbaPavimento() {
 
     tbody.innerHTML = pavimentos.map(p => {
         return '<tr>' +
-            '<td>' + p.nome + '</td>' +
+            '<td>' + escapeHtml(p.nome) + '</td>' +
             '<td>' + p.area.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' m²</td>' +
             '<td>' + p.peso.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
             '<td>' + p.areaEquivalente.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '</td>' +
@@ -654,7 +654,7 @@ function carregarAbaVerbaPorTarefa() {
         const totalizacaoHeader = ' <span style="font-weight:normal; font-size:11px; color:#475569;">' + totalPontosPav.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pts &middot; ' + formatarMoeda(pav.valorVerba) + '</span>';
 
         html += '<tr style="background:#e2e8f0; cursor:pointer;" onclick="alternarGrupoVerbaPorTarefa(\'' + pav.caminho + '\')">' +
-                '<td colspan="6" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + pav.nome + totalizacaoHeader + '</td>' +
+                '<td colspan="6" style="font-weight:bold; color:#0f223f;"><span class="tree-toggle-icon">' + seta + '</span> ' + escapeHtml(pav.nome) + totalizacaoHeader + '</td>' +
                 '</tr>';
 
         pav.tarefas.forEach((tarefa, idxTarefa) => {
@@ -668,7 +668,7 @@ function carregarAbaVerbaPorTarefa() {
 
             html += '<tr class="vt-linha-tarefa" data-grupo="' + pav.caminho + '" data-valor-verba="' + pav.valorVerba + '"' + estiloOcultoSeRecolhido + '>' +
                 '<td></td>' +
-                '<td>' + tarefa.nome + '</td>' +
+                '<td>' + escapeHtml(tarefa.nome) + '</td>' +
                 '<td><select class="vt-select-executor" data-caminho="' + caminhoJs + '" style="min-width:160px;" onchange="atribuirExecutorVerbaPorTarefa(this)"' + (podeAtribuir ? '' : ' disabled title="Só Administrador ou Supervisor podem atribuir executor por aqui"') + '>' + opcoesExecutor + '</select></td>' +
                 '<td class="vt-horas-maximas col-centralizada">—</td>' +
                 '<td><input type="number" step="0.1" class="vt-input-pontos" data-caminho="' + caminhoJs + '" value="' + pontos + '" style="width:80px; border:1px solid #cbd5e1; border-radius:4px; padding:4px;" oninput="recalcularGrupoVerbaPorTarefa(this)" onchange="editarPontosVerbaPorTarefa(this)"></td>' +

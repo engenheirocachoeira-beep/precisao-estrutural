@@ -103,7 +103,7 @@ function carregarPainelDistribuicaoCustos() {
     document.getElementById('dc-portal-busca-projeto').value = '';
 
     const opcoesHtml = '<option value="">-- Selecione um Projeto --</option>' +
-        projetos.map(p => '<option value="' + p.nome + '">' + p.nome + '</option>').join('');
+        projetos.map(p => '<option value="' + escapeHtml(p.nome) + '">' + escapeHtml(p.nome) + '</option>').join('');
     document.getElementById('dc-projeto').innerHTML = opcoesHtml;
 
     document.getElementById('dc-valor-contrato').value = '';

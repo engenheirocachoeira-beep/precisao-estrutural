@@ -10380,3 +10380,65 @@ direto contra produção quase causou um novo desalinhamento pequeno
 (1 cliente a menos) — reforça o que já ficou anotado na parte 59: um
 projeto Firebase separado só pra teste evitaria esse tipo de cuidado
 manual toda vez.
+
+## Retomada em 2026-08-31 (parte 61) — Escapa HTML também em modulos_isolados/ (+ 2 lacunas achadas no processo, uma delas no app principal)
+
+Pedido do usuário: próximo item da lista da auditoria — a correção de
+XSS (parte 57) nunca tinha sido replicada pra `modulos_isolados/` (9
+pastas de páginas de teste isoladas, cada uma com cópia própria de
+`core.js` e arquivos do módulo, com drift pré-existente e conhecido
+em relação ao app principal — não são cópias exatas).
+
+**Execução**: delegado a um agente em background (mesmo padrão da
+parte 57 — achar `innerHTML +=`/`innerHTML =` com campo de texto
+livre e envolver em `escapeHtml(...)`), instruído a: adicionar
+`escapeHtml()` em cada um dos 9 `core.js`; varrer os outros 17
+arquivos (`arvore.js`, `atribuicao-tarefas.js`, `distribuicao-custos.js`
+×2, `feriados.js` ×4, `bi.js`, `cadastros.js`, `catalogo-lego.js`,
+`aprovacoes-calendario.js`, `kanban.js`, `relatorios.js`,
+`apontamento.js` ×3, `importexport.js`) usando os arquivos já
+corrigidos do app principal como referência de critério, sem tentar
+"consertar" o drift em si. Resultado: 22 arquivos tocados (9 `core.js`
++ 13 outros com wraps — os 4 restantes, 3 `apontamento.js` e
+`importexport.js`, confirmados sem `innerHTML` nenhum, igual ao app
+principal), `node --check` limpo em todos.
+
+**Revisão** (antes de commitar, por trás do pedido explícito do
+usuário de eu revisar o resultado do agente): achei 2 lacunas reais
+que o próprio agente sinalizou honestamente como "vale conferir" ou
+que apareceram numa varredura própria minha depois:
+
+1. **Bug real no APP PRINCIPAL, não só nos isolados**: o agente
+   reportou ter deixado o `<option>` do dropdown `#dc-projeto`
+   (`js/distribuicao-custos.js`) sem escapar "pra bater com o app
+   principal" — só que o app principal TAMBÉM tinha esse ponto sem
+   escapar, um ponto que passou batido na varredura da parte 57
+   (provavelmente porque o grep de então não cobria esse padrão
+   específico de `<option>` fora de uma `<td>`). Corrigido nos 3
+   lugares: `js/distribuicao-custos.js` (app principal) e as 2 cópias
+   em `modulos_isolados/`.
+2. **Lacuna minha, não do agente**: pedi ao agente pra inserir a
+   função `escapeHtml()` em cada `core.js`, mas esqueci de pedir pra
+   ele também varrer os USOS de `innerHTML` dentro do próprio
+   `core.js` — que no app principal tinha 3 pontos corrigidos
+   (cabeçalho do usuário logado + dropdown de "modo teste"). Como
+   todos os 9 `core.js` isolados compartilham essa mesma seção
+   idêntica (só a linha muda por causa do drift em outras partes do
+   arquivo), corrigi os 9 de uma vez com um script Node fazendo a
+   troca de string exata, replicando o padrão do app principal
+   (`escapeHtml(nomeParaExibicao(usuarioLogado.nome))` no cabeçalho;
+   `escapeHtml(f.nome)`/`escapeHtml(nomeParaExibicao(f.nome))`/
+   `escapeHtml(f.nivel)` no dropdown de identidade de teste — e troquei
+   o `f.nome.replace(/"/g, '&quot;')` parcial, que só escapava aspas,
+   pelo `escapeHtml()` completo).
+
+**Verificação**: `node --check` limpo nos 24 arquivos tocados ao todo
+(22 do agente + `js/distribuicao-custos.js` do app principal + as 2
+correções extras nos isolados). Varredura própria com os mesmos 2
+padrões de grep da parte 57, agora cobrindo `modulos_isolados/` — nada
+restante sem escapar. Testado no navegador: `modulos_isolados/cadastros/`
+carrega e a tabela de Clientes renderiza corretamente (inclusive um
+nome de cliente com "&" no meio, sem quebrar nada). Um erro de console
+pré-existente (`renderizarListaLegoComum is not defined`) foi
+confirmado, via `git diff`, como fora de qualquer linha tocada — não
+relacionado a esta mudança.
