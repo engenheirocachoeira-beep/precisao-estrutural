@@ -10442,3 +10442,63 @@ nome de cliente com "&" no meio, sem quebrar nada). Um erro de console
 pré-existente (`renderizarListaLegoComum is not defined`) foi
 confirmado, via `git diff`, como fora de qualquer linha tocada — não
 relacionado a esta mudança.
+
+## Retomada em 2026-08-31 (parte 62) — Script de verificação de sincronia modulos_isolados/ (sem eliminar a duplicação)
+
+Pedido do usuário: próximo item da lista da auditoria era "eliminar
+duplicação de modulos_isolados/" — mas isso contradiz uma regra já
+registrada no projeto (a duplicação é PROPOSITAL, não mexer sem
+perguntar — ver memória do projeto). Perguntei; usuário pediu pra eu
+sugerir com base em boas práticas. Recomendação: não eliminar a
+duplicação (arriscaria quebrar o propósito de isolamento das páginas
+de teste), e sim automatizar a DETECÇÃO de quando ela fica
+desatualizada — o problema real não é duplicação existir, é confiar na
+memória humana pra replicar manualmente (já falhou antes, ver parte
+39 sobre `relatorios.js`).
+
+**O que foi criado**: `scripts/verificar-sync-modulos-isolados.js` —
+script Node (sem dependência nova) que:
+1. Pra cada `modulos_isolados/*/js/*.js`, acha o arquivo correspondente
+   em `js/` (mesmo nome), extrai toda função nomeada
+   (`function nome(...) {...}`) dos dois lados com um tokenizer simples
+   (rastreia string/comentário pra não deixar uma chave `{`/`}` dentro
+   de string bagunçar a contagem de profundidade), e compara o corpo
+   (normalizado de espaço em branco) de cada função que existe nos
+   DOIS lados. Função só de um lado não conta como problema (pode ser
+   específica do harness ou do app completo) — só quando existe nos
+   dois e o conteúdo diverge.
+2. Compara `estilos.css` de cada pasta contra o `estilos.css`
+   principal (convenção documentada: deveriam ser idênticos).
+3. Não altera nada — só relatório, saída de erro (`process.exitCode = 1`)
+   se achar algo, pra poder ser usado num futuro CI se um dia existir.
+
+**Resultado da primeira rodada — achado maior do que o esperado**:
+rodei contra o estado atual do repo (esperava só achar o resíduo do
+fix de XSS, que já tinha sido replicado corretamente na parte 61) e
+o script achou uma quantidade bem maior de drift genuíno acumulado ao
+longo de várias sessões passadas, não só o caso já conhecido do
+`relatorios.js`:
+- `arvore.js`: 9 funções divergentes; `distribuicao-custos.js`: 17 (nas
+  2 cópias); `core.js`: 4 funções divergentes em praticamente TODAS as
+  9 cópias (inclui a mudança da "reforma das orelhas", parte do
+  redesign 2026-08-25 — nunca propagada); `kanban.js`, `bi.js`,
+  `feriados.js`, `cadastros.js`, `relatorios/core.js`: divergências
+  menores, 1-3 funções cada.
+- `estilos.css`: **todas as 9 cópias divergem** do principal — o
+  principal tem 880 linhas hoje; 8 das 9 cópias têm só 285 (congeladas
+  há muito tempo); a de `relatorios/` tem 671 (mais recente, mas ainda
+  atrás).
+
+Confirmei que não é falso-positivo do script: comparei manualmente o
+corpo de `alternarModulo()` (principal vs. `modulos_isolados/arvore/`)
+e a diferença é real — o principal tem o bloco novo da reforma das
+orelhas que a cópia isolada nunca recebeu.
+
+**Decisão pendente, não tomada nesta rodada**: o script cumpriu o que
+foi pedido (detectar, não corrigir). Dado o tamanho real do drift
+(muito maior do que "replicar umas funções"), decidir se/como corrigir
+fica pro usuário — não fiz a correção em massa sem confirmar escopo
+primeiro.
+
+**Verificação**: `node --check` limpo no script. Rodado contra o repo
+real (só leitura — não altera nenhum arquivo do app).
