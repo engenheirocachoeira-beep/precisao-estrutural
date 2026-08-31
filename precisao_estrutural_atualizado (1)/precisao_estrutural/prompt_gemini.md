@@ -10330,3 +10330,53 @@ primeiro.
 Firebase deve, sempre que possível, testar contra um projeto Firebase
 separado de teste — não direto contra o banco de produção da equipe —
 mesmo em passos que "deveriam" só ler.
+
+## Retomada em 2026-08-31 (parte 60) — Trava de sanidade contra envio de dado incompleto
+
+Pedido do usuário: continuar a lista de sugestões da auditoria; escolhi
+priorizar isto antes dos outros itens, dado o incidente da parte 59 —
+é uma mudança pequena que fecha a porta pro MESMO tipo de acidente
+acontecer de novo por qualquer outro motivo (duas pessoas editando
+junto, aba com storage corrompido, etc.), não só o bug específico já
+corrigido.
+
+**O que faz** (`js/sync-provisorio.js`): antes de qualquer envio pro
+Firebase, `_syncEnviarAgora()` agora compara o snapshot que vai
+mandar contra o último estado conhecido do servidor
+(`_syncUltimoSnapshotServidor`, uma variável nova, mantida atualizada
+por `_syncEscutarMudancasRemotas()` — o listener que já existia pra
+mostrar o banner de "equipe atualizou dados" — e também preenchida
+direto na leitura inicial do boot). Se alguma lista que era "de
+verdade" no servidor (5+ itens) encolher pela metade ou mais no envio,
+o envio é BLOQUEADO (não vai pro Firebase) e aparece um banner
+vermelho fixo no topo da tela convidando a recarregar — em vez de
+sobrescrever silenciosamente o banco real. Sem baseline ainda
+(primeira sincronização, servidor genuinamente vazio) a trava não
+bloqueia nada, senão a configuração inicial da equipe nunca
+conseguiria subir dado nenhum.
+
+O limiar (50%) é deliberadamente frouxo: apagar 1 cliente de 62 (edição
+normal) não dispara nada; sobrar só 2 de 62 (o que aconteceu no
+incidente) dispara.
+
+**Verificação**: `node --check` limpo. Testado ao vivo contra o banco de
+produção de verdade (não um projeto Firebase separado — não tinha um
+disponível; risco assumido conscientemente, com cuidado extra de só
+alterar `banco_clientes`, o de menor risco entre os dados sensíveis):
+1. Truncar `banco_clientes` local pra 2 itens e forçar `_syncEnviarAgora()`
+   → banner de bloqueio apareceu, e uma leitura direta do servidor
+   confirmou que os 62 clientes reais continuavam lá (envio realmente
+   não saiu).
+2. Remover só 1 cliente (61 de 62, edição "normal") → sem bloqueio,
+   envio passou — como o teste realmente enviou pro servidor de
+   produção, restaurei a lista completa de 62 em seguida (usando uma
+   cópia em cache de uma aba anterior, mesmo processo de recuperação
+   da parte 59) e conferi, com um diff completo de todas as 32 chaves
+   entre a cópia boa e o servidor, que ficou tudo idêntico de novo
+   (zero diferenças) antes de encerrar o teste.
+
+**Lição repetida**: mesmo testando uma trava DE segurança, testar
+direto contra produção quase causou um novo desalinhamento pequeno
+(1 cliente a menos) — reforça o que já ficou anotado na parte 59: um
+projeto Firebase separado só pra teste evitaria esse tipo de cuidado
+manual toda vez.

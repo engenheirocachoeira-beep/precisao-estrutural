@@ -90,6 +90,7 @@ let _syncFirebaseRef = null;
 let _syncUltimoEnvioAssinatura = null;
 let _syncAplicandoRemoto = false;      // trava reentrância enquanto grava dados vindos do servidor
 let _syncPullInicialConcluido = false; // trava envios antes da primeira leitura do servidor terminar
+let _syncUltimoSnapshotServidor = null; // último estado conhecido do servidor — baseline pra detectar envio de dado incompleto (ver seção 5)
 
 // ======= 3) OVERLAY E AVISO VISUAL (criados via JS, sem tocar no HTML) =======
 function _syncCriarOverlay() {
@@ -114,6 +115,20 @@ function _syncMostrarBannerAtualizacao() {
     div.id = 'sync-provisorio-banner';
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f97316;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;z-index:99998;cursor:pointer;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;';
     div.textContent = '🔄 A equipe atualizou dados no servidor. Clique aqui pra recarregar e ver a versão mais recente.';
+    div.onclick = function () { location.reload(); };
+    document.body.appendChild(div);
+}
+// Trava de sanidade (ver seção 5, _syncSnapshotPareceIncompleto): banner
+// bem mais chamativo que o de cima, porque aqui o risco é o OPOSTO — não é
+// "tem coisa nova no servidor", é "o que essa aba ia mandar pro servidor
+// ia APAGAR dado de verdade". Só recarregar resolve (busca o estado bom
+// do servidor de novo); não some sozinho.
+function _syncMostrarBannerEnvioBloqueado(motivos) {
+    if (document.getElementById('sync-provisorio-banner-bloqueio')) return;
+    const div = document.createElement('div');
+    div.id = 'sync-provisorio-banner-bloqueio';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;z-index:99999;cursor:pointer;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;';
+    div.textContent = '⚠️ Envio bloqueado por segurança — os dados desta aba parecem incompletos comparados ao servidor (' + motivos.join('; ') + '). Clique aqui pra recarregar e evitar perder dado.';
     div.onclick = function () { location.reload(); };
     document.body.appendChild(div);
 }
@@ -153,6 +168,39 @@ function _syncAplicarSnapshotRemoto(dados) {
 }
 
 // ======= 5) PUSH (local -> servidor) =======
+
+// Trava de sanidade contra o incidente de 2026-08-31 (ver prompt_gemini.md,
+// parte 59): compara o snapshot que ESTAMOS PRESTES A ENVIAR contra o
+// último estado conhecido do servidor. Se alguma lista que era "de
+// verdade" no servidor (>= 5 itens) encolheu à metade ou mais no lado que
+// vamos enviar, é sinal forte de dado incompleto (aba nova ainda sem
+// puxar tudo, storage corrompido, etc.) — não é uma edição normal de
+// usuário (apagar 1 cliente de 62 não dispara isso; "sobrar só 3 de 62"
+// dispara). Sem baseline ainda (`_syncUltimoSnapshotServidor` null —
+// primeira sincronização, servidor genuinamente vazio) não bloqueia nada,
+// senão a configuração inicial da equipe nunca conseguiria subir dado
+// nenhum.
+function _syncSnapshotPareceIncompleto(novoSnapshot) {
+    if (!_syncUltimoSnapshotServidor) return null;
+    const motivos = [];
+    Object.keys(_syncUltimoSnapshotServidor).forEach(function (chave) {
+        let antigo;
+        try { antigo = JSON.parse(_syncUltimoSnapshotServidor[chave]); } catch (e) { return; }
+        if (!Array.isArray(antigo) || antigo.length < 5) return; // só listas "de verdade"
+
+        let novo = [];
+        if (novoSnapshot[chave]) {
+            try { novo = JSON.parse(novoSnapshot[chave]); } catch (e) { novo = []; }
+        }
+        if (!Array.isArray(novo)) novo = [];
+
+        if (novo.length < antigo.length * 0.5) {
+            motivos.push(chave + ': ' + antigo.length + ' → ' + novo.length);
+        }
+    });
+    return motivos.length > 0 ? motivos : null;
+}
+
 function _syncAgendarEnvio() {
     if (!SYNC_PROVISORIO_ATIVO || _syncAplicandoRemoto || !_syncPullInicialConcluido) return;
     if (_syncTimeoutEnvio) clearTimeout(_syncTimeoutEnvio);
@@ -161,6 +209,14 @@ function _syncAgendarEnvio() {
 function _syncEnviarAgora() {
     if (!_syncFirebaseRef) return;
     const snapshot = _syncColetarSnapshotLocal();
+
+    const motivosBloqueio = _syncSnapshotPareceIncompleto(snapshot);
+    if (motivosBloqueio) {
+        console.error('[sync-provisorio] ENVIO BLOQUEADO — dados locais parecem incompletos comparado ao servidor: ' + motivosBloqueio.join('; '));
+        _syncMostrarBannerEnvioBloqueado(motivosBloqueio);
+        return;
+    }
+
     // Assinatura simples (não é hash criptográfico, só evita reenviar o
     // mesmo conteúdo sem necessidade) — tamanho + quantidade de chaves já é
     // suficiente pra esse propósito de reduzir tráfego, não de segurança.
@@ -194,7 +250,12 @@ function _syncEnviarAgora() {
 // ======= 7) ESCUTA DE MUDANÇAS REMOTAS (feitas por outra pessoa) =======
 function _syncEscutarMudancasRemotas() {
     let primeiraNotificacao = true;
-    _syncFirebaseRef.on('value', function () {
+    _syncFirebaseRef.on('value', function (snap) {
+        // Atualiza o baseline SEMPRE (mesmo na primeira notificação, e
+        // mesmo quando a mudança foi um envio nosso) — é o que
+        // _syncSnapshotPareceIncompleto usa pra saber "quão grande o
+        // dado real deveria ser" na hora de decidir se bloqueia um envio.
+        _syncUltimoSnapshotServidor = snap.val();
         if (primeiraNotificacao) { primeiraNotificacao = false; return; } // disparo inicial = nosso próprio estado
         if (_syncAplicandoRemoto) return;
         _syncMostrarBannerAtualizacao();
@@ -265,6 +326,11 @@ function _syncInicializar() {
         _syncFirebaseRef.once('value').then(function (snap) {
             const dados = snap.val();
             _syncPullInicialConcluido = true;
+            // Baseline pra trava de sanidade (seção 5) já sai preenchido
+            // aqui, sem depender do timing assíncrono de
+            // _syncEscutarMudancasRemotas (que também o mantém
+            // atualizado dali em diante).
+            _syncUltimoSnapshotServidor = dados;
             if (dados && Object.keys(dados).length > 0) {
                 _syncAtualizarOverlay('Aplicando dados da equipe...');
                 _syncAplicarSnapshotRemoto(dados);
