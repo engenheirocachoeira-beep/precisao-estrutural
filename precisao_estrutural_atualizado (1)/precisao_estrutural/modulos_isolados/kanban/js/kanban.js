@@ -277,7 +277,9 @@ function alternarAbaKanban(aba) {
 // quem tem pelo menos 1 tarefa finalizada com horas > 0 (produtividade
 // não é uma taxa calculável sem isso — dividiria por zero).
 function calcularRankingProdutividadeExecutores() {
-    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    // Item 5/6/7 (prompt_gemini.md §14, leva 4): usa a versão filtrada
+    // (só projetos que ainda existem no Cadastro), não a bruta.
+    const arvores = obterArvoresProjetosAtivas();
     const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
     const porExecutor = {}; // nome -> {pontos, horas}
 
@@ -462,6 +464,13 @@ function coletarTarefasSobResponsabilidade(arvores, usuarioLogado, todosProjetos
 
     Object.keys(arvores).forEach(nomeProjeto => {
         const projeto = todosProjetos.find(p => p.nome === nomeProjeto);
+        // Item 5/6/7 (prompt_gemini.md §14, leva 4): se o projeto não
+        // existe mais no Cadastro (deletado/renomeado), a árvore é
+        // órfã — pula. Sem isso, Administrador tinha autoridade
+        // "true" por padrão mesmo em projeto órfão (ver abaixo), e é
+        // exatamente por isso que etapas de obras já deletadas/
+        // renomeadas continuavam aparecendo no Kanban do Administrador.
+        if (!projeto) return;
         let temAutoridadeNoProjetoInteiro = false;
         if (usuarioLogado.nivel === 'administrador') temAutoridadeNoProjetoInteiro = true;
         else if (usuarioLogado.nivel === 'supervisor') temAutoridadeNoProjetoInteiro = !!(projeto && projeto.supervisor === usuarioLogado.nome);
@@ -538,7 +547,9 @@ function coletarTarefasParaRevisar(arvores, usuarioLogado, todosFuncionarios, to
 }
 
 function coletarTarefasDoExecutor(nomeExecutor) {
-    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    // Item 5/6/7 (prompt_gemini.md §14, leva 4): usa a versão filtrada
+    // (só projetos que ainda existem no Cadastro), não a bruta.
+    const arvores = obterArvoresProjetosAtivas();
     let lista = [];
 
     // Restrição por projeto (Rodada 3 do controle de acesso — ver

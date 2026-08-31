@@ -514,13 +514,19 @@ function abrirAbaCadastro(modulo) {
         etapas: 'Gestão de ETAPAS',
         setores: 'Gestão de SETORES',
         pavimentos: 'Gestão de PAVIMENTOS',
-        tarefas: 'Gestão de TAREFAS'
+        tarefas: 'Gestão de TAREFAS',
+        feriados: 'Feriados'
     };
     document.getElementById('page-context-title').innerText = titulosPorAba[modulo] || 'Cadastro';
 
     if (modulo === 'clientes') renderizarTabelaClientes();
     else if (modulo === 'funcionarios') renderizarTabelaFuncionarios();
     else if (modulo === 'projetos') renderizarTabelaProjetos();
+    // Pedido do usuário (prompt_gemini.md §14, item 1): Feriados virou
+    // aba do Cadastro em vez de item próprio no menu principal — tela
+    // própria (calendário de feriados), não o padrão genérico de
+    // catálogo (Etapas/Setores/Pavimentos/Tarefas).
+    else if (modulo === 'feriados') carregarPainelFeriados();
     else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
 }
 
@@ -528,6 +534,13 @@ function alternarModulo(modulo) {
     document.getElementById('panel-blank-state').style.display = 'none';
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+
+    // As "orelhas" (Estrutura de Projeto/Custos) só fazem sentido dentro
+    // do fluxo de Projeto — indo pra QUALQUER outro módulo, escondem.
+    // 'arvore' fica de fora daqui de propósito: fecharProjetoAtivoNaArvore()
+    // (chamada logo abaixo) já decide se mostra ou esconde, conforme tinha
+    // ou não um projeto aberto antes.
+    if (modulo !== 'arvore' && typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo('', null);
 
     if (document.getElementById('nav-' + modulo)) document.getElementById('nav-' + modulo).classList.add('active');
 
@@ -549,6 +562,10 @@ function alternarModulo(modulo) {
         document.getElementById('panel-controladoria-global').style.display = 'flex';
         document.getElementById('page-context-title').innerText = "Controladoria - Distribuição Periódica";
         renderizarControladoriaGlobalFechamento();
+    } else if (modulo === 'distribuicao_lucro') {
+        document.getElementById('panel-distribuicao-lucro').style.display = 'flex';
+        document.getElementById('page-context-title').innerText = "Distribuição de Lucro (Estagiários)";
+        carregarPainelDistribuicaoLucro();
     } else if (modulo === 'distribuicao_custos') {
         document.getElementById('panel-distribuicao-custos').style.display = 'flex';
         document.getElementById('page-context-title').innerText = "Distribuição de Custos";
@@ -569,10 +586,6 @@ function alternarModulo(modulo) {
         document.getElementById('panel-relatorios').style.display = 'flex';
         document.getElementById('page-context-title').innerText = "Relatórios";
         carregarPainelRelatorios();
-    } else if (modulo === 'feriados') {
-        document.getElementById('panel-feriados').style.display = 'flex';
-        document.getElementById('page-context-title').innerText = "Feriados";
-        carregarPainelFeriados();
     } else if (modulo === 'cadastro') {
         // Item novo do menu — abre a tela de Cadastro em abas, na
         // última aba usada (ou "clientes" na primeira vez).
@@ -1022,6 +1035,10 @@ function aplicarPermissoesMenu() {
 // pré-seleciona o próprio nome no dropdown (melhoria #7).
 function abrirTelaInicialPorNivel() {
     if (!usuarioLogado) return;
+    if (usuarioLogado.nivel === 'analista' || usuarioLogado.nivel === 'administrador') {
+        alternarModulo('arvore');
+        return;
+    }
     alternarModulo('kanban');
 }
 

@@ -149,6 +149,11 @@ function coletarTodasTarefasDeTodosProjetos() {
     const projetosPermitidos = typeof obterNomesProjetosPermitidos === 'function' ? obterNomesProjetosPermitidos() : null;
 
     Object.keys(arvores).forEach(nomeProjeto => {
+        // Item 7 (prompt_gemini.md §14, leva 4): projeto deletado/
+        // renomeado no Cadastro deixava a árvore órfã aparecendo aqui
+        // mesmo assim — `todosProjetosCadastro` já era carregado
+        // acima mas nunca chegava a ser usado pra filtrar.
+        if (!todosProjetosCadastro.some(p => p.nome === nomeProjeto)) return;
         if (projetosPermitidos && !projetosPermitidos.has(nomeProjeto)) return;
 
         // Item 3 da Rodada de Comentários da Gerência (ver

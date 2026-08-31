@@ -2,11 +2,7 @@
         body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 0.7cm; box-sizing: border-box; }
         
         .browser-window { width: 100%; height: calc(100vh - 1.4cm); background: #ffffff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #d1d5db; }
-        .browser-header { background: #e5e7eb; padding: 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d1d5db; }
-        .circle { width: 12px; height: 12px; border-radius: 50%; }
-        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
-        .browser-tab { background: #ffffff; padding: 6px 20px; border-radius: 6px 6px 0 0; font-size: 11px; color: #4b5563; margin-left: 10px; border: 1px solid #d1d5db; border-bottom: none; }
-        
+
         .app-header { background: #0a192f; color: #ffffff; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #00b4d8; }
         .app-title { font-size: 16px; font-weight: 600; }
         
@@ -99,6 +95,95 @@
         .tab-selector.active { color: #0a192f; border-bottom-color: #00b4d8; }
         .tab-content { display: block; }
         .tab-projeto-header { font-size: 12px; color: #64748b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+
+        /* Pedido do usuário (aba Orçamento / Distribuição de Custos,
+           revisão — a primeira tentativa colocava as PRÓPRIAS abas em
+           cartão numa coluna lateral; não era a intenção): as abas
+           continuam uma barra horizontal normal no topo, como sempre
+           foram. Quem vira "cartão numa coluna de no máximo 50% da
+           tela" é o CONTEÚDO de cada aba — bordas + sombra, largura
+           travada em 50%. "Verba por Tarefa" fica de fora dessa regra
+           (`#conteudo-verba-por-tarefa`, excluída logo abaixo) — ela já
+           tem sua própria grade de cartões (`.vt-grid`, 3 colunas) que
+           precisa da largura cheia pra não ficar espremida; o pedido
+           do usuário foi explícito: "retorne ao status de antes da
+           última alteração". */
+        #dc-conteudo-principal .tab-content {
+            background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            padding: 16px; max-width: 50%; box-sizing: border-box;
+        }
+        #dc-conteudo-principal #conteudo-verba-por-tarefa {
+            background: none; border: none; box-shadow: none; padding: 0; max-width: none;
+        }
+        @media (max-width: 760px) {
+            #dc-conteudo-principal .tab-content { max-width: 100%; }
+        }
+
+        /* Reforma das orelhas do Hub "📁 Projetos" (prompt_gemini.md,
+           retomada 2026-08-25) — pedido do usuário: contornos mais
+           destacados, ícones maiores, com desenho/imagem própria além
+           da descrição. Depois de várias rodadas de mockup (ver
+           memória do projeto), a direção final foi: botão NEUTRO
+           (fundo branco, contorno cinza em repouso) — a cor vem só do
+           ícone real (banco de imagens, Flaticon — ver crédito no
+           rodapé da barra lateral), sem tingir o fundo do botão com
+           uma paleta por orelha (testada e descartada — competia com
+           a cor que cada ícone já trazia). Ativa se destaca com o
+           mesmo par navy+ciano que `.tab-selector.active` já usa em
+           todo o resto do sistema pra "isto está selecionado" — não
+           uma cor nova. Classe própria (`.orelha-btn`, não
+           `.tab-selector`) de propósito: `.tab-selector` continua
+           servindo outras barras de aba do sistema (Distribuição de
+           Custos, Relatório Personalizado) que não fazem parte desta
+           reforma.
+           `#orelhas-projeto-ativo` deixou de usar a classe `.tab-bar`
+           (o sublinhado embaixo não faz sentido pra um grid de
+           botões) — ganhou `.orelhas-bar` própria aqui. */
+        .orelhas-bar { display: flex; gap: 12px; margin-top: -2px; margin-bottom: 16px; flex-wrap: wrap; }
+        .orelha-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+            width: 84px; height: 84px;
+            border: 2px solid #e2e8f0; border-radius: 16px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .orelha-btn img { width: 42px; height: 42px; object-fit: contain; }
+        .orelha-btn-legenda { font-size: 9.5px; font-weight: 700; letter-spacing: .01em; color: #64748b; text-align: center; line-height: 1.15; }
+        .orelha-btn:hover { border-color: #94a3b8; }
+        .orelha-btn.active { border-color: #0a192f; border-width: 3px; box-shadow: 0 0 0 3px rgba(0,180,216,.2), 0 6px 16px -8px rgba(10,25,47,.35); }
+        .orelha-btn.active .orelha-btn-legenda { color: #0a192f; }
+
+        /* Sub-abas de "Detalhamento" (Produtividade/Financeira, ex-2
+           orelhas de topo separadas — unificadas nesta reforma) —
+           mesmo espírito neutro dos `.orelha-btn` acima, um degrau
+           abaixo (sem selo de ícone próprio, só o breadcrumb com o
+           ícone da orelha-mãe, reaproveitado em tamanho pequeno). */
+        .subaba-breadcrumb { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+        .subaba-breadcrumb img { width: 24px; height: 24px; object-fit: contain; }
+        .subaba-breadcrumb b { font-size: 13px; color: #0f223f; }
+        .subaba-pill-track { display: inline-flex; gap: 3px; padding: 4px; border: 2px solid #e2e8f0; border-radius: 12px; background: #ffffff; margin-bottom: 16px; }
+        .subaba-pill { padding: 7px 14px; border-radius: 8px; color: #0f223f; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .subaba-pill:not(.active):hover { background: #eef2f6; }
+        .subaba-pill.active { background: #0a192f; color: #fff; box-shadow: 0 3px 8px -3px rgba(10,25,47,.5); }
+
+        /* Crédito dos ícones das orelhas (Flaticon, plano gratuito —
+           decisão do usuário: manter atribuição em vez de comprar
+           licença Premium) — reservado no fim da barra lateral,
+           discreto de propósito (não deve competir visualmente com o
+           menu). */
+        .sidebar-creditos { padding: 10px 20px 4px; font-size: 10px; color: #5b6c8a; line-height: 1.5; }
+        .sidebar-creditos a { color: #7fa8c9; text-decoration: none; }
+        .sidebar-creditos a:hover { text-decoration: underline; }
+
+        /* O espaçamento enxuto que existia só nesta aba (pra caber os 4
+           itens sem rolar tanto) foi removido — pedido do usuário:
+           "as demais sub-abas devem ter suas linhas redimensionadas
+           quanto às alturas, tomando como base a altura das linhas da
+           sub-aba Verba Global para Produção", que usa o `.form-grid`/
+           `.form-section` padrão (sem essa compactação). Agora as duas
+           abas usam a MESMA régua de espaçamento. */
         .tab-projeto-header b { color: #0a192f; }
 
         .at-filtro-seta { cursor:pointer; margin-left:4px; color:#94a3b8; font-size:10px; user-select:none; }
@@ -190,6 +275,53 @@
            pra tabela. */
         #panel-relatorios { overflow-y: auto; }
         #rel-area-resultado .table-wrapper { max-height: none; }
+        /* Cabeçalho clicável pra ordenar (pedido do usuário: "classificar
+           cada coluna por ordem de apresentação") — só no motor genérico
+           (#rel-area-resultado), não na Árvore de Custos, que tem
+           cabeçalho de 2 linhas com colspan e não faz sentido ordenar. */
+        #rel-area-resultado th.rel-th-ordenavel { cursor: pointer; user-select: none; white-space: nowrap; }
+        #rel-area-resultado th.rel-th-ordenavel:hover { background: #e0f2fe; color: #0a192f; }
+        #rel-area-resultado th.rel-th-ordenavel.ativo { background: #e0f2fe; color: #0a192f; border-bottom: 2px solid #00b4d8; }
+        #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { max-height: none; }
+
+        /* Árvore de Custos com par de coluna Tempo/Custo por nível
+           (pedido do usuário) — borda fina no INÍCIO de cada par de
+           coluna, pra ficar claro onde um nível termina e o próximo
+           começa. A 1ª linha do cabeçalho tem células com colspan="2"
+           (1 por nível) — nth-child conta CADA célula como 1 filho,
+           não 1 por coluna visual, então ali a regra é simplesmente
+           "toda célula depois da 1ª"; na 2ª linha (Tempo/Custo) e no
+           corpo, cada coluna é uma célula própria, então o início de
+           cada par cai num índice par (2, 4, 6, 8, 10). */
+        .tabela-arvore-custos thead tr:first-child th:not(:first-child) { border-left: 1px solid rgba(255,255,255,0.15); text-align: center; }
+        .tabela-arvore-custos thead tr:last-child th:nth-child(2n), .tabela-arvore-custos tbody td:nth-child(2n), .tabela-arvore-custos tfoot td:nth-child(2n) { border-left: 1px solid #e2e8f0; }
+
+        /* Pedido do usuário: cabeçalho da árvore de Custos (e do
+           resumo por Executor, mesma tela) mais destacado — mesma
+           linha azul-escura + fio ciano do cabeçalho principal do app
+           (`.app-header`), em vez do cabeçalho cinza-claro genérico
+           que as outras tabelas do sistema usam. Escopado só a esta
+           tela — não muda o `th` padrão do resto do sistema. */
+        #rel-custos-area-resultado thead th, #rel-custos-area-resultado-executor thead th {
+            background: #0a192f; color: #ffffff; border-bottom: 2px solid #00b4d8;
+        }
+        /* Precisa repetir o #id aqui pra ganhar da regra acima em
+           especificidade (um seletor só de classe perde pra um de
+           id, mesmo vindo depois) — senão a 2ª linha do cabeçalho
+           ficaria com a MESMA cor da 1ª em vez do tom mais claro. */
+        #rel-custos-area-resultado .tabela-arvore-custos thead tr:last-child th { background: #13294d; color: #cbd5e1; font-weight: 600; border-bottom: 2px solid #00b4d8; }
+        #rel-custos-area-resultado .table-wrapper, #rel-custos-area-resultado-executor .table-wrapper { border-radius: 8px; }
+
+        /* Pedido do usuário: reformulação da aba Relatórios — tela
+           dedicada de "Relatório de Custos" (baseada no sistema
+           antigo, renomeada de "Relatório de horas" na parte 18). A
+           troca entre "Relatório de Custos" e "Relatório personalizado"
+           (motor flexível antigo, intacto) virou orelhas horizontais
+           na parte 19 — pedido do usuário: "mesma lógica da aba
+           Cadastros" — reaproveitando as classes .aprov-abas/.aprov-aba
+           já usadas lá e em Aprovações, sem CSS próprio novo. A barra
+           lateral original desta reforma (`.rel-sidebar`) foi
+           removida por não ter mais nenhum uso. */
 
         /* Mesma proteção da tela de Relatórios (ver nota lá acima) —
            achada durante investigação do item 9 da Rodada de Comentários
@@ -217,7 +349,10 @@
         .nivel-opcao.ativo { border-color:#00b4d8; background:#e0f7fb; color:#0a192f; }
         .nivel-opcao small { display:block; font-weight:400; text-transform:none; font-size:11px; color:#94a3b8; margin-top:2px; }
 
-        .grid-filtros { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:10px; }
+        /* 4 colunas (não 3) pra pedido do usuário — Relatório de Custos
+           (6 filtros) e Relatório Personalizado (7, com Status) caberem
+           em só 2 linhas cada, em vez de 2 ou 3 linhas desalinhadas. */
+        .grid-filtros { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:10px; }
         .grid-filtros .campo select, .grid-filtros .campo input { width:100%; }
 
         .secao-titulo { font-size:11px; font-weight:700; color:#0a192f; text-transform:uppercase; margin-bottom:6px; }
@@ -236,6 +371,7 @@
 
         @media print {
             .app-header, .sidebar, .barra-visoes, .painel-filtro { display:none !important; }
+            #panel-relatorios .aprov-abas { display:none !important; }
             .main-content { padding:0 !important; overflow:visible !important; }
             /* Causa real do bug "só aparece um pedaço, sem cabeçalho"
                (achado testando #20): .content-panel tem overflow:hidden
@@ -279,7 +415,466 @@
         .tabela-compacta th, .tabela-compacta td { padding: 2px 8px; font-size: 12px; line-height: 1.1; }
         .tabela-compacta td { border-bottom-width: 0.5px; }
         .tabela-compacta .col-centralizada { text-align: center; }
+
+        /* Pedido do usuário: linhas da Distribuição de Custos com a
+           mesma altura, tenham elas <input> (Etapas) ou só texto
+           (Fundo Garantidor/Totais) — o <input> global (padding
+           8px 12px) é bem mais alto que a célula compacta (2px 8px),
+           daí a diferença de altura entre linhas. */
+        #panel-distribuicao-custos .tabela-compacta input[type="number"],
+        #panel-distribuicao-custos .tabela-compacta input[type="text"] {
+            padding: 2px 6px;
+            font-size: 12px;
+            line-height: 1.1;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+
+        /* Altura fixa nas linhas da Aba "Parcela Global para Produção"
+           — reduzir o padding do <input> (acima) já deixa as linhas
+           bem mais parecidas, mas a diferença de "chrome" (padding +
+           borda) entre um <input> e uma célula de só-texto ainda sobra
+           alguns px. Fixar a altura da linha resolve de vez, pedido
+           explícito do usuário ("use sempre a mesma altura"). Extensão
+           (pedido do usuário): "Verba por Pavimento" usa a MESMA altura
+           de linha, como base pra redimensionar suas próprias tabelas
+           (Setores e Pavimentos). */
+        #conteudo-distribuicao-analista table.tabela-compacta tbody tr,
+        #conteudo-distribuicao-analista table.tabela-compacta tfoot tr,
+        #conteudo-verba-pavimento table.tabela-compacta tbody tr,
+        #conteudo-verba-pavimento table.tabela-compacta tfoot tr {
+            height: 28px;
+        }
+        #conteudo-distribuicao-analista table.tabela-compacta tbody td,
+        #conteudo-distribuicao-analista table.tabela-compacta tfoot td,
+        #conteudo-verba-pavimento table.tabela-compacta tbody td,
+        #conteudo-verba-pavimento table.tabela-compacta tfoot td {
+            height: 28px;
+            box-sizing: border-box;
+            vertical-align: middle;
+        }
+
+        /* Pedido do usuário: coluna "Etapas" mais estreita, mantendo a
+           largura das demais em pixels absolutos. Duas correções
+           precisam andar juntas: (1) table-layout:auto (padrão)
+           ignora a largura declarada no <th> e distribui o espaço
+           sobrando pra essa coluna — table-layout:fixed faz a largura
+           declarada valer; (2) mas a regra geral `table { width:100%
+           }` faz o fixed-layout tratar as larguras declaradas como
+           PROPORÇÃO (não pixel absoluto), esticando tudo
+           proporcionalmente pra preencher o container — inclusive as
+           colunas que deveriam ficar do mesmo tamanho. `width:auto`
+           aqui faz a tabela ficar exatamente do tamanho da soma das
+           colunas declaradas, sem esticar. Mesma lógica pra
+           "Pavimento" na Aba "Verba por Pavimento" logo abaixo. */
+        #conteudo-distribuicao-analista table.tabela-compacta,
+        #conteudo-verba-pavimento > .table-wrapper > table {
+            table-layout: fixed;
+            width: auto;
+        }
+
+        /* Pedido do usuário: Aba "Verba por Tarefa" — Pavimentos lado a
+           lado, no máximo 3 colunas (antes: auto-fit deixava abrir até
+           4+ em telas largas) — cai pra 2 e depois 1 coluna em telas
+           menores via as media queries logo abaixo. */
+        .vt-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            align-items: start;
+        }
+        @media (max-width: 1100px) { .vt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 700px) { .vt-grid { grid-template-columns: 1fr; } }
+        /* Pedido do usuário: cartão de Pavimento com a MESMA cara dos
+           cartões do Kanban (ver .kb-cartao acima) — borda + sombra
+           suave, não só uma borda seca. Borda escurecida e engrossada
+           (pedido do usuário, 2026-08-25: "os limites estão difíceis
+           de visualizar" — o cinza claro original quase não contrastava
+           com o fundo da página). */
+        .vt-card {
+            background: #ffffff;
+            border: 2px solid #94a3b8;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+            overflow: hidden;
+        }
+        .vt-card-header {
+            background: #cbd5e1;
+            color: #0f223f;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 6px 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        /* Totalização de Pontos/Valor no cabeçalho do cartão — pedido do
+           usuário: continuar útil mesmo com o pavimento recolhido
+           (estado padrão agora, ver carregarAbaVerbaPorTarefa). */
+        .vt-card-header-totais {
+            font-weight: normal;
+            font-size: 11px;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .vt-card table { width: 100%; }
+        .vt-card .table-wrapper { max-height: none; border: none; border-radius: 0; }
+
+        /* Sufixo "%" visual nos campos percentuais editáveis — o valor
+           em si continua um número puro (formatado com 2 casas via
+           formatarCampoPercentual()), o "%" é só decoração ao lado. */
+        .campo-percentual { position: relative; display: inline-block; width: 100%; }
+        .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; text-align: center; }
+        .campo-percentual .sufixo-pct { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #64748b; pointer-events: none; }
+
+        /* Pedido do usuário: borda visível só nos campos de % (não nos
+           de Verba/valor) do Fundo Garantidor e das linhas de Total —
+           mesmo tipo/tamanho de borda que o <input> das Etapas usa
+           (1px solid #cbd5e1, 3px de raio — ver regra do input logo
+           acima), pra ficar visualmente igual. É um <span> (não mais
+           borda direto no <td>) porque sob table-layout:fixed a
+           largura do <td> é travada pela largura da COLUNA — só um
+           elemento INTERNO ao <td> consegue ter uma largura própria
+           menor que a coluna. */
+        #panel-distribuicao-custos .campo-somente-leitura-borda {
+            display: inline-block;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+        }
+        /* Pedido do usuário: caixa dos campos % só-leitura (Fundo
+           Garantidor/Totais/Coparticipação) do mesmo tamanho da caixa
+           do campo % editável das Etapas (.campo-percentual, 80px) —
+           mesma largura "de campo de %" em toda a aba. */
+        #conteudo-distribuicao-analista .campo-somente-leitura-borda {
+            width: 80px;
+            box-sizing: border-box;
+            padding: 2px 6px;
+        }
+
+        /* Pedido do usuário: valores monetários alinhados pelo final
+           (à direita) — Verba (Aba "Verba Global para Produção") e
+           Valor/Subtotal (Aba "Verba por Tarefa", cartões de
+           Pavimento). */
+        .dca-verba, #dca-total-verba, #dca-total-geral-verba {
+            text-align: right;
+        }
+        .vt-valor, .vt-subtotal {
+            text-align: right;
+        }
+        /* Pedido do usuário: coluna "Pontos" centralizada — o <input>
+           precisa do text-align direto nele, não basta o
+           .col-centralizada da célula (que só centraliza o próprio
+           elemento, não garante o texto DENTRO do campo em todo
+           navegador). */
+        .vt-input-pontos {
+            text-align: center;
+        }
+        /* Pedido do usuário: valores monetários alinhados pelo final —
+           todos os campos só-leitura da Aba "Orçamento Global" mostram
+           R$ (Valor do Contrato, Valor Líquido, Parcelas, Valores de
+           Coparticipação), nenhum outro tipo de dado. */
+        #conteudo-orcamento-global input[readonly] {
+            text-align: right;
+        }
         .paginacao { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px; font-size:12px; color:#475569; }
         .paginacao button { padding:6px 14px; border-radius:6px; border:1px solid #cbd5e1; background:white; cursor:pointer; font-size:12px; }
         .paginacao button:disabled { opacity:0.4; cursor:default; }
-        
+
+        /* Nova orelha "Desempenho" do Hub "📁 Projetos" (js/desempenho-projeto.js)
+           — mockup validado com o usuário em várias rodadas de protótipo
+           (Artifact) antes desta implementação. Escopado só a
+           #panel-desempenho-projeto. Reforma de 2026-08-20: o usuário
+           trouxe de outra conversa um modelo de tabela (prompt colado
+           no chat) + uma planilha de referência
+           ("HOME_GARDEN_SETOR_C_com_Desempenho.xlsx", aba "Desempenho")
+           pra usar "principalmente cores e formas de apresentação" —
+           as cores abaixo (cabeçalho #0A192F, linha TOTAL cinza, verde-
+           azulado/vermelho-terracota pro Desvio) foram lidas direto das
+           células dessa planilha (openpyxl), não inventadas. */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) { --desemp-good: #0e8f6f; --desemp-warn: #f59e0b; --desemp-bad: #c1432a; --desemp-total-bg: #f0f0f0; }
+
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-grid-kpi { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-rotulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:#94a3b8; margin-bottom:8px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-numero { font-size:22px; font-weight:700; color:#0f172a; line-height:1.1; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-comparativo { font-size:12px; color:#64748b; margin-top:2px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-selo { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-top:8px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-selo-good { background:#e8f8f4; color:#0e8f6f; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-selo-warn { background:#fffbeb; color:#92400e; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-selo-bad { background:#fdedea; color:#c1432a; }
+
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-painel { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-painel-titulo { font-size:13px; font-weight:700; color:#0f172a; margin:0 0 4px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tag { font-size:10px; font-weight:400; color:#94a3b8; margin-left:4px; text-transform:none; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-painel-legenda { font-size:12px; color:#94a3b8; margin:0 0 16px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-subtitulo-bloco { font-size:11.5px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:0.02em; margin:18px 0 6px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-subtitulo-bloco:first-of-type { margin-top:2px; }
+
+        /* Cartão de KPI com vários valores empilhados (kpiCardMultiplo)
+           — "Resultado da Etapa", "VERBA DETALHAMENTO", "Verba de
+           Fundos". Reaproveita .desemp-desvio-bom/ruim (já existem)
+           pra colorir cada valor individualmente. */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-item { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:12px; margin-top:7px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-item-label { color:#64748b; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-kpi-item-valor { font-weight:700; color:#0f172a; white-space:nowrap; }
+
+        /* Filtro de dimensão da tabela única de Desempenho (pedido do
+           usuário: 1 tabela com filtro, no lugar de 4 fixas). */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-filtro-linha { display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:#475569; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-filtro-linha select { padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:12.5px; background:#fff; }
+
+        /* Tabelas "Por Etapa/Pavimento/Tarefa/Executor": cabeçalho no
+           mesmo azul-marinho/branco do cabeçalho da Árvore de Custos
+           (Relatórios), moldura "medium" (2px) no contorno externo da
+           tabela e "thin" (1px) entre células — mesmo padrão da
+           planilha de referência (borda mais forte só nas
+           extremidades). Linha TOTAL com fundo cinza claro. */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela-moldura { border:2px solid #0a192f; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela thead th { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:#ffffff; background:#0a192f; padding:8px; position:static; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela thead th:not(:first-child) { text-align:right; border-left:1px solid rgba(255,255,255,0.18); }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela td { padding:6px 8px; border-bottom:1px solid #e2e8f0; color:#475569; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tbody tr:last-child td { border-bottom:none; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tfoot td { padding:7px 8px; border-top:1px solid #e2e8f0; border-bottom:none; font-weight:700; color:#0f172a; background:var(--desemp-total-bg); }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tfoot td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-desvio-bom { color:#0e8f6f; font-weight:600; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-desvio-ruim { color:#c1432a; font-weight:600; }
+
+        /* 4ª orelha "Diagnóstico" — cards de leitura automática em cima
+           das mesmas 4 tabelas acima (js/desempenho-projeto.js,
+           calcularDiagnosticoProjeto()). */
+        #panel-diagnostico-projeto .diag-card { display:flex; gap:10px; align-items:flex-start; border-radius:6px; padding:10px 12px; font-size:12px; margin-bottom:10px; border:1px solid; }
+        #panel-diagnostico-projeto .diag-ruim { background:#fdedea; border-color:#c1432a; color:#c1432a; }
+        #panel-diagnostico-projeto .diag-bom { background:#e8f8f4; border-color:#0e8f6f; color:#0e8f6f; }
+        #panel-diagnostico-projeto .diag-info { background:#f8fafc; border-color:#e2e8f0; color:#475569; }
+
+        @media (max-width: 1100px) {
+            :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-grid-kpi { grid-template-columns:repeat(2, 1fr); }
+        }
+
+        /* 6ª orelha "Distribuições" — pedido do usuário: "crie nova aba
+           DISTRIBUIÇÕES com esse formato", trazendo um Artifact de
+           referência (relatório editorial de bonificação: masthead,
+           tira de KPIs, barra segmentada dos 3 blocos da comissão,
+           gráficos de barra divergente por técnico/pavimento/
+           atividade, nota de dados no rodapé). Cores/tipografia
+           portadas literalmente do CSS daquele Artifact — paleta nova
+           e deliberadamente diferente do resto do sistema (é um
+           "relatório", não uma tela de trabalho), escopada só a
+           #panel-distribuicoes-projeto. Os NÚMEROS vêm dos mesmos
+           cálculos de Bonificação/Desempenho já existentes — nada
+           recalculado aqui, só reorganizado no layout novo.
+           Retomada 2026-08-25 (parte 42, separar Produtividade/
+           Financeiro): as variáveis de cor e as classes de "seção com
+           painel" (.dist-section/.dist-panel) e "gráfico de barra
+           divergente" (.dist-divchart/.dist-divrow/...) passaram a
+           valer também em #panel-desempenho-projeto (pedido do
+           usuário: gráficos de horas em Produtividade usando como
+           referência visual os gráficos que já existem em Financeira
+           — precisa ser o MESMO CSS, não uma cópia que pode divergir
+           depois). As classes específicas do "relatório editorial"
+           (masthead, headline, KPIs, barra segmentada, tech-row,
+           callout) continuam só em Financeira — não fazem sentido em
+           Produtividade e não foram estendidas. */
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) {
+            --dist-bg: #F2F4EF; --dist-surface: #FFFFFF; --dist-surface-2: #E8ECE4;
+            --dist-ink: #1B2420; --dist-ink-2: #4B5750; --dist-ink-muted: #7C8880;
+            --dist-border: #D7DED4; --dist-border-strong: #B9C4B3;
+            --dist-accent: #C9531C; --dist-accent-soft: #F4DFCE;
+            --dist-cat-1: #00839C; --dist-cat-2: #C9531C; --dist-cat-3: #7A4499;
+            --dist-good: #0E8F6F; --dist-good-soft: #DCEEE6;
+            --dist-critical: #C1432A; --dist-critical-soft: #F6DED7;
+            background: var(--dist-bg);
+            background-image: linear-gradient(var(--dist-border) 1px, transparent 1px), linear-gradient(90deg, var(--dist-border) 1px, transparent 1px);
+            background-size: 28px 28px;
+            padding: 20px; border-radius: 8px; color: var(--dist-ink);
+            font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        }
+        #panel-distribuicoes-projeto .dist-page { max-width: 980px; margin: 0 auto; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-num { font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+        #panel-distribuicoes-projeto .dist-eyebrow { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; font-size: 11.5px; color: var(--dist-ink-muted); }
+
+        #panel-distribuicoes-projeto .dist-masthead { background: var(--dist-surface); border: 1px solid var(--dist-border-strong); border-radius: 3px; padding: 28px 30px 24px; position: relative; overflow: hidden; }
+        #panel-distribuicoes-projeto .dist-masthead::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--dist-accent); }
+        #panel-distribuicoes-projeto .dist-masthead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-masthead h1 { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.01em; margin: 6px 0 4px; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-masthead .dist-sub { color: var(--dist-ink-2); font-size: 14px; max-width: 60ch; }
+        #panel-distribuicoes-projeto .dist-masthead .dist-sub b { color: var(--dist-ink); font-weight: 600; }
+        #panel-distribuicoes-projeto .dist-meta-block { text-align: right; border-left: 1px solid var(--dist-border); padding-left: 20px; min-width: 150px; }
+        #panel-distribuicoes-projeto .dist-meta-row { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; padding: 3px 0; }
+        #panel-distribuicoes-projeto .dist-meta-row .k { color: var(--dist-ink-muted); }
+        #panel-distribuicoes-projeto .dist-meta-row .v { color: var(--dist-ink); font-weight: 600; }
+        #panel-distribuicoes-projeto .dist-headline { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--dist-border-strong); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-headline .dist-figure { font-size: clamp(26px, 4.5vw, 38px); font-weight: 700; letter-spacing: -0.01em; }
+        #panel-distribuicoes-projeto .dist-headline .dist-figure.good { color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-headline .dist-figure.critical { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-headline .dist-caption { color: var(--dist-ink-2); font-size: 13.5px; max-width: 46ch; }
+
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section { margin-top: 28px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section-head h2 { font-stretch: condensed; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-size: 19px; font-weight: 700; margin: 0; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-section-head .dist-note { font-size: 12px; color: var(--dist-ink-muted); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-panel { background: var(--dist-surface); border: 1px solid var(--dist-border); border-radius: 3px; padding: 20px 22px; }
+
+        #panel-distribuicoes-projeto .dist-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--dist-border); border: 1px solid var(--dist-border); border-radius: 3px; overflow: hidden; }
+        #panel-distribuicoes-projeto .dist-kpi { background: var(--dist-surface); padding: 14px 14px; min-width: 0; }
+        #panel-distribuicoes-projeto .dist-kpi .dist-val { font-size: clamp(15px, 1.8vw, 19px); font-weight: 700; margin-top: 6px; letter-spacing: -0.01em; }
+        #panel-distribuicoes-projeto .dist-kpi .dist-val.critical { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-kpi .dist-sub2 { font-size: 11px; color: var(--dist-ink-muted); margin-top: 2px; }
+        @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+        #panel-distribuicoes-projeto .dist-segbar { display: flex; height: 38px; border-radius: 2px; overflow: hidden; border: 1px solid var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-seg { display: flex; align-items: center; justify-content: center; }
+        #panel-distribuicoes-projeto .dist-seg span { color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.25); padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #panel-distribuicoes-projeto .dist-seg.dist-seg-margem { background: var(--dist-surface-2); border-left: 1px solid var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-seg.dist-seg-margem span { color: var(--dist-ink-2); text-shadow: none; }
+        #panel-distribuicoes-projeto .dist-seg-legend { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; font-size: 12px; color: var(--dist-ink-2); }
+        #panel-distribuicoes-projeto .dist-seg-legend .item { display: flex; align-items: center; gap: 7px; }
+        #panel-distribuicoes-projeto .dist-seg-legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+        #panel-distribuicoes-projeto .dist-tolerance { margin-top: 14px; font-size: 12px; color: var(--dist-ink-2); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+        #panel-distribuicoes-projeto .dist-tolerance .tag { font-size: 10.5px; font-weight: 700; color: var(--dist-critical); background: var(--dist-critical-soft); border-radius: 2px; padding: 1px 6px; letter-spacing: 0.04em; }
+        #panel-distribuicoes-projeto .dist-tolerance .tag.ok { color: var(--dist-good); background: var(--dist-good-soft); }
+
+        /* Pedido do usuário (2026-08-25): orelha Financeira em 2
+           colunas de meia página — esquerda com tudo que é orçamento
+           ("Como a Verba Global é dividida" + "Resumo financeiro":
+           Valor do Contrato, Impostos, Valor Líquido, Verba de cada
+           Etapa, Fundos, Distribuição pra Pavimentos); direita com os
+           resultados efetivamente realizados ("Resultado por
+           técnico/pavimento", "Diagnóstico por atividade"). Padding
+           do `.dist-panel` reduzido um pouco nas 2 colunas pra
+           "encaixar melhor" na largura mais estreita — mesmo padrão
+           já usado na orelha Produtividade (`.desemp-layout-2col`). */
+        #panel-distribuicoes-projeto .dist-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
+        #panel-distribuicoes-projeto .dist-layout-2col .dist-panel { padding: 16px 18px; }
+        @media (max-width: 900px) { #panel-distribuicoes-projeto .dist-layout-2col { grid-template-columns: 1fr; } }
+
+        /* Pedido do usuário: o conteúdo da 1ª coluna (Orçamento) ficava
+           uns 12px mais à esquerda que o título do relatório
+           (`.dist-masthead h1`) — a caixa do masthead e a do painel
+           começam no MESMO x (279px, confirmado via
+           getBoundingClientRect), só que o masthead tem padding-left
+           30px e o painel só 18px. Igualando o padding-left resolve
+           sem mexer em mais nada. Só a 1ª coluna — a 2ª
+           (`.dist-col-realizado`) fica com os 18px de sempre. */
+        #panel-distribuicoes-projeto .dist-col-orcamento .dist-panel { padding-left: 30px; }
+
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divchart { display: flex; flex-direction: column; gap: 9px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow { display: grid; grid-template-columns: 128px 1fr 96px; align-items: center; gap: 12px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-label { font-size: 12.5px; color: var(--dist-ink-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow.emph .dist-label { color: var(--dist-ink); font-weight: 700; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track { position: relative; height: 20px; background: var(--dist-surface-2); border-radius: 2px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .zero { position: absolute; top: -3px; bottom: -3px; left: 50%; width: 1px; background: var(--dist-border-strong); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .bar { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .bar.pos { left: 50%; background: var(--dist-good); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-track .bar.neg { right: 50%; background: var(--dist-critical); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value { font-size: 12px; text-align: right; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value.pos { color: var(--dist-good); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-divrow .dist-value.neg { color: var(--dist-critical); }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-subrow-meta { grid-column: 1; font-size: 10.5px; color: var(--dist-ink-muted); text-align: right; }
+        /* Pedido do usuário (Produtividade): "previsto/realizado" em 2
+           linhas em vez de 1 só, com o número de horas alinhado numa
+           coluna — rótulo à esquerda, valor à direita; como os 2 <span>
+           de cada linha caem nas mesmas 2 colunas do grid, o valor de
+           "Previsto" e o de "Realizado" ficam na mesma largura de
+           coluna (alinhados), mesmo a palavra "Realizado" sendo mais
+           comprida que "Previsto". */
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo { display: grid; grid-template-columns: auto auto; gap: 1px 8px; justify-content: end; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(odd) { text-align: left; }
+        :is(#panel-distribuicoes-projeto, #panel-desempenho-projeto) .dist-metaduo span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* Pedido do usuário (2026-08-25): orelha Produtividade em 2
+           colunas de meia página — esquerda com os 3 KPIs (empilhados,
+           não mais lado a lado) + os 3 gráficos de "Desvio de horas"
+           logo abaixo deles (pedido revisado: "os quadros com os
+           desvios de hora devem ficar todos na coluna da esquerda,
+           abaixo dos campos horas consumidas, % concluída e saldo de
+           horas"); direita só com as 2 tabelas de Desempenho.
+           `.desemp-grid-kpi` (row de 4 cartões) só vira coluna de 1
+           aqui dentro — a versão usada em Bonificação (fora de
+           `.desemp-col-kpis`) continua em linha, sem mudança. Padding
+           do `.dist-panel` (dos gráficos) reduzido um pouco pra
+           "encaixar melhor" na coluna mais estreita. */
+        #panel-desempenho-projeto .desemp-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
+        #panel-desempenho-projeto .desemp-col-kpis .desemp-grid-kpi { grid-template-columns: 1fr; }
+        #panel-desempenho-projeto .desemp-col-kpis .dist-panel { padding: 16px 18px; }
+        @media (max-width: 900px) { #panel-desempenho-projeto .desemp-layout-2col { grid-template-columns: 1fr; } }
+
+        #panel-distribuicoes-projeto .dist-tech-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: stretch; }
+        @media (max-width: 720px) { #panel-distribuicoes-projeto .dist-tech-row { grid-template-columns: 1fr; } }
+        #panel-distribuicoes-projeto .dist-fixo-card { background: var(--dist-surface-2); border: 1px solid var(--dist-border); border-radius: 3px; padding: 16px 18px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+        #panel-distribuicoes-projeto .dist-fixo-card + .dist-fixo-card { margin-top: 12px; }
+        #panel-distribuicoes-projeto .dist-fixo-card .dist-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        #panel-distribuicoes-projeto .dist-swatch-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+        #panel-distribuicoes-projeto .dist-fixo-card .dist-amount { font-size: 20px; font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-fixo-card .dist-desc { font-size: 12px; color: var(--dist-ink-muted); }
+
+        /* "Resumo financeiro" / "Índices Globais" — parte 50 (pedido do
+           usuário, print de planilha de referência: tabela agrupada
+           com colunas Previsto/Realizado/Diferença). Substituiu
+           .dist-fingrid/.dist-finha (removidas, ficaram sem uso).
+           `.dist-orc-panel` empilha os vários `.dist-orctab` (um por
+           bloco: "Valor Global", "Divisão Global", etc) com espaço
+           entre eles — cada tabela já é 100% da largura do painel
+           (a coluna esquerda inteira já é meia página, não faz
+           sentido dividir de novo em sub-colunas). */
+        #panel-distribuicoes-projeto .dist-orc-panel { display: flex; flex-direction: column; gap: 18px; }
+        /* Pedido do usuário: coluna "Diferença" (e Previsto/Realizado)
+           apareciam desalinhadas verticalmente de um bloco pro outro —
+           causa: "Valor Global"/"Divisão Global"/"Divisão Produção —
+           Etapas"/etc são 5 <table> SEPARADAS, cada uma com
+           table-layout:auto (padrão), então cada tabela distribuía a
+           largura das colunas sozinha, conforme o texto mais comprido
+           da SUA PRÓPRIA coluna de rótulo — resultado: a coluna
+           Diferença começava num X diferente em cada tabela (medido:
+           de 625px a 656px, variação de 30px). `table-layout:fixed` +
+           largura declarada nas células do cabeçalho (`.dist-orc-cab`)
+           faz as 5 tabelas usarem a MESMA proporção de colunas,
+           alinhando Previsto/Realizado/Diferença verticalmente ao
+           longo de toda a seção. */
+        #panel-distribuicoes-projeto .dist-orctab { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+        #panel-distribuicoes-projeto .dist-orctab th, #panel-distribuicoes-projeto .dist-orctab td { padding: 6px 3px; overflow-wrap: break-word; }
+        #panel-distribuicoes-projeto .dist-orctab td:first-child { padding-left: 8px; }
+        #panel-distribuicoes-projeto .dist-orc-titulo th { text-align: left; background: var(--dist-ink); color: var(--dist-surface); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+        #panel-distribuicoes-projeto .dist-orc-cab th { text-align: right; background: var(--dist-surface-2); color: var(--dist-ink-2); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-orc-cab th:first-child { text-align: left; width: 22%; padding-left: 8px; }
+        #panel-distribuicoes-projeto .dist-orc-cab th:nth-child(2),
+        #panel-distribuicoes-projeto .dist-orc-cab th:nth-child(3),
+        #panel-distribuicoes-projeto .dist-orc-cab th:nth-child(4) { width: 26%; }
+        /* Valores em R$ são o dado mais importante desta tabela — a
+           coluna de rótulo aceita quebrar em 2 linhas (texto quebra
+           bem), mas um valor monetário partido no meio do número fica
+           ilegível. `.dist-num` (classe compartilhada com o resto do
+           relatório) usa fonte monoespaçada — mais larga por caractere
+           que a fonte padrão, por isso precisou de medição própria
+           (não bastava medir na fonte do body): testado com o valor
+           mais longo da tabela real ("− R$ 27.060,31", 14 caracteres)
+           na fonte monoespaçada real — só coube sem quebrar a partir
+           de 9px. */
+        #panel-distribuicoes-projeto .dist-orctab td.dist-num,
+        #panel-distribuicoes-projeto .dist-orc-cab th:not(:first-child) { font-size: 9px; }
+        #panel-distribuicoes-projeto .dist-orctab tbody tr { border-bottom: 1px solid var(--dist-border); }
+        #panel-distribuicoes-projeto .dist-orctab tbody tr:last-child { border-bottom: none; }
+        #panel-distribuicoes-projeto .dist-orctab td:first-child { color: var(--dist-ink-2); }
+        #panel-distribuicoes-projeto .dist-orctab td.dist-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-orc-emph td { font-weight: 700; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-orc-emph td.dist-num { color: var(--dist-accent); }
+        #panel-distribuicoes-projeto .dist-orc-subtotal { border-top: 2px solid var(--dist-border-strong); background: var(--dist-surface-2); }
+        #panel-distribuicoes-projeto .dist-orc-subtotal td { font-weight: 700; color: var(--dist-ink); }
+
+        #panel-distribuicoes-projeto .dist-callout { margin-top: 14px; background: var(--dist-critical-soft); border: 1px solid var(--dist-critical); border-radius: 3px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+        #panel-distribuicoes-projeto .dist-callout.good { background: var(--dist-good-soft); border-color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-callout .dist-mark { font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 15px; color: var(--dist-critical); flex: none; }
+        #panel-distribuicoes-projeto .dist-callout.good .dist-mark { color: var(--dist-good); }
+        #panel-distribuicoes-projeto .dist-callout p { margin: 0; font-size: 13px; color: var(--dist-ink); }
+        #panel-distribuicoes-projeto .dist-callout b { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-callout.good b { color: var(--dist-good); }
+
+        #panel-distribuicoes-projeto .dist-datanote { margin-top: 30px; border-top: 1px solid var(--dist-border); padding-top: 16px; display: flex; gap: 16px; align-items: flex-start; font-size: 12px; color: var(--dist-ink-muted); }
+        #panel-distribuicoes-projeto .dist-datanote .tag { flex: none; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: var(--dist-accent); background: var(--dist-accent-soft); border-radius: 2px; padding: 2px 7px; text-transform: uppercase; }
+        #panel-distribuicoes-projeto .dist-datanote p { margin: 0 0 6px; }
+        #panel-distribuicoes-projeto .dist-datanote code { font-family: ui-monospace, "SF Mono", Consolas, monospace; background: var(--dist-surface-2); padding: 1px 5px; border-radius: 2px; font-size: 11px; }
+

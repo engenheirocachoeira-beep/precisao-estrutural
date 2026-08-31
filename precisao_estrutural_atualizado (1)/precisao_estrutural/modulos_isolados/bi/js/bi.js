@@ -7,7 +7,11 @@
         function renderizarPainelCalibracaoBI() {
             const tbody = document.getElementById('tabela-bi-calibracao-body'); tbody.innerHTML = '';
             let tLego = JSON.parse(localStorage.getItem('banco_tarefas_lego')) || [];
-            let arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            // Item 5/6/7 (prompt_gemini.md §14, leva 4): usa a versão
+            // filtrada (só projetos que ainda existem no Cadastro) —
+            // sem isso, tarefas de projetos já deletados/renomeados
+            // continuavam entrando na calibração do Catálogo Global.
+            let arvores = obterArvoresProjetosAtivas();
 
             tLego.forEach((lego, idx) => {
                 let somaKReal = 0; let contagemDadosValidos = 0;
@@ -55,7 +59,11 @@
         }
 
         function renderizarControladoriaGlobalFechamento() {
-            let arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            // Item 5/6/7 (prompt_gemini.md §14, leva 4): usa a versão
+            // filtrada — sem isso, o fechamento financeiro global
+            // contava projetos já deletados/renomeados no Cadastro,
+            // distorcendo sobras/prejuízos acumulados.
+            let arvores = obterArvoresProjetosAtivas();
             let funcs = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
             let fEscritorio = parseFloat(localStorage.getItem('banco_fator_coparticipacao')) || 0.52;
             

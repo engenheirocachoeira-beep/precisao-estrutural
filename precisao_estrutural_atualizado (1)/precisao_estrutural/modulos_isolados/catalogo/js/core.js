@@ -612,6 +612,13 @@ function alternarModulo(modulo) {
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
 
+    // As "orelhas" (Estrutura de Projeto/Custos) só fazem sentido dentro
+    // do fluxo de Projeto — indo pra QUALQUER outro módulo, escondem.
+    // 'arvore' fica de fora daqui de propósito: fecharProjetoAtivoNaArvore()
+    // (chamada logo abaixo) já decide se mostra ou esconde, conforme tinha
+    // ou não um projeto aberto antes.
+    if (modulo !== 'arvore' && typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo('', null);
+
     if (document.getElementById('nav-' + modulo)) document.getElementById('nav-' + modulo).classList.add('active');
 
     if (modulo === 'arvore') {
@@ -691,7 +698,7 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
     if (!nome) return;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-distribuicao-custos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Distribuição de Custos";
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'custos');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     carregarPainelDistribuicaoCustos();
@@ -704,7 +711,6 @@ function irParaEstruturaProjetoDoProjetoAtivo() {
     if (!nome) return;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-arvore-projetos').style.display = 'flex';
-    document.getElementById('page-context-title').innerText = "Estrutura de Projeto Construtiva";
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     abrirProjetoNaArvore(nome);
@@ -1136,6 +1142,10 @@ function aplicarPermissoesMenu() {
 // pré-seleciona o próprio nome no dropdown (melhoria #7).
 function abrirTelaInicialPorNivel() {
     if (!usuarioLogado) return;
+    if (usuarioLogado.nivel === 'analista' || usuarioLogado.nivel === 'administrador') {
+        alternarModulo('arvore');
+        return;
+    }
     alternarModulo('kanban');
 }
 

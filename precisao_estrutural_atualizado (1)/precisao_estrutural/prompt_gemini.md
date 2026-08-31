@@ -10502,3 +10502,55 @@ primeiro.
 
 **Verificação**: `node --check` limpo no script. Rodado contra o repo
 real (só leitura — não altera nenhum arquivo do app).
+
+## Retomada em 2026-08-31 (parte 63) — Aplica a sincronia detectada na parte 62 + achado: uma categoria de drift mais funda que o script não cobre
+
+Pedido do usuário: "corrigir tudo agora" (o drift que o script da parte
+62 achou).
+
+**Execução**: criado `scripts/aplicar-sync-modulos-isolados.js` — reusa
+o mesmo extrator de função do script de verificação, mas em vez de só
+reportar, substitui o corpo de cada função divergente pelo texto exato
+do arquivo principal (reextrai os índices a cada troca, já que o
+tamanho do corpo novo pode ser diferente do antigo). `estilos.css`:
+cópia integral (convenção já documentada é serem idênticos).
+Resultado: 84 funções substituídas em 17 arquivos `.js` + 9
+`estilos.css` copiados. `node --check` limpo em tudo. Rodei o script
+de verificação de novo: 0 divergências restantes.
+
+**Achado durante a verificação em navegador** (testei Árvore e
+Distribuição de Custos de verdade, não só sintaxe): sincronizar o
+CORPO das funções que já existiam nos dois lados não é suficiente
+quando o app principal, ao longo do tempo, criou uma função NOVA
+(nome que nunca existiu na cópia isolada) e uma das funções já
+sincronizadas passou a chamá-la. Dois casos reais, confirmados por
+erro de verdade no console (não só grep):
+1. `modulos_isolados/arvore/` — `visualizarNo()` (já sincronizada)
+   chama `formatarMoeda()`, que só existe em `js/distribuicao-custos.js`
+   — arquivo que esse harness nunca carregou (é um módulo só de
+   Árvore, por design).
+2. `modulos_isolados/distribuicao-custos/` (as 2 cópias) —
+   `carregarAbaDistribuicaoAnalista()` (já sincronizada) chama
+   `recalcularTabelaDistribuicaoAnalista()`, uma função que substituiu
+   a antiga `recalcularLinhaDistribuicaoAnalista()` no app principal em
+   algum momento passado — a cópia isolada só tem a versão antiga,
+   nunca ganhou a nova.
+
+Essa categoria (função nova inteira, não uma que já existia nos dois
+lados) está FORA do que os scripts de sincronia cobrem — eles só
+comparam nomes que já são comuns aos dois arquivos. Corrigir isso
+exigiria rastrear toda a árvore de chamadas de cada função
+sincronizada e trazer qualquer dependência nova junto (potencialmente
+recursivo) — escopo bem maior do que "sincronizar o que já existia".
+Não tentei resolver isso agora sem confirmar com o usuário — fica
+como achado separado, reportado antes de decidir o próximo passo.
+
+**Verificação**: `node --check` limpo em todos os 17 arquivos + 2
+scripts novos. Testado no navegador (Árvore e Distribuição de Custos,
+ambos os fluxos reais de tela, não só carregamento): confirmou os 2
+gaps acima como erros de verdade, reprodutíveis, não falso-positivo
+de análise estática (uma tentativa inicial de checagem estática por
+regex teve MUITO falso-positivo — funções locais/aninhadas, builtins
+do navegador como `Blob`/`FileReader`, e ramos de `alternarModulo()`
+nunca alcançáveis pela UI daquele harness específico — descartada em
+favor de testar de verdade no navegador).

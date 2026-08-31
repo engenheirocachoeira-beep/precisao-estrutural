@@ -75,8 +75,9 @@ function renderizarTabelaFeriadosCustomizados() {
     }
 
     tbody.innerHTML = lista.map((f, idx) => {
-        const [ano, mes, dia] = f.data.split('-');
-        return '<tr><td>' + dia + '/' + mes + '/' + ano + '</td><td>' + escapeHtml(f.nome) + '</td>' +
+        return '<tr>' +
+            '<td><input type="date" value="' + f.data + '" style="border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'data\', this.value)"></td>' +
+            '<td><input type="text" value="' + escapeHtml(f.nome) + '" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'nome\', this.value)"></td>' +
             '<td style="text-align:center;"><button class="btn-delete" onclick="deletarFeriadoCustomizado(' + idx + ')">🗑️</button></td></tr>';
     }).join('');
 }
@@ -242,21 +243,15 @@ function calcularFilaComDatasExecutor(nomeExecutor, arvoresPreCarregadas) {
         const arv = arvores[nomeProjeto];
         if (!Array.isArray(arv.etapas)) return;
 
-        arv.etapas.forEach((etapa, fIdx) => {
-            (etapa.setores || []).forEach((setor, eIdx) => {
-                (setor.pavimentos || []).forEach((pav, sIdx) => {
-                    (pav.tarefas || []).forEach((tarefa, tIdx) => {
-                        if (tarefa.executor !== nomeExecutor) return;
-                        if (tarefa.status === 'Finalizada') return;
+        coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path }) => {
+            if (tarefa.executor !== nomeExecutor) return;
+            if (tarefa.status === 'Finalizada') return;
 
-                        tarefas.push({
-                            pontos: parseFloat(tarefa.pontos) || 0,
-                            ordem: tarefa.ordem_fila !== undefined ? tarefa.ordem_fila : 999999,
-                            caminho: nomeProjeto + '|' + fIdx + '-' + eIdx + '-' + sIdx + '-' + tIdx,
-                            dataInicioManual: tarefa.data_inicio_manual || null
-                        });
-                    });
-                });
+            tarefas.push({
+                pontos: parseFloat(tarefa.pontos) || 0,
+                ordem: tarefa.ordem_fila !== undefined ? tarefa.ordem_fila : 999999,
+                caminho: nomeProjeto + '|' + path,
+                dataInicioManual: tarefa.data_inicio_manual || null
             });
         });
     });
