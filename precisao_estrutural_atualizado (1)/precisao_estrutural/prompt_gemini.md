@@ -10218,3 +10218,54 @@ sem passar por `escapeHtml`. `escapeHtml(` agora aparece em 14 dos 19
 arquivos principais (era 1 antes). Não testado no navegador linha por
 linha (mudança mecânica e ampla demais pra clicar em cada tela) — a
 verificação foi por grep sistemático + `node --check`, não por clique.
+
+## Retomada em 2026-08-31 (parte 58) — Autenticação anônima no Firebase (2º achado crítico da auditoria)
+
+Pedido do usuário: continuar a agenda de segurança do relatório de
+auditoria (parte 57 tratou o XSS armazenado).
+
+**Causa**: testei uma leitura `shallow=true` direto na URL do Realtime
+Database (só nomes de chave, sem baixar dado nenhum) e confirmei que o
+banco aceita leitura **sem autenticação nenhuma** — "modo de teste" do
+Firebase, documentado como proposital no `LEIA-ME_SYNC_PROVISORIO.md`
+(fase de testes da equipe), mas o banco já carrega CPF e dado
+financeiro real, então ficou tempo demais aberto.
+
+**Fix**: como o app não tem nenhuma tela de login que fale com o
+Firebase (o dropdown ADMIN/Ana/etc. é só do próprio app, não
+autentica em lugar nenhum), a saída sem adicionar fricção pro usuário
+é autenticação **anônima** — o SDK se apresenta ao Firebase sozinho,
+sem tela, sem senha, e guarda a credencial no próprio navegador (fica
+persistida entre sessões).
+1. `index.html`: novo `<script>` do SDK `firebase-auth-compat.js`
+   (mesma versão 10.13.0 já usada pros outros 2 SDKs), carregado antes
+   de `sync-provisorio-config.js`.
+2. `js/sync-provisorio.js`, `_syncInicializar()`: o `firebase.database().ref(...)`
+   + leitura inicial, que antes rodava direto após `initializeApp`,
+   agora fica dentro do `.then()` de `firebase.auth().signInAnonymously()`
+   — só tenta ler/escrever depois de autenticado. Falha de autenticação
+   cai no mesmo fallback "seguir 100% local" que já existia pra falha
+   de leitura, sem travar a tela (`console.warn` + segue carregando o
+   app normalmente).
+3. Comentário de `_syncColetarSnapshotLocal()` atualizado: a chave que
+   o SDK de Auth grava no localStorage (`firebase:authUser:...`) já
+   cai no mesmo filtro de regex que excluía `firebase:host:...` (chave
+   com `.`, inválida como nó do Realtime Database) — nenhuma mudança
+   de código necessária ali, só a explicação.
+4. `LEIA-ME_SYNC_PROVISORIO.md`: nova seção "6. Fechar o acesso
+   público" com o passo a passo manual no Console do Firebase — **em
+   2 etapas na ordem certa**: (1) habilitar "Anônimo" em Authentication
+   → Sign-in method, (2) só depois trocar as regras do Realtime
+   Database pra `auth != null` (trocar a regra antes do passo 1
+   derrubaria a sincronização de todo mundo).
+
+**Verificação**: `node --check` limpo em `sync-provisorio.js`. Testado
+no navegador (servidor HTTP local, projeto Firebase real): como o
+login anônimo ainda não foi habilitado no Console (passo manual
+pendente do lado do usuário), o `signInAnonymously()` falhou com
+`auth/configuration-not-found` e o app caiu no fallback local
+graciosamente — sem erro na tela, sem travar, exatamente o
+comportamento esperado pro caminho de falha. O caminho de sucesso
+(login anônimo habilitado + sincronização de verdade) só pode ser
+testado depois que o usuário fizer o passo 1 manual no Console —
+pendente.

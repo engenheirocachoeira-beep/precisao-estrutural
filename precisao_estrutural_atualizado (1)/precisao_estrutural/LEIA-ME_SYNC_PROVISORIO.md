@@ -79,5 +79,38 @@ qualquer pessoa que descobrir a URL**, sem senha nenhuma — aceitável
 por um tempo curto, só durante esta fase de teste com a equipe. Depois
 de 30 dias o Firebase bloqueia automaticamente a leitura/escrita até
 alguém trocar as regras. **Não é adequado para dados reais de produção
-como está** — quando o sistema sair do teste, isso precisa de regras de
-acesso de verdade (autenticação), que é um trabalho à parte.
+como está** — e o sistema já tem CPF e dado financeiro real da equipe
+trafegando, então isto não deve ficar pendurado.
+
+## 6. Fechar o acesso público (autenticação anônima)
+
+O código já foi preparado pra isto (`js/sync-provisorio.js` chama
+`firebase.auth().signInAnonymously()` antes de ler/escrever) — falta só
+2 passos manuais no Console do Firebase, **nesta ordem** (trocar a
+regra antes de habilitar o login anônimo derrubaria a sincronização de
+todo mundo até o passo 1 ser feito):
+
+1. **Habilitar login anônimo**: no menu lateral, "Compilação" →
+   "Authentication" → aba "Sign-in method" → clique em "Anônimo" →
+   "Ativar" → Salvar.
+2. **Confirmar que funcionou**: abra o `index.html` normalmente e
+   confira no Console do navegador (F12) que não aparece mais o aviso
+   `[sync-provisorio] falha ao autenticar anonimamente`. Se quiser
+   conferir no próprio Firebase: "Authentication" → aba "Users" — deve
+   aparecer um usuário novo (anônimo) a cada dispositivo/navegador que
+   abriu o app.
+3. **Só depois de confirmar o passo 2**, trocar as regras: "Compilação"
+   → "Realtime Database" → aba "Regras", substituir o conteúdo por:
+   ```json
+   {
+     "rules": {
+       ".read": "auth != null",
+       ".write": "auth != null"
+     }
+   }
+   ```
+   e clicar em "Publicar".
+
+Não precisa nenhuma ação da equipe — o login anônimo é automático e
+invisível (sem tela, sem senha), cada navegador se autentica sozinho
+na primeira vez que abre o app.

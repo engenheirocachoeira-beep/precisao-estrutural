@@ -129,9 +129,11 @@ function _syncColetarSnapshotLocal() {
     for (let i = 0; i < localStorage.length; i++) {
         const chave = localStorage.key(i);
         if (SYNC_PROVISORIO_CHAVES_LOCAIS.includes(chave)) continue;
-        // Chaves como "firebase:host:..." são gravadas pelo PRÓPRIO SDK do
+        // Chaves como "firebase:host:..." ou "firebase:authUser:..." são
+        // gravadas pelo PRÓPRIO SDK do
         // Firebase no localStorage (controle interno dele, ex: cache de
-        // qual servidor usar) — não são dado do app, e contêm "." (proibido
+        // qual servidor usar, ou a sessão de autenticação anônima) — não
+        // são dado do app, e contêm "." (proibido
         // como nome de nó no Realtime Database), então travariam o envio.
         if (SYNC_PROVISORIO_REGEX_CHAVE_INVALIDA.test(chave)) continue;
         dados[chave] = localStorage.getItem(chave);
@@ -249,23 +251,40 @@ function _syncInicializar() {
     firebase.initializeApp(SYNC_PROVISORIO_CONFIG_FIREBASE);
     _syncFirebaseRef = firebase.database().ref(SYNC_PROVISORIO_CAMINHO);
 
-    _syncFirebaseRef.once('value').then(function (snap) {
-        const dados = snap.val();
-        _syncPullInicialConcluido = true;
-        if (dados && Object.keys(dados).length > 0) {
-            _syncAtualizarOverlay('Aplicando dados da equipe...');
-            _syncAplicarSnapshotRemoto(dados);
-        } else {
-            // Servidor ainda vazio (primeira sincronização da equipe) —
-            // sobe o que já existe localmente (seeds/dados já digitados)
-            // assim que o app terminar de carregar (ver fim de
-            // _syncCarregarScriptsApp, que já deixa tudo pronto pra push).
-        }
-        _syncEscutarMudancasRemotas();
-        _syncCarregarScriptsApp(0);
-        if (!dados || Object.keys(dados).length === 0) _syncEnviarAgora();
+    // Autenticação anônima: não é login de verdade (sem tela, sem senha,
+    // sem escolha de identidade — isso continua sendo o dropdown de
+    // "modo teste" do app, sem relação nenhuma com isto) — é só o app se
+    // apresentar ao Firebase como "alguém autenticado" antes de ler/
+    // escrever, exigência das regras do Realtime Database (".read"/
+    // ".write": "auth != null"). O SDK guarda essa credencial no próprio
+    // navegador (chave "firebase:authUser:..." no localStorage — já
+    // filtrada da sincronização, ver _syncColetarSnapshotLocal acima) e a
+    // reaproveita nas próximas visitas, então isto roda uma vez por
+    // dispositivo/navegador, nunca pede nada visível ao usuário.
+    firebase.auth().signInAnonymously().then(function () {
+        _syncFirebaseRef.once('value').then(function (snap) {
+            const dados = snap.val();
+            _syncPullInicialConcluido = true;
+            if (dados && Object.keys(dados).length > 0) {
+                _syncAtualizarOverlay('Aplicando dados da equipe...');
+                _syncAplicarSnapshotRemoto(dados);
+            } else {
+                // Servidor ainda vazio (primeira sincronização da equipe) —
+                // sobe o que já existe localmente (seeds/dados já digitados)
+                // assim que o app terminar de carregar (ver fim de
+                // _syncCarregarScriptsApp, que já deixa tudo pronto pra push).
+            }
+            _syncEscutarMudancasRemotas();
+            _syncCarregarScriptsApp(0);
+            if (!dados || Object.keys(dados).length === 0) _syncEnviarAgora();
+        }).catch(function (err) {
+            console.warn('[sync-provisorio] falha ao buscar dados iniciais do servidor — seguindo com os dados locais por enquanto', err);
+            _syncPullInicialConcluido = true;
+            _syncRemoverOverlay();
+            _syncCarregarScriptsApp(0);
+        });
     }).catch(function (err) {
-        console.warn('[sync-provisorio] falha ao buscar dados iniciais do servidor — seguindo com os dados locais por enquanto', err);
+        console.warn('[sync-provisorio] falha ao autenticar anonimamente no Firebase — seguindo com os dados locais por enquanto (ver se "Anônimo" está habilitado em Authentication > Sign-in method no console do Firebase)', err);
         _syncPullInicialConcluido = true;
         _syncRemoverOverlay();
         _syncCarregarScriptsApp(0);
