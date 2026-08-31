@@ -473,6 +473,15 @@
             arv.soma_a_eq = somaAreaEquivalenteTotal;
         }
 
+        // Normalmente vive em js/distribuicao-custos.js — este harness
+        // isolado (só Árvore) nunca carrega esse arquivo, mas
+        // visualizarNo() (logo abaixo) passou a chamar formatarMoeda()
+        // numa sincronização com o app principal (ver
+        // prompt_gemini.md, parte 63) sem essa dependência junto.
+        function formatarMoeda(valor) {
+            return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
         function visualizarNo(path) {
             const pd = document.getElementById('painel-propriedades-lego');
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos'));

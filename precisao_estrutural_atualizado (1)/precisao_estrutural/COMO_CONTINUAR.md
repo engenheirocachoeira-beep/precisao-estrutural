@@ -24,7 +24,7 @@ Como gostamos de trabalhar, e por favor mantenha esse padrão:
 - **Teste antes de aplicar.** Sempre que a mudança envolve lógica (cálculo, regra de negócio, algoritmo), rode um teste isolado em Node antes de mexer nos arquivos de verdade — e me mostra o resultado do teste, não só "deu certo".
 - **Valide no final.** Sintaxe (`node --check`) de todos os `.js`, balanceamento de HTML, e uma checagem de que toda função chamada em `onclick`/`onchange` realmente existe em algum arquivo.
 - **Sincronize os módulos isolados.** Este projeto tem uma pasta `modulos_isolados/`, com uma versão standalone de cada módulo (pra eu poder testar ou levar pro Gemini uma peça por vez, sem o app inteiro). Toda mudança nos arquivos principais precisa ser replicada lá também.
-- **Atualize o `prompt_gemini.md`** a cada mudança relevante — mas com cuidado: releia o parágrafo inteiro antes E depois de editar. Esse arquivo já quebrou no meio de parágrafos umas duas vezes por edição descuidada.
+- **Atualize a documentação a cada mudança relevante** — mas com cuidado: releia o parágrafo inteiro antes E depois de editar (já quebrou no meio de parágrafos algumas vezes por edição descuidada). Desde 2026-08-31, `prompt_gemini.md` é só arquitetura/regras vigentes; o histórico cronológico de cada mudança (as entradas "## Retomada em AAAA-MM-DD") fica em `CHANGELOG.md`.
 - **Sempre entregue o `.zip` da pasta inteira no final**, não arquivos soltos.
 - **Quando o pedido for ambíguo ou abrir um leque grande de decisões de design** (como aconteceu com controle de acesso, ou com o motor de agendamento), prefiro parar e conversar/decidir antes de você construir — não assuma o caminho mais óbvio sem confirmar comigo.
 
