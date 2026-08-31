@@ -278,13 +278,28 @@ function _syncInicializar() {
             _syncCarregarScriptsApp(0);
             if (!dados || Object.keys(dados).length === 0) _syncEnviarAgora();
         }).catch(function (err) {
-            console.warn('[sync-provisorio] falha ao buscar dados iniciais do servidor — seguindo com os dados locais por enquanto', err);
+            console.warn('[sync-provisorio] falha ao buscar dados iniciais do servidor — seguindo com os dados locais por enquanto, sem sincronizar', err);
+            // Zera a referência: sem isso, o app seguia achando que tem
+            // servidor pra falar (_syncFirebaseRef non-null) e o envio
+            // periódico de segurança (a cada 30s) continuava tentando
+            // ENVIAR os dados locais pro Firebase mesmo sem ter
+            // conseguido LER o estado real de lá primeiro — em um
+            // dispositivo/aba nova (localStorage vazio), isso sobrescreve
+            // o banco real da equipe com os dados de exemplo/vazios do
+            // dispositivo novo. Incidente real: 2026-08-31, corrigido
+            // depois de acontecer (ver prompt_gemini.md).
+            _syncFirebaseRef = null;
             _syncPullInicialConcluido = true;
             _syncRemoverOverlay();
             _syncCarregarScriptsApp(0);
         });
     }).catch(function (err) {
-        console.warn('[sync-provisorio] falha ao autenticar anonimamente no Firebase — seguindo com os dados locais por enquanto (ver se "Anônimo" está habilitado em Authentication > Sign-in method no console do Firebase)', err);
+        console.warn('[sync-provisorio] falha ao autenticar anonimamente no Firebase — seguindo com os dados locais por enquanto, sem sincronizar (ver se "Anônimo" está habilitado em Authentication > Sign-in method no console do Firebase)', err);
+        // Mesmo motivo do catch acima: sem zerar aqui, uma falha de
+        // autenticação (ex: "Anônimo" ainda não habilitado no Console)
+        // deixava o envio periódico ativo mesmo sem nunca ter lido o
+        // servidor — mesmo risco de sobrescrever o banco real da equipe.
+        _syncFirebaseRef = null;
         _syncPullInicialConcluido = true;
         _syncRemoverOverlay();
         _syncCarregarScriptsApp(0);

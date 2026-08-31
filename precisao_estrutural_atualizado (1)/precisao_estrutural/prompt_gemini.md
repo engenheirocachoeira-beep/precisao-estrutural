@@ -10269,3 +10269,64 @@ comportamento esperado pro caminho de falha. O caminho de sucesso
 (login anônimo habilitado + sincronização de verdade) só pode ser
 testado depois que o usuário fizer o passo 1 manual no Console —
 pendente.
+
+## Retomada em 2026-08-31 (parte 59) — Incidente: banco de produção sobrescrito durante teste, restaurado, e bug de origem corrigido
+
+**O que aconteceu**: testando o caminho de FALHA da autenticação
+anônima (parte 58) antes do usuário ter habilitado "Anônimo" no
+Console, abri o app numa origem nova (localStorage vazio). A
+autenticação falhou (`auth/configuration-not-found`) e o app caiu no
+fallback "modo local" — mas nesse fallback o app ainda semeia um
+projeto de exemplo padrão já embutido no código (`"Residencial
+Excellence"` / `PRJ-BC-01`), por ser primeira visita. O bug: mesmo no
+fallback, `_syncFirebaseRef` (a referência de conexão com o Firebase,
+criada ANTES da tentativa de autenticação) continuava válida, e o
+envio periódico de segurança a cada 30s (`setInterval` no fim do
+arquivo) seguia tentando enviar o localStorage pro servidor — como as
+regras do banco ainda estavam abertas (usuário ainda não tinha
+trocado pra `auth != null`), o envio teve sucesso e **substituiu o
+banco de dados real da equipe (10 projetos, 62 clientes, etc.) pelo
+projeto de exemplo vazio**.
+
+**Recuperação**: uma aba de teste anterior, aberta mais cedo na mesma
+sessão (antes do bug), ainda tinha os dados reais em cache no
+localStorage do navegador (32 chaves) — não tinha sido recarregada
+nem executado `sync-provisorio.js` de novo, então nunca puxou o dado
+corrompido por cima. Confirmei com o usuário que ninguém da equipe
+tinha aberto/recarregado o app real desde o incidente (então não
+havia edição legítima mais recente que essa cópia). Com autorização
+explícita do usuário, recuperei essa cópia via `javascript_tool`
+(carregando o SDK do Firebase manualmente numa aba que nunca rodou
+`sync-provisorio.js`, pra não arriscar puxar o dado ruim por cima) e
+reenviei pro Firebase. Confirmado via leitura direta do banco:
+`banco_projetos` voltou aos 10 projetos reais, `banco_clientes` com
+62 registros.
+
+**Fix da causa raiz** (`js/sync-provisorio.js`, `_syncInicializar()`):
+os dois `catch` de falha (autenticação e leitura inicial) agora
+zeram `_syncFirebaseRef = null` antes de cair no modo local —
+`_syncEnviarAgora()` já checava `if (!_syncFirebaseRef) return;` no
+topo, então zerar a referência desarma completamente qualquer envio
+futuro (debounced ou periódico) pelo resto da vida daquela aba,
+igual ao comportamento que o branch "configuração incompleta" já
+tinha (nunca criava a referência). Sem isso, qualquer falha
+transitória de autenticação ou leitura — não só a específica que
+causou o incidente — deixava a porta aberta pro mesmo problema.
+
+**Verificação**: `node --check` limpo. Testado de ponta a ponta numa
+origem nova depois do fix: autentica silenciosamente, puxa os dados
+reais (já restaurados) do servidor, aplica no localStorage, sem
+nenhum envio de volta (branch de sucesso só envia se o servidor
+estava vazio, que não é mais o caso) — comportamento correto
+confirmado via `javascript_tool` (leitura de `localStorage` e da
+variável `_syncFirebaseRef` na página real, não just código lido).
+Não forcei de novo o caminho de falha (autenticação já está
+habilitada agora, não dá pra reproduzir o mesmo erro) — a garantia
+vem de revisão de código: os dois `catch` agora zeram a referência
+antes de sair, e `_syncEnviarAgora()` sempre checa a referência
+primeiro.
+
+**Lição prática**: qualquer teste futuro de sincronização com o
+Firebase deve, sempre que possível, testar contra um projeto Firebase
+separado de teste — não direto contra o banco de produção da equipe —
+mesmo em passos que "deveriam" só ler.
