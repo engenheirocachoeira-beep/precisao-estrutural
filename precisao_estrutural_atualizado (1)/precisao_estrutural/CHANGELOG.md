@@ -4733,3 +4733,55 @@ bug): renderiza e mostra a mensagem certa.
 persistir, a pessoa agora vai ver um aviso vermelho na tela (bloqueio
 OU falha de envio) que aponta a causa de verdade — antes disso ficava
 tudo invisível. Ainda em aberto até o usuário confirmar.
+
+**Atualização — 3ª causa encontrada, causa raiz real confirmada**: o
+banner funcionou — usuário mandou print mostrando o aviso vermelho na
+tela, com o motivo escrito: **`permission_denied`**. Não era mais
+suposição, era a resposta de verdade do Firebase pra aquele envio.
+
+Investiguei se era regra de segurança do banco (bloqueando todo mundo)
+ou dado específico rejeitado: reproduzi o caminho real — subi o app
+localmente (servidor de dev, `localhost:5601`), deixei autenticar
+anônimo do zero e puxar os dados reais do mesmo Firebase da equipe, e
+tentei 2 envios de teste: (1) uma escrita pequena isolada, (2) o
+snapshot completo de verdade que `_syncEnviarAgora()` manda (36 chaves,
+~157KB) — **os dois funcionaram sem erro nenhum**, com um token de
+autenticação recém-emitido. Ou seja: as regras do Firebase estão OK, o
+formato do dado está OK — o problema não é "escritas estão quebradas",
+é específico da ABA/SESSÃO da pessoa no momento em que ela clicou
+"Salvar".
+
+**Causa provável**: a autenticação anônima do Firebase usa um token que
+expira em 1 hora (confirmado lendo o token de teste: `iat`→`exp` =
+exatamente 1h) — o SDK renova sozinho em segundo plano, mas numa aba
+que fica aberta por muito tempo (ex: o dia todo, ou minimizada/em
+segundo plano, onde o navegador pode atrasar timers pra economizar
+bateria), essa renovação automática pode não acontecer a tempo. Quando
+isso acontece, a PRÓXIMA escrita usa um token vencido e o Firebase
+recusa com `permission_denied` — mesmo a aba parecendo funcionando
+normalmente (leituras antigas continuam undefined/cacheadas, só a
+escrita nova falha).
+
+**Correção** (`js/sync-provisorio.js::_syncEnviarAgora`): quando o erro
+do envio parece ser de permissão (`err.code`/`err.message` batendo
+`/permission.?denied/i`), em vez de já mostrar a falha, força renovar o
+token (`firebase.auth().currentUser.getIdToken(true)`) e tenta reenviar
+UMA vez (parâmetro interno `jaTentouReautenticar`, evita loop). Se essa
+segunda tentativa der certo — o cenário mais provável — o usuário nunca
+vê problema nenhum, a edição sobe sozinha de forma transparente. Só cai
+no banner vermelho se a re-autenticação também falhar (aí sim é um
+problema de verdade: sem internet, ou a conta anônima foi revogada).
+
+Testado: `node --check` limpo. Testei o mecanismo de retry isolado no
+navegador (com a sessão real, dados reais puxados do Firebase da
+equipe) — forcei a renovação do token e confirmei que o envio
+subsequente funciona (escrita de teste num nó separado, removida logo
+em seguida, sem tocar em dado real do projeto).
+
+**Ainda em aberto**: não consigo forçar de propósito um token vencido
+pra provar 100% que ERA essa a causa exata (só reproduzi o mecanismo de
+correção, não o bug em si) — mas é a explicação mais consistente com
+todos os fatos: regras OK, dado OK, escrita isolada OK, só falha depois
+de uso prolongado da mesma aba. Próximo passo real: usuário confirmar,
+depois desta correção subir, se o 0% da Análise Global finalmente
+persiste depois de salvar e recarregar.

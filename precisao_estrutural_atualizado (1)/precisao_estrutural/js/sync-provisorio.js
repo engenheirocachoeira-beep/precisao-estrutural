@@ -254,7 +254,10 @@ function _syncAgendarEnvio() {
     if (_syncTimeoutEnvio) clearTimeout(_syncTimeoutEnvio);
     _syncTimeoutEnvio = setTimeout(_syncEnviarAgora, SYNC_PROVISORIO_DEBOUNCE_MS);
 }
-function _syncEnviarAgora() {
+// jaTentouReautenticar: uso interno (ver catch abaixo) — marca que esta
+// chamada já é a segunda tentativa, depois de forçar renovação do token,
+// pra nunca entrar num loop de tentativas.
+function _syncEnviarAgora(jaTentouReautenticar) {
     if (!_syncFirebaseRef) return;
     const snapshot = _syncColetarSnapshotLocal();
 
@@ -268,19 +271,45 @@ function _syncEnviarAgora() {
     // Assinatura simples (não é hash criptográfico, só evita reenviar o
     // mesmo conteúdo sem necessidade) — tamanho + quantidade de chaves já é
     // suficiente pra esse propósito de reduzir tráfego, não de segurança.
+    // Pulado na nova tentativa pós-reautenticação (mesmo conteúdo da que
+    // falhou, mas precisa sair de novo).
     const assinatura = Object.keys(snapshot).length + ':' + JSON.stringify(snapshot).length;
-    if (assinatura === _syncUltimoEnvioAssinatura) return;
-    _syncUltimoEnvioAssinatura = assinatura;
+    if (!jaTentouReautenticar) {
+        if (assinatura === _syncUltimoEnvioAssinatura) return;
+        _syncUltimoEnvioAssinatura = assinatura;
+    }
     _syncFirebaseRef.set(snapshot).then(function () {
         _syncRemoverBannerFalhaEnvio(); // uma tentativa seguinte deu certo — some com o aviso da falha anterior
     }).catch(function (err) {
         console.warn('[sync-provisorio] falha ao enviar dados', err);
-        // Bug real encontrado (2026-09-01): até aqui, uma falha de envio
-        // (permissão negada, rede caiu, etc.) só aparecia no Console —
-        // completamente invisível pra quem não tem o DevTools aberto.
-        // Resultado: uma edição podia nunca sair do navegador e ninguém
-        // saber por quê. Agora mostra um aviso na tela, igual já existe
-        // pros outros 2 casos (envio bloqueado / dado novo no servidor).
+
+        // Bug real encontrado (2026-09-01): usuário via "permission_denied"
+        // ao salvar numa aba aberta há tempo, mesmo com as regras do
+        // Firebase corretas (testado à parte) — causa provável: o token de
+        // autenticação anônima (dura 1h) não renovou sozinho a tempo (aba
+        // em segundo plano/rede instável no momento exato da renovação
+        // automática do SDK). Antes de exibir a falha pro usuário, força
+        // renovar o token e tenta reenviar UMA vez — se isso resolver
+        // (a causa mais provável), o usuário nunca vê problema nenhum.
+        const pareceErroPermissao = err && (
+            (err.code && /permission.?denied/i.test(err.code)) ||
+            (err.message && /permission.?denied/i.test(err.message))
+        );
+        if (!jaTentouReautenticar && pareceErroPermissao && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+            firebase.auth().currentUser.getIdToken(true).then(function () {
+                _syncEnviarAgora(true);
+            }).catch(function () {
+                _syncMostrarBannerFalhaEnvio(err);
+            });
+            return;
+        }
+
+        // Até aqui, uma falha de envio (permissão negada, rede caiu, etc.)
+        // só aparecia no Console — completamente invisível pra quem não
+        // tem o DevTools aberto. Resultado: uma edição podia nunca sair do
+        // navegador e ninguém saber por quê. Agora mostra um aviso na
+        // tela, igual já existe pros outros 2 casos (envio bloqueado /
+        // dado novo no servidor).
         _syncMostrarBannerFalhaEnvio(err);
     });
 }
