@@ -25,7 +25,7 @@
 
         <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
 
-<div id="panel-distribuicao-custos" class="content-panel" style="flex-direction: row; gap: 20px; height: 100%; overflow: hidden;">
+                <div id="panel-distribuicao-custos" class="content-panel" style="flex-direction: row; gap: 20px; height: 100%; overflow: hidden;">
                     <div id="dc-portal-selecao-projeto" style="width: 380px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden;">
                         <div style="background: #0f223f; color: white; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid #00b4d8;">📁 Escolha o Projeto</div>
                         <div style="padding: 10px; border-bottom: 1px solid #f1f5f9;"><input type="text" class="search-input" id="dc-portal-busca-projeto" placeholder="🔍 Buscar obra..." oninput="filtrarTabelaProjetosDistribuicao()"></div>
@@ -35,11 +35,11 @@
                     <div id="dc-conteudo-principal" style="display:none; flex: 1; overflow-y: auto;">
                     <div class="tab-bar">
                         <div id="aba-orcamento-global" class="tab-selector active" onclick="alternarAbaDistribuicao('orcamento-global')">Orçamento Global</div>
-                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Distribuição de Custos Analista</div>
-                        <div id="aba-verba-detalhamento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-detalhamento')">Verba para Detalhamento</div>
-                        <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
+                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Verba por Etapa</div>
+                        <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Sub-etapa</div>
                         <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
-                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="margin-left:auto; background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;">🔁 Trocar Projeto</button>
+                        <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
+                        <button type="button" onclick="voltarParaPortalSelecaoProjeto()" title="Trocar de projeto" style="background:none; border:1px solid #cbd5e1; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; color:#475569;">🔁 Trocar Projeto</button>
                     </div>
 
                     <div id="conteudo-orcamento-global" class="tab-content">
@@ -55,7 +55,7 @@
                             <div class="form-section">
                                 <div class="form-section-title">2. Impostos</div>
                                 <div class="form-grid">
-                                    <div class="form-group col-4"><label>Percentual de Impostos (%):</label><input type="number" id="dc-pct-impostos" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
+                                    <div class="form-group col-4"><label>Percentual de Impostos (%):</label><div class="campo-percentual"><input type="number" id="dc-pct-impostos" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
                                     <div class="form-group col-8"><label>Valor Líquido do Projeto:</label><input type="text" id="dc-valor-liquido" readonly style="background:#f0fdf4; font-weight:bold; color:#166534;"></div>
                                 </div>
                             </div>
@@ -63,15 +63,29 @@
                             <div class="form-section">
                                 <div class="form-section-title">3. Distribuição por Percentual (sobre o Valor Líquido)</div>
                                 <div class="form-grid">
-                                    <div class="form-group col-4"><label>% Analista:</label><input type="number" id="dc-pct-analista" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
-                                    <div class="form-group col-4"><label>% Supervisor:</label><input type="number" id="dc-pct-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
-                                    <div class="form-group col-4"><label>% Escritório:</label><input type="number" id="dc-pct-escritorio" step="0.01" oninput="recalcularDistribuicaoCustos()"></div>
+                                    <div class="form-group col-4"><label>% Analista:</label><div class="campo-percentual"><input type="number" id="dc-pct-analista" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
+                                    <div class="form-group col-4"><label>% Supervisor:</label><div class="campo-percentual"><input type="number" id="dc-pct-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
+                                    <div class="form-group col-4"><label>% Escritório:</label><div class="campo-percentual"><input type="number" id="dc-pct-escritorio" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
 
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Analista:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Supervisor:</label><input type="text" id="dc-valor-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
-                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Escritório:</label><input type="text" id="dc-valor-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Verba Global para Produção:</label><input type="text" id="dc-valor-analista" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Parcela para Supervisão:</label><input type="text" id="dc-valor-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Parcela para Escritório:</label><input type="text" id="dc-valor-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                                 </div>
                                 <div id="dc-alerta-soma" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
+                            </div>
+
+                            <div class="form-section">
+                                <div class="form-section-title">4. Coparticipação Global (Escritório/Supervisão)</div>
+                                <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 10px; border-radius:6px; margin-bottom:10px; font-size:11px; color:#1e40af;">Independente do % geral do item 3 acima — define só o quanto Escritório/Supervisão participam das etapas/sub-etapas que tiverem a Coparticipação habilitada (marcação na própria Árvore de Projeto). Deixe 0% se este projeto não tem coparticipação. Campo fica bloqueado quando o % geral do item 3 correspondente é 0%.</div>
+                                <div class="form-grid">
+                                    <div class="col-4"></div>
+                                    <div class="form-group col-4"><label>% Coparticipação Supervisão:</label><div class="campo-percentual"><input type="number" id="dc-pct-coparticipacao-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
+                                    <div class="form-group col-4"><label>% Coparticipação Escritório:</label><div class="campo-percentual"><input type="number" id="dc-pct-coparticipacao-escritorio" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
+
+                                    <div class="col-4"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Coparticipação Supervisão:</label><input type="text" id="dc-valor-coparticipacao-supervisor" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                    <div class="form-group col-4" style="margin-top:10px;"><label>Valor Coparticipação Escritório:</label><input type="text" id="dc-valor-coparticipacao-escritorio" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                                </div>
                             </div>
 
                             <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoCustos()">Salvar Distribuição</button></div>
@@ -84,88 +98,71 @@
                         </div>
                         <div id="dca-conteudo" style="display:none;">
                             <div class="tab-projeto-header">Projeto: <b id="dca-projeto-ref">—</b></div>
-                            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                                Valor destinado ao Analista (aba Orçamento Global), a ser dividido entre as etapas: <b id="dca-valor-analista-ref">R$ 0,00</b>
+                            <div class="form-grid" style="margin-bottom:15px;">
+                                <div class="form-group col-4"><label>Verba Global para Produção (aba Orçamento Global):</label><input type="text" id="dca-valor-analista-ref" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                             </div>
                             <div class="table-wrapper" style="max-height:400px;">
-                                <table>
+                                <table class="tabela-compacta">
                                     <thead><tr>
-                                        <th>Etapas</th>
-                                        <th style="width:90px;">%</th>
-                                        <th style="width:150px;">Verba</th>
+                                        <th style="width:220px;">Etapas</th>
+                                        <th style="width:90px; text-align:center;">%</th>
+                                        <th style="width:150px; text-align:right;">Verba</th>
                                         <th style="width:220px;">Responsável</th>
                                     </tr></thead>
                                     <tbody id="dca-tabela-body"></tbody>
+                                    <tfoot>
+                                        <tr style="background:#eff6ff; font-weight:bold;">
+                                            <td>Total (Etapas)</td>
+                                            <td class="col-centralizada"><span id="dca-total-pct" class="campo-somente-leitura-borda"></span></td>
+                                            <td id="dca-total-verba" style="color:#1e40af;"></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr style="background:#e2e8f0; font-weight:bold;">
+                                            <td>Total Geral</td>
+                                            <td class="col-centralizada"><span id="dca-total-geral-pct" class="campo-somente-leitura-borda"></span></td>
+                                            <td id="dca-total-geral-verba" style="color:#0a192f;"></td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
-                            <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoAnalista()">Salvar Distribuição por Etapa</button></div>
+                            <div class="footer-actions"><button id="dca-btn-salvar" class="btn-success" onclick="salvarDistribuicaoAnalista()">Salvar Distribuição por Etapa</button></div>
                             <div id="dca-alerta-soma" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
                         </div>
                     </div>
 
-                    <div id="conteudo-verba-detalhamento" class="tab-content" style="display:none;">
-                        <div class="tab-projeto-header">Projeto: <b id="vd-projeto-ref">—</b></div>
-                        <div id="vd-aviso" style="display:none; background:#fef9c3; color:#854d0e; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"></div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead><tr><th>Campo</th><th style="width:200px;">Valor</th></tr></thead>
-                                <tbody>
-                                    <tr><td>Verba Analista <small style="color:#94a3b8;">(etapa Detalhamento, vinda da aba anterior)</small></td><td id="vd-verba-analista" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                    <tr><td>Verba Escritório</td><td id="vd-verba-escritorio" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                    <tr><td>Verba Supervisor</td><td id="vd-verba-supervisor" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                    <tr style="background:#f0fdf4;"><td><b>Verba Detalhamento (total)</b></td><td id="vd-verba-total" style="font-weight:bold; color:#166534;"></td></tr>
-                                    <tr><td>% Distribuição Lucros <small style="color:#94a3b8;">(sobre a Verba Detalhamento total, acima)</small></td><td><input type="number" step="0.01" id="vd-pct-lucros" style="width:100px;" oninput="recalcularDistribuicaoLucros()"></td></tr>
-                                    <tr><td>Valor Distribuição Lucros</td><td id="vd-valor-lucros" style="font-weight:bold; color:#b45309;"></td></tr>
-                                    <tr style="background:#eff6ff;"><td><b>Verba Detalhamento Líquida</b> <small style="color:#94a3b8;">(após Distribuição de Lucros)</small></td><td id="vd-verba-liquida" style="font-weight:bold; color:#1e40af;"></td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="footer-actions"><button class="btn-success" onclick="salvarDistribuicaoLucros()">Salvar % Distribuição Lucros</button></div>
-                    </div>
-
                     <div id="conteudo-verba-pavimento" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vp-projeto-ref">—</b></div>
-                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1e40af;">
-                            Área Total Equivalente: <b id="vp-area-total-equivalente">0</b>
-                            &nbsp;|&nbsp;
-                            Verba Detalhamento Líquida (aba anterior), a ser distribuída entre os pavimentos: <b id="vp-verba-liquida-ref">R$ 0,00</b>
+                        <div class="form-grid" style="margin-bottom:15px;">
+                            <div class="form-group col-6"><label>Área Total Equivalente:</label><input type="text" id="vp-area-total-equivalente" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
+                            <div class="form-group col-6"><label>Verba Líquida Total:</label><input type="text" id="vp-verba-liquida-ref" readonly style="background:#eff6ff; font-weight:bold; color:#1e40af;"></div>
                         </div>
-                        <div class="table-wrapper" style="max-height:400px;">
-                            <table>
-                                <thead><tr>
-                                    <th>Pavimento</th>
-                                    <th style="width:110px;">Área</th>
-                                    <th style="width:120px;">Peso de Esforço</th>
-                                    <th style="width:140px;">Área Equivalente</th>
-                                    <th style="width:90px;">% da Verba</th>
-                                    <th style="width:150px;">Valor da Verba</th>
-                                </tr></thead>
-                                <tbody id="vp-tabela-body"></tbody>
-                                <tfoot>
-                                    <tr style="background:#f0fdf4; font-weight:bold;">
-                                        <td colspan="5" style="text-align:right;">Total</td>
-                                        <td id="vp-total-verba" style="color:#166534;"></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        <!-- Um quadro por Etapa (nome da Etapa no título, % Fundo
+                             Distribuição de Lucros próprio, tabela de Sub-etapas/
+                             Pavimentos e Total da Etapa) — montado inteiro via JS em
+                             renderizarTabelasVerbaPavimento() (js/distribuicao-custos.js),
+                             mesmo padrão dos cartões de Pavimento da aba "Verba por
+                             Tarefa" (.vt-card). -->
+                        <div id="vp-etapas-wrapper"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding:10px 14px; background:#f0fdf4; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;">
+                            <span style="font-weight:bold; color:#166534;">Fundo de Distribuição de Lucros Total</span>
+                            <span id="vp-fundo-lucros-total" style="font-weight:bold; color:#166534; font-size:14px;"></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:12px 16px; background:#eff6ff; border:1px solid #e2e8f0; border-radius:6px;">
+                            <span style="font-weight:bold; color:#1e40af; font-size:13px;">Total Geral (todas as Etapas)</span>
+                            <span id="vp-total-verba" style="font-weight:800; color:#1e40af; font-size:16px;"></span>
                         </div>
                         <div id="vp-conferencia" style="margin-top:12px; font-size:12px; padding:8px; border-radius:4px;"></div>
                     </div>
 
                     <div id="conteudo-verba-por-tarefa" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vt-projeto-ref">—</b></div>
-                        <div class="table-wrapper" style="max-height:450px;">
-                            <table>
-                                <thead><tr>
-                                    <th>Pavimento</th>
-                                    <th>Tarefa</th>
-                                    <th>Executor</th>
-                                    <th style="width:90px;">Horas Máximas</th>
-                                    <th style="width:70px;">Pontos</th>
-                                    <th style="width:120px;">Valor</th>
-                                </tr></thead>
-                                <tbody id="vt-tabela-body"></tbody>
-                            </table>
+                        <!-- Itens 10-11 (revisão 2026-09-01): árvore expansível Etapa
+                             → Sub-etapa/Pavimento → Tarefa (antes: grid de cartões só
+                             de Pavimento) — montada inteira via JS em
+                             carregarAbaVerbaPorTarefa() (js/distribuicao-custos.js). -->
+                        <div style="max-height:600px; overflow-y:auto;">
+                            <div id="vt-arvore-wrapper"></div>
                         </div>
                     </div>
                     </div>
@@ -175,8 +172,10 @@
     <script src="js/core.js"></script>
     <script src="js/distribuicao-custos.js"></script>
     <script>
-        document.getElementById('panel-blank-state').style.display = 'none';
-        alternarModulo('distribuicao_custos');
+        // Ver comentário equivalente em modulos_isolados/arvore/index.html
+        // (achado real 2026-09-01: chamada direta era desfeita pelo
+        // window.onload de core.js, que dispara depois e reseta a tela).
+        window.addEventListener('load', function () { alternarModulo('distribuicao_custos'); });
     </script>
 </body>
 </html>

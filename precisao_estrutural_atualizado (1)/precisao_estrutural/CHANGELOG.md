@@ -4913,3 +4913,136 @@ prévia aprovada** — Contrato 82.439,36 → ... → Fundo Garantidor
 Executor com Daniel &minus;751,30 / Andrey +395,28 / Total
 &minus;356,02; Fundo Garantidor restante 2.380,96; Saldo do Fundo de
 Distribuição de Lucros 547,40 (0% Análise Global + 5% Detalhamento).
+
+## Retomada em 2026-09-01 (parte 72) — Limpeza de campos mortos + sincroniza modulos_isolados/ pela primeira vez desde a reforma Setor→Sub-etapa
+
+Usuário pediu "implemente tudo o que está pendente" — 3 itens de porte
+bem diferente, confirmados com AskUserQuestion antes de mexer: limpeza
+de campos mortos (item 17, achado durante a implementação do
+livro-caixa), sincronizar `modulos_isolados/` (pendência arrastada
+desde as partes 65-71), e a orelha "Desempenho" com seletor de Etapas
+(tratada à parte, fora deste registro).
+
+**1) Limpeza de campos mortos** (`js/desempenho-projeto.js`): a
+reforma do livro-caixa (parte 71) removeu os 2 únicos lugares que
+liam `fin.pctFundoLucros`/`fin.temEtapaDetalhamento`/
+`fin.verbaLiquidaPavimentos` — confirmado por grep, zero usos
+restantes fora da própria função que os calcula. `pctFundoLucros`
+continuava com a chamada de 1 argumento a `obterPctFundoLucrosPavimento`
+que motivou o item 17 originalmente (a função virou 2 argumentos numa
+revisão anterior — ver parte 67/item 6), mas como o campo não tem
+mais nenhum consumidor, a correção certa é remover, não consertar uma
+leitura que não serve mais pra nada. `calcularResumoFinanceiroProjeto()`
+ficou mais enxuta; `node --check` limpo.
+
+**2) Sincroniza `modulos_isolados/`** — a duplicação (páginas de teste
+isoladas por módulo: `arvore/`, `atribuicao-tarefas/`, `bi/`,
+`cadastros/`, `catalogo/`, `distribuicao-custos/`, `feriados/`,
+`kanban/`, `relatorios/`) estava parada desde antes da reforma
+Setor→Sub-etapa — `core.js` tinha 390 linhas de diff em 8 das 9 cópias
+(idênticas entre si — todas paravam no mesmo ponto antigo),
+`distribuicao-custos.js` tinha 1445 linhas de diff (2 cópias). Conferido
+por leitura, em cada arquivo, que a diferença era só staleness (código
+antigo que o principal já não tem mais, ex: `calcularVerbaDetalhamentoPuro`
+de antes da reforma "Verba Global para Produção") — nenhuma
+cópia tinha lógica própria de teste que merecesse ser preservada.
+Copiado o arquivo principal por cima de cada cópia: `core.js` (9x),
+`estilos.css` (9x), `distribuicao-custos.js` (2x), `arvore.js`,
+`relatorios.js`, `kanban.js`, `atribuicao-tarefas.js`, `feriados.js`,
+`importexport.js`. `catalogo-lego.js`/`cadastros.js`/`apontamento.js`/
+`aprovacoes-calendario.js`/`bi.js` já estavam idênticos, sem mudança.
+
+Testar via `node --check` não bastava aqui (sintaxe válida não prova
+que a página carrega) — cada página isolada foi de fato aberta num
+servidor local (`python -m http.server`, porta nova a cada teste pra
+não cair no cache de sub-recurso do navegador, mesmo achado desta
+sessão) e o Console conferido. Isso revelou 3 bugs REAIS, não só
+staleness cosmética:
+
+- **`core.js` quebrava TODO módulo isolado que não fosse o de
+  Cadastros**: `limparWorkspace()` chama
+  `renderizarTabelaClientes()`/`renderizarTabelaFuncionarios()`/
+  `renderizarTabelaProjetos()` sem guarda — essas 3 vivem em
+  `cadastros.js`, que só a própria página de Cadastros carrega. Mesmo
+  problema com `renderizarListaLegoComum()` (vive em
+  `catalogo-lego.js`). Corrigido no `js/core.js` PRINCIPAL (não só
+  isolado) com o mesmo padrão de guarda `typeof === 'function'` já
+  usado ali do lado — bug real, não hipotético: toda página isolada
+  travava no boot com "ReferenceError" antes desta correção.
+- **`kanban.js` novo quebrava a página isolada de Kanban**: o toggle
+  cartão/lista (parte 68) lê `#kb-lista-wrapper`, elemento que só
+  existe no `index.html` principal — a cópia isolada ainda tinha só o
+  `#kb-quadro` de antes do toggle existir. Corrigido substituindo o
+  bloco `#panel-kanban` inteiro da página isolada pelo do `index.html`
+  principal (mesmo padrão do item abaixo).
+- **`relatorios.js` novo quebrava o filtro de Relatório de Custos**:
+  lê `#rel-custos-filtro-subetapa` (renomeado de `#rel-custos-filtro-setor`
+  na reforma Setor→Sub-etapa) — a página isolada ainda tinha o `id`
+  antigo. Corrigido junto com o item 3 abaixo.
+
+Além disso, `distribuicao-custos.js` novo (Verba por Sub-etapa/Tarefa,
+partes 67-68) lê `#vp-etapas-wrapper`/`#vt-arvore-wrapper` — ids que só
+existem no `index.html` principal atual, não nas páginas isoladas
+antigas (que ainda tinham a estrutura de grade de cartões antiga).
+
+**3) Blocos de HTML reconstruídos** (não só ids pontuais — a estrutura
+mudou de verdade): comparado o `index.html` principal com cada página
+isolada, e onde a estrutura interna do painel realmente mudou (não só
+um id), o bloco inteiro do painel foi recortado do `index.html`
+principal e colado por cima do bloco antigo na página isolada
+(preservando o "casco" de harness de cada página — cabeçalho de teste,
+nav simplificado, `<script>` de bootstrap):
+- `modulos_isolados/distribuicao-custos/index.html`: bloco
+  `#panel-distribuicao-custos` inteiro (linhas 398-539 do principal).
+- `modulos_isolados/kanban/index.html`: bloco `#panel-kanban` inteiro
+  (linhas 608-718 do principal, já incluindo os 2 modais de calendário/
+  apontamento).
+- `modulos_isolados/catalogo/index.html`: os 4 quadros (Etapas/
+  Sub-etapas/Locais/Tarefas) reescritos com os ids/rótulos atuais
+  (`panel-subetapas-lista`, "Nome da Sub-etapa", "Nome do Local", "Novo
+  Local...", etc.).
+- `modulos_isolados/feriados/index.html`: `id="panel-feriados"` virou
+  `id="panel-feriados-lista"` (o `abrirAbaCadastro()` do `core.js`
+  principal monta o id como `'panel-' + modulo + '-lista'` — sem o
+  sufixo, o painel nunca aparecia, mesmo sem erro nenhum no Console).
+- `modulos_isolados/relatorios/index.html`: `#rel-custos-filtro-setor`
+  virou `#rel-custos-filtro-subetapa` (id que `relatorios.js` novo lê
+  de verdade); rótulo "Pavimento" do filtro vizinho virou "Local" (o
+  `id` desse campo, `rel-custos-filtro-pavimento`, fica igual de
+  propósito — mesma decisão do item 13/parte 68, só rótulo muda).
+
+**4) Achado à parte, mais estrutural (afeta as 9 páginas por igual)**:
+o boot de cada página isolada chamava `alternarModulo(...)` direto,
+síncrono, no `<script>` do fim do `<body>` — mas o `window.onload` do
+`core.js` (que sempre roda `limparWorkspace()`, resetando a tela pra
+"Escolha uma opção acima") só dispara DEPOIS que esse script termina.
+Resultado: a chamada síncrona "ganhava" por uma fração de segundo e
+era desfeita logo depois, sem erro nenhum — a página SEMPRE abria na
+tela em branco, silenciosamente, em toda página isolada, mesmo antes
+desta sessão (não é regressão de hoje). Corrigido nas 8 páginas que
+tinham essa chamada (`arvore`, `atribuicao-tarefas`, `bi`, `cadastros`,
+`catalogo`, `distribuicao-custos`, `feriados`, `kanban` — `relatorios`
+nunca teve chamada automática nenhuma, funciona só por clique do
+usuário, sem essa corrida): trocado por
+`window.addEventListener('load', function () { ... })`, que — por ser
+registrado DEPOIS da atribuição `window.onload = ...` do `core.js` —
+sempre dispara depois dela, garantindo a ordem certa.
+
+**Achado descartado, fora do escopo desta rodada**: as 3 abas de
+catálogo (Etapas/Sub-etapas/Locais/Tarefas via `abrirAbaCadastro()`) e
+"Cadastros" (Clientes/Funcionários/Projetos) dependem estruturalmente
+de `#panel-cadastro` + `.sub-panel-cadastro` (sistema de abas do
+Cadastro no app principal) — nenhuma página isolada tem essa estrutura,
+drift bem mais antigo que a reforma Setor→Sub-etapa. Na prática isso é
+inofensivo pras 3 abas de "Cadastros" (clientes/funcionários/projetos
+têm ramificação própria em `abrirAbaCadastro()`, que não depende da
+classe `.sub-panel-cadastro`) — mas exigiu contornar completamente o
+caminho `alternarModulo()`/`abrirAbaCadastro()` na página de
+`catalogo/` (nova função `mostrarPainelCatalogo()`, bootstrap e nav
+próprios, só chamando `renderizarListaLegoComum()` direto).
+
+Testado: `node --check` limpo em todos os `.js` tocados (26 arquivos
+entre os 9 módulos). Cada uma das 9 páginas isoladas aberta de verdade
+num servidor local, Console conferido sem erro, e o painel principal
+de cada uma confirmado como visível (`getComputedStyle(...).display`)
+já no carregamento — não só clicando depois.

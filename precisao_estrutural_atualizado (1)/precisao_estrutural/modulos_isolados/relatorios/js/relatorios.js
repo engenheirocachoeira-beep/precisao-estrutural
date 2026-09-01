@@ -41,29 +41,29 @@
 // Funções puras, testáveis sem DOM (ver
 // /home/claude/testes/teste_relatorios_camada_dados.js).
 
-// Resolve Etapa/Setor/Pavimento de uma Tarefa-folha PELO NÍVEL REAL de
-// cada ancestral (`no.nivel`), não pela posição no breadcrumb. Bug
+// Resolve Etapa/Sub-etapa/Pavimento de uma Tarefa-folha PELO NÍVEL REAL
+// de cada ancestral (`no.nivel`), não pela posição no breadcrumb. Bug
 // relatado pelo usuário ("por que aparece duas vezes o nome das
 // tarefas"): `coletarNosFolhaDaArvore()` inclui o nome da própria
 // folha como último pedaço do `localizacao` (ex: "Etapa › Pavimento ›
 // NomeDaTarefa"), e o código antigo lia `partes[1]`/`partes[2]` como
-// se fossem sempre Setor/Pavimento — certo quando os 3 níveis
-// existem, mas errado quando um projeto pula o Setor (Árvore Genérica
-// permite isso): `partes[1]` vira o Pavimento de verdade (rotulado
-// como Setor por engano) e `partes[2]` vira o nome da PRÓPRIA TAREFA
-// (rotulado como Pavimento por engano) — daí o nome duplicado
-// aparecendo como se fosse um Pavimento com o mesmo nome da Tarefa
-// dentro dele. Caminha pelos ancestrais de verdade via
+// se fossem sempre Sub-etapa/Pavimento — certo quando os 3 níveis
+// existem, mas errado quando um projeto pula a Sub-etapa (Árvore
+// Genérica permite isso): `partes[1]` vira o Pavimento de verdade
+// (rotulado como Sub-etapa por engano) e `partes[2]` vira o nome da
+// PRÓPRIA TAREFA (rotulado como Pavimento por engano) — daí o nome
+// duplicado aparecendo como se fosse um Pavimento com o mesmo nome da
+// Tarefa dentro dele. Caminha pelos ancestrais de verdade via
 // `resolverNoPorPath()` e usa o `.nivel` de cada um pra saber onde
 // colocar o nome — funciona em qualquer profundidade/combinação de
 // níveis pulados.
 function resolverLocalizacaoPorNivel(arv, path) {
     const segs = String(path).split('-');
-    const resultado = { etapa: '—', setor: '—', pavimento: '—' };
+    const resultado = { etapa: '—', subetapa: '—', pavimento: '—' };
 
     // A Etapa (1º segmento) entra sempre — mesmo no caso "Etapa Única"
     // (path de 1 segmento só, onde a própria Etapa é a folha, sem
-    // Setor/Pavimento/Tarefa abaixo dela). O objeto de Etapa não
+    // Sub-etapa/Pavimento/Tarefa abaixo dela). O objeto de Etapa não
     // carrega um `.nivel` próprio (mesma convenção de arvore.js, onde
     // `nivel === 'etapa'` chega como parâmetro externo, nunca lido de
     // `no.nivel`), por isso não dá pra usar `no.nivel` pra ela.
@@ -107,7 +107,7 @@ function coletarLinhasSessaoTrabalho() {
         const projCadastro = projetos.find(p => p.nome === nomeProjeto);
         const cliente = projCadastro ? projCadastro.cliente : '';
 
-        function empilharSessoes(tarefa, etapaNome, setorNome, pavimentoNome, caminho) {
+        function empilharSessoes(tarefa, etapaNome, subEtapaNome, pavimentoNome, caminho) {
             if (!tarefa.executor || !Array.isArray(tarefa.sessoes_trabalho)) return;
             tarefa.sessoes_trabalho.forEach(sessao => {
                 const dataSessaoISO = (sessao.inicio || '').split('T')[0];
@@ -118,7 +118,7 @@ function coletarLinhasSessaoTrabalho() {
                     projeto: nomeProjeto,
                     cliente: cliente,
                     etapa: etapaNome,
-                    setor: setorNome,
+                    subetapa: subEtapaNome,
                     pavimento: pavimentoNome,
                     tarefa: tarefa.nome,
                     executor: tarefa.executor,
@@ -141,7 +141,7 @@ function coletarLinhasSessaoTrabalho() {
 
         coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path }) => {
             const loc = resolverLocalizacaoPorNivel(arv, path);
-            empilharSessoes(tarefa, loc.etapa, loc.setor, loc.pavimento, nomeProjeto + '|' + path);
+            empilharSessoes(tarefa, loc.etapa, loc.subetapa, loc.pavimento, nomeProjeto + '|' + path);
         });
     });
 
@@ -209,7 +209,7 @@ function coletarLinhasTarefa() {
                 projeto: nomeProjeto,
                 cliente: cliente,
                 etapa: loc.etapa,
-                setor: loc.setor,
+                subetapa: loc.subetapa,
                 pavimento: loc.pavimento,
                 tarefa: tarefa.nome,
                 executor: tarefa.executor,
@@ -277,7 +277,7 @@ function aplicarFiltrosRelatorio(linhas, filtros) {
     return linhas.filter(l => {
         if (filtros.projeto && l.projeto !== filtros.projeto) return false;
         if (filtros.etapa && l.etapa !== filtros.etapa) return false;
-        if (filtros.setor && l.setor !== filtros.setor) return false;
+        if (filtros.subetapa && l.subetapa !== filtros.subetapa) return false;
         if (filtros.pavimento && l.pavimento !== filtros.pavimento) return false;
         if (filtros.tarefa && l.tarefa !== filtros.tarefa) return false;
         if (filtros.cliente && l.cliente !== filtros.cliente) return false;
@@ -372,8 +372,8 @@ const NIVEIS_RELATORIO = {
             { id: 'projeto', rotulo: 'Projeto', padrao: true, somavel: false, tipo: 'texto' },
             { id: 'cliente', rotulo: 'Cliente', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'etapa', rotulo: 'Etapa', padrao: false, somavel: false, tipo: 'texto' },
-            { id: 'setor', rotulo: 'Setor', padrao: false, somavel: false, tipo: 'texto' },
-            { id: 'pavimento', rotulo: 'Pavimento', padrao: false, somavel: false, tipo: 'texto' },
+            { id: 'subetapa', rotulo: 'Sub-etapa', padrao: false, somavel: false, tipo: 'texto' },
+            { id: 'pavimento', rotulo: 'Local', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'tarefa', rotulo: 'Tarefa', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'executor', rotulo: 'Executor', padrao: true, somavel: false, tipo: 'texto' },
             { id: 'data', rotulo: 'Data da Sessão', padrao: true, somavel: false, tipo: 'data' },
@@ -887,7 +887,7 @@ function apagarVisaoSelecionadaRelatorio() {
 // da equipe). Renomeado de "Relatório de horas" (parte 16) pra
 // "Relatório de Custos" (parte 18) — pedido do usuário, com base no
 // modelo real do sistema antigo que ele mostrou: uma árvore
-// Projeto → Etapa → Setor → Pavimento → Tarefa, recolhida por padrão
+// Projeto → Etapa → Sub-etapa → Pavimento → Tarefa, recolhida por padrão
 // (só Projeto visível, com Tempo/Custo já somados), que expande nível
 // por nível; e um resumo separado por Executor (nome, Tempo, Custo),
 // pra fechar pagamento mensal. Ao contrário do motor genérico acima
@@ -977,7 +977,7 @@ function carregarVisaoSelecionadaRelatorioCustos() {
     const visao = carregarVisoesRelatorioCustos().find(v => v.id === id);
     if (!visao) return;
 
-    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(c => {
+    ['projeto', 'etapa', 'subetapa', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(c => {
         const el = document.getElementById('rel-custos-filtro-' + c);
         if (el) el.value = (visao.filtros && visao.filtros[c]) || '';
     });
@@ -1020,7 +1020,7 @@ function renderizarOpcoesFiltroRelatorioCustos() {
     const linhas = coletarLinhasSessaoTrabalho();
     const distintos = (campo) => Array.from(new Set(linhas.map(l => l[campo]).filter(Boolean))).sort();
 
-    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(campo => {
+    ['projeto', 'etapa', 'subetapa', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(campo => {
         const sel = document.getElementById('rel-custos-filtro-' + campo);
         if (!sel) return;
         const valorAtual = sel.value;
@@ -1034,7 +1034,7 @@ function lerFiltrosRelatorioCustos() {
     return {
         projeto: document.getElementById('rel-custos-filtro-projeto').value || null,
         etapa: document.getElementById('rel-custos-filtro-etapa').value || null,
-        setor: document.getElementById('rel-custos-filtro-setor').value || null,
+        subetapa: document.getElementById('rel-custos-filtro-subetapa').value || null,
         pavimento: document.getElementById('rel-custos-filtro-pavimento').value || null,
         tarefa: document.getElementById('rel-custos-filtro-tarefa').value || null,
         cliente: document.getElementById('rel-custos-filtro-cliente').value || null,
@@ -1046,7 +1046,7 @@ function lerFiltrosRelatorioCustos() {
 }
 
 function limparFiltrosRelatorioCustos() {
-    ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(c => {
+    ['projeto', 'etapa', 'subetapa', 'pavimento', 'tarefa', 'cliente', 'executor'].forEach(c => {
         const el = document.getElementById('rel-custos-filtro-' + c);
         if (el) el.value = '';
     });
@@ -1085,11 +1085,11 @@ function formatarHorasHHMM(horasDecimal) {
     return h + ':' + String(m).padStart(2, '0');
 }
 
-// --- Árvore Projeto → Etapa → Setor → Pavimento → Tarefa ---
+// --- Árvore Projeto → Etapa → Sub-etapa → Pavimento → Tarefa ---
 // Constrói a árvore a partir das linhas JÁ FILTRADAS (não lê o banco
 // de árvores direto) — assim os totais de cada nível respeitam
 // exatamente o filtro/período escolhido, sem precisar recalcular nada
-// separado. Um nível sem valor real pro ramo (Setor ou Pavimento
+// separado. Um nível sem valor real pro ramo (Sub-etapa ou Pavimento
 // '—', quando a Tarefa está direto na Etapa, ex: Etapa Única) é
 // pulado — mesmo espírito de "níveis puláveis" que a Árvore Genérica
 // Recursiva já usa no resto do sistema (ver arvore.js).
@@ -1102,8 +1102,8 @@ function formatarHorasHHMM(horasDecimal) {
 // `tarefa.executor` preenchido), então nunca cai no caso "nível
 // pulado"; uma Tarefa com um só executor mostra 1 filho só (correto,
 // não é bug — é só menos interessante de expandir).
-const NIVEIS_ARVORE_CUSTO = ['projeto', 'etapa', 'setor', 'pavimento', 'tarefa', 'executor'];
-const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', setor: 'Setor', pavimento: 'Pavimento', tarefa: 'Tarefa', executor: 'Executor' };
+const NIVEIS_ARVORE_CUSTO = ['projeto', 'etapa', 'subetapa', 'pavimento', 'tarefa', 'executor'];
+const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', subetapa: 'Sub-etapa', pavimento: 'Local', tarefa: 'Tarefa', executor: 'Executor' };
 
 function agruparArvoreCustoRelatorio(linhas) {
     const porProjeto = {};
@@ -1112,13 +1112,13 @@ function agruparArvoreCustoRelatorio(linhas) {
         if (!porProjeto[l.projeto]) { porProjeto[l.projeto] = []; ordemProjetos.push(l.projeto); }
         porProjeto[l.projeto].push(l);
     });
-    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'setor', 'pavimento', 'tarefa', 'executor'], 'projeto'));
+    return ordemProjetos.map(nomeProjeto => construirNoArvoreCustoRelatorio(nomeProjeto, porProjeto[nomeProjeto], ['etapa', 'subetapa', 'pavimento', 'tarefa', 'executor'], 'projeto'));
 }
 
 // `nivelDesteNo` é o nível CONCEITUAL do nó ('projeto'/'etapa'/
-// 'setor'/'pavimento'/'tarefa') — não confundir com a profundidade
+// 'subetapa'/'pavimento'/'tarefa') — não confundir com a profundidade
 // real na árvore renderizada, que pode ser menor quando um nível é
-// pulado (ex: Etapa → Pavimento direto, sem Setor). É esse nível
+// pulado (ex: Etapa → Pavimento direto, sem Sub-etapa). É esse nível
 // conceitual que diz em qual PAR DE COLUNA (Tempo/Custo) a soma deste
 // nó deve entrar (pedido do usuário: colunas de Tempo/Custo separadas
 // por nível, mantendo a coluna de nome como já era).
@@ -1185,7 +1185,7 @@ function renderizarArvoreRelatorioCustos(linhasFiltradas) {
 
     area.innerHTML =
         '<div class="table-wrapper"><table class="tabela-compacta tabela-arvore-custos">' +
-        '<thead><tr><th rowspan="2">Projeto / Etapa / Setor / Pavimento / Tarefa</th>' + cabecalhoNiveis + '</tr>' +
+        '<thead><tr><th rowspan="2">Projeto / Etapa / Sub-etapa / Local / Tarefa</th>' + cabecalhoNiveis + '</tr>' +
         '<tr>' + cabecalhoSub + '</tr></thead>' +
         '<tbody>' + corpo + '</tbody>' +
         '<tfoot><tr class="linha-total"><td>Total</td>' + totalCelulas + '</tr></tfoot>' +

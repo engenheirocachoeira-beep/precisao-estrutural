@@ -19,8 +19,11 @@ const CONFIG_PLANILHA = {
         colunas: [
             { campo: 'nome', label: 'Razao Social' },
             { campo: 'cnpj', label: 'CNPJ' },
-            { campo: 'logradouro', label: 'Logradouro' },
+            { campo: 'rua', label: 'Rua' },
+            { campo: 'numero', label: 'Numero' },
+            { campo: 'bairro', label: 'Bairro' },
             { campo: 'cidade', label: 'Cidade' },
+            { campo: 'uf', label: 'UF' },
             { campo: 'contato', label: 'Contato' },
             { campo: 'whatsapp', label: 'WhatsApp' },
             { campo: 'email', label: 'Email' }
@@ -39,7 +42,11 @@ const CONFIG_PLANILHA = {
             { campo: 'dt_inicio', label: 'Data Inicio' },
             { campo: 'dt_desligamento', label: 'Data Desligamento' },
             { campo: 'dt_nascimento', label: 'Data Nascimento' },
-            { campo: 'endereco', label: 'Endereco' },
+            { campo: 'rua', label: 'Rua' },
+            { campo: 'numero', label: 'Numero' },
+            { campo: 'bairro', label: 'Bairro' },
+            { campo: 'cidade', label: 'Cidade' },
+            { campo: 'uf', label: 'UF' },
             { campo: 'telefone', label: 'Telefone' },
             { campo: 'email', label: 'Email' }
             // "senha" propositalmente fora do CSV (não expor credenciais em arquivo exportável).
@@ -53,7 +60,11 @@ const CONFIG_PLANILHA = {
             { campo: 'nome', label: 'Nome da Obra' },
             { campo: 'prefixo', label: 'Prefixo Tecnico' },
             { campo: 'cliente', label: 'Cliente' },
-            { campo: 'endereco', label: 'Endereco' },
+            { campo: 'rua', label: 'Rua' },
+            { campo: 'numero', label: 'Numero' },
+            { campo: 'bairro', label: 'Bairro' },
+            { campo: 'cidade', label: 'Cidade' },
+            { campo: 'uf', label: 'UF' },
             { campo: 'area', label: 'Area' },
             { campo: 'pavimentos', label: 'Pavimentos' },
             { campo: 'altura', label: 'Altura' },

@@ -25,7 +25,7 @@
 
         <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
 
-<div id="panel-feriados" class="content-panel">
+<div id="panel-feriados-lista" class="content-panel">
                     <div class="form-section" style="margin-bottom:16px;">
                         <div class="form-section-title">Feriados Nacionais Fixos (não editáveis — se repetem todo ano)</div>
                         <div class="table-wrapper" style="max-height:200px;">
@@ -49,8 +49,10 @@
     <script src="js/core.js"></script>
     <script src="js/feriados.js"></script>
     <script>
-        document.getElementById('panel-blank-state').style.display = 'none';
-        alternarModulo('feriados');
+        // Ver comentário equivalente em modulos_isolados/arvore/index.html
+        // (achado real 2026-09-01: chamada direta era desfeita pelo
+        // window.onload de core.js, que dispara depois e reseta a tela).
+        window.addEventListener('load', function () { alternarModulo('feriados'); });
     </script>
 </body>
 </html>

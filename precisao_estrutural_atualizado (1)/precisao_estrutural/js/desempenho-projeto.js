@@ -297,14 +297,11 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
         pctAnalista, valorAnalista, pctSupervisor, valorSupervisor, pctEscritorio, valorEscritorio,
         etapas, totalVerbaEtapas, pctFundoGarantidor, valorFundoGarantidor,
         verbaDetalhamentoBruta: etapaDetalhamento ? etapaDetalhamento.verbaLiquida : 0,
-        pctFundoLucros: (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto) : 0,
         // calcularListaPavimentosComVerbaSalva() não devolve um total
         // pronto de Fundo de Lucros (só a variante "ao vivo" tem esse
         // campo) — soma a fatia por Pavimento (`.valorFundoLucros`,
         // essa sim sempre presente, calculada em listarPavimentosDoProjeto).
         valorFundoLucros: dadosPavimentos ? dadosPavimentos.pavimentos.reduce((s, p) => s + (p.valorFundoLucros || 0), 0) : 0,
-        verbaLiquidaPavimentos: dadosPavimentos ? dadosPavimentos.verbaLiquida : 0,
-        temEtapaDetalhamento: !!etapaDetalhamento,
         // Item novo (Índices Globais, pedido do usuário): área
         // equivalente somada dos pavimentos da Etapa Detalhamento — a
         // MESMA régua que a aba "Verba por Pavimento" já usa pra

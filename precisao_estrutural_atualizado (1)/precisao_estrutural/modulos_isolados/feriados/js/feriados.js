@@ -65,6 +65,10 @@ function carregarPainelFeriados() {
     renderizarTabelaFeriadosCustomizados();
 }
 
+// Item 3 (prompt_gemini.md §14): campos de Data/Nome agora são
+// editáveis DIRETO na própria linha (mesmo padrão já usado em outras
+// telas — Etapas do Cadastro de Projeto, Distribuição de Custos
+// Analista) — antes só dava pra inserir e apagar, não editar.
 function renderizarTabelaFeriadosCustomizados() {
     const lista = JSON.parse(localStorage.getItem('banco_feriados_customizados')) || [];
     const tbody = document.getElementById('fer-tabela-custom-body');
@@ -80,6 +84,34 @@ function renderizarTabelaFeriadosCustomizados() {
             '<td><input type="text" value="' + escapeHtml(f.nome) + '" style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px; font-size:12px;" onchange="editarFeriadoCustomizado(' + idx + ', \'nome\', this.value)"></td>' +
             '<td style="text-align:center;"><button class="btn-delete" onclick="deletarFeriadoCustomizado(' + idx + ')">🗑️</button></td></tr>';
     }).join('');
+}
+
+// Salva a edição de um campo (data ou nome) de um feriado já
+// cadastrado. Editar a data reordena a lista de novo (mesma regra de
+// sempre — lista sempre cronológica); editar pra uma data que já
+// existe em outra linha é bloqueado, igual já acontece ao cadastrar
+// um novo.
+function editarFeriadoCustomizado(idx, campo, novoValor) {
+    let lista = JSON.parse(localStorage.getItem('banco_feriados_customizados')) || [];
+    if (!lista[idx]) return;
+
+    if (campo === 'data') {
+        if (!novoValor) { renderizarTabelaFeriadosCustomizados(); return; }
+        if (lista.some((f, i) => i !== idx && f.data === novoValor)) {
+            alert('Já existe um feriado cadastrado nessa data.');
+            renderizarTabelaFeriadosCustomizados();
+            return;
+        }
+        lista[idx].data = novoValor;
+        lista.sort((a, b) => a.data.localeCompare(b.data));
+    } else if (campo === 'nome') {
+        const nomeLimpo = (novoValor || '').trim();
+        if (!nomeLimpo) { renderizarTabelaFeriadosCustomizados(); return; }
+        lista[idx].nome = nomeLimpo;
+    }
+
+    localStorage.setItem('banco_feriados_customizados', JSON.stringify(lista));
+    renderizarTabelaFeriadosCustomizados();
 }
 
 function adicionarFeriadoCustomizado() {

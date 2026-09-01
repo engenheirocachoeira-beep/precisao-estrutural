@@ -752,9 +752,14 @@ function limparWorkspace() {
 
     // Usa as funções de renderização completas (com clique para editar e excluir)
     // em vez da renderização simplificada e somente-leitura que existia antes.
-    renderizarTabelaClientes();
-    renderizarTabelaFuncionarios();
-    renderizarTabelaProjetos();
+    // Guardas `typeof === 'function'` (achado real testando módulos
+    // isolados, 2026-09-01): estas 3 vivem em cadastros.js, que só a
+    // página de Cadastro carrega — sem a guarda, core.js quebrava
+    // qualquer outro módulo isolado (arvore/, kanban/, etc.) logo no
+    // boot, antes mesmo do módulo em si rodar.
+    if (typeof renderizarTabelaClientes === 'function') renderizarTabelaClientes();
+    if (typeof renderizarTabelaFuncionarios === 'function') renderizarTabelaFuncionarios();
+    if (typeof renderizarTabelaProjetos === 'function') renderizarTabelaProjetos();
 }
 
 function filtrarTabela(modulo) {
@@ -1524,7 +1529,13 @@ function iniciarAppPosLogin() {
     migrarStatusPendenteValidacao();
     migrarValorHoraParaHistorico();
     limparWorkspace();
-    ['etapas', 'subetapas', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
+    // renderizarListaLegoComum vive em catalogo-lego.js — nem todo
+    // módulo isolado carrega esse arquivo (achado real testando
+    // módulos isolados, 2026-09-01, mesmo motivo da guarda acima em
+    // limparWorkspace()).
+    if (typeof renderizarListaLegoComum === 'function') {
+        ['etapas', 'subetapas', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
+    }
     if (typeof atualizarBadgePendenciasAprovacoes === 'function') atualizarBadgePendenciasAprovacoes();
 }
 

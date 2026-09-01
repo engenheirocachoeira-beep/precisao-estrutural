@@ -65,8 +65,10 @@
     <script src="js/apontamento.js"></script>
     <script src="js/atribuicao-tarefas.js"></script>
     <script>
-        document.getElementById('panel-blank-state').style.display = 'none';
-        alternarModulo('atribuicao_tarefas');
+        // Ver comentário equivalente em modulos_isolados/arvore/index.html
+        // (achado real 2026-09-01: chamada direta era desfeita pelo
+        // window.onload de core.js, que dispara depois e reseta a tela).
+        window.addEventListener('load', function () { alternarModulo('atribuicao_tarefas'); });
     </script>
 </body>
 </html>

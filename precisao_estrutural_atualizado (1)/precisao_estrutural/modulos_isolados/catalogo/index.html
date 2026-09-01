@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Módulo isolado: Catálogo (Etapas / Setores / Pavimentos / Tarefas)</title>
+    <title>Módulo isolado: Catálogo (Etapas / Sub-etapas / Locais / Tarefas)</title>
     <link rel="stylesheet" href="estilos.css">
     <style>
         body { display:block; padding: 20px; }
@@ -17,13 +17,13 @@
 </head>
 <body>
     <div style="max-width:1100px; margin:0 auto;">
-        <div class="harness-header">🧪 Módulo isolado: Catálogo (Etapas / Setores / Pavimentos / Tarefas) — testado isoladamente, fora da integração completa</div>
+        <div class="harness-header">🧪 Módulo isolado: Catálogo (Etapas / Sub-etapas / Locais / Tarefas) — testado isoladamente, fora da integração completa</div>
         <div id="page-context-title"></div>
         <div class="harness-nav">
-                    <div class="menu-item" onclick="alternarModulo('etapas')">Etapas</div>
-                    <div class="menu-item" onclick="alternarModulo('setores')">Setores</div>
-                    <div class="menu-item" onclick="alternarModulo('pavimentos')">Pavimentos</div>
-                    <div class="menu-item" onclick="alternarModulo('tarefas')">Tarefas</div>
+                    <div class="menu-item" onclick="mostrarPainelCatalogo('etapas')">Etapas</div>
+                    <div class="menu-item" onclick="mostrarPainelCatalogo('subetapas')">Sub-etapas</div>
+                    <div class="menu-item" onclick="mostrarPainelCatalogo('pavimentos')">Locais</div>
+                    <div class="menu-item" onclick="mostrarPainelCatalogo('tarefas')">Tarefas</div>
         </div>
 
         <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
@@ -33,14 +33,14 @@
                     <div class="footer-actions"><input type="text" id="add-etapas-nome" placeholder="Nova Etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('etapas')">Fabricar</button></div>
                 </div>
 
-<div id="panel-setores-lista" class="content-panel">
-                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Setor</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-setores-body"></tbody></table></div>
-                    <div class="footer-actions"><input type="text" id="add-setores-nome" placeholder="Nova Setor..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('setores')">Fabricar</button></div>
+<div id="panel-subetapas-lista" class="content-panel">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Sub-etapa</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-subetapas-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-subetapas-nome" placeholder="Nova Sub-etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('subetapas')">Fabricar</button></div>
                 </div>
 
 <div id="panel-pavimentos-lista" class="content-panel">
-                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Pavimento</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
-                    <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Nova Pavimento..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome do Local</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Novo Local..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
                 </div>
 
 <div id="panel-tarefas-lista" class="content-panel">
@@ -52,8 +52,28 @@
     <script src="js/core.js"></script>
     <script src="js/catalogo-lego.js"></script>
     <script>
-        document.getElementById('panel-blank-state').style.display = 'none';
-        alternarModulo('etapas');
+        // Bootstrap próprio deste módulo isolado (2026-09-01): o app
+        // principal agora abre Etapas/Sub-etapas/Locais/Tarefas via
+        // alternarModulo() -> abrirAbaCadastro(), que espera a estrutura
+        // de abas de #panel-cadastro (wrapper + .sub-panel-cadastro) —
+        // essa estrutura não existe nesta página isolada (achado real
+        // testando: alternarModulo('subetapas') não fazia nada aqui,
+        // silenciosamente, sem erro nenhum no Console). Substituído por
+        // um bootstrap direto, mesmo padrão simples que esta página já
+        // usava antes da reforma de abas do Cadastro existir.
+        function mostrarPainelCatalogo(modulo) {
+            document.getElementById('panel-blank-state').style.display = 'none';
+            document.querySelectorAll('.content-panel').forEach(function (p) { p.style.display = 'none'; });
+            const painel = document.getElementById('panel-' + modulo + '-lista');
+            if (painel) painel.style.display = 'flex';
+            const titulos = { etapas: 'Gestão de ETAPAS', subetapas: 'Gestão de SUB-ETAPAS', pavimentos: 'Gestão de LOCAIS', tarefas: 'Gestão de TAREFAS' };
+            document.getElementById('page-context-title').innerText = titulos[modulo] || '';
+            renderizarListaLegoComum(modulo);
+        }
+        // Ver comentário equivalente em modulos_isolados/arvore/index.html
+        // (achado real 2026-09-01: chamada direta era desfeita pelo
+        // window.onload de core.js, que dispara depois e reseta a tela).
+        window.addEventListener('load', function () { mostrarPainelCatalogo('etapas'); });
     </script>
 </body>
 </html>

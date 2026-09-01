@@ -9,9 +9,9 @@
 // (`etapa.setores`/`setor.pavimentos`/`pavimento.tarefas`). Todo nó
 // (Etapa e qualquer filho) guarda seus filhos num ÚNICO array
 // `filhos`, e cada filho carrega um campo `nivel`
-// ('setor'|'pavimento'|'tarefa'). Isso permite que uma Etapa tenha um
-// Setor, OU um Pavimento direto, OU uma Tarefa direto como filho — a
-// ORDEM relativa continua obrigatória (Setor sempre antes de
+// ('subetapa'|'pavimento'|'tarefa'). Isso permite que uma Etapa tenha uma
+// Sub-etapa, OU um Pavimento direto, OU uma Tarefa direto como filho — a
+// ORDEM relativa continua obrigatória (Sub-etapa sempre antes de
 // Pavimento, que sempre antes de Tarefa — nunca invertido), mas cada
 // nível pode ser PULADO, sem precisar existir todos. Etapa continua
 // vivendo em `arv.etapas` (array de topo). Todo nó nasce como tarefa
@@ -56,7 +56,7 @@
         // Objeto genérico de UM nó recém-criado — nasce folha (sem
         // filhos) com os campos de Tarefa já disponíveis pra editar
         // depois. `nivel` é null pra Etapa (implícita, vive em
-        // `arv.etapas`) ou 'setor'/'pavimento'/'tarefa' pra qualquer
+        // `arv.etapas`) ou 'subetapa'/'pavimento'/'tarefa' pra qualquer
         // filho.
         function criarNoVazio(nome, nivel, executorInicial, responsavelInicial) {
             const no = {
@@ -78,10 +78,13 @@
         }
 
         // Cria o objeto de UMA Etapa pronta pra empilhar em arv.etapas —
-        // já nasce como tarefa (folha), sem filho nenhum, com o
-        // Analista do projeto pré-preenchido como Executor. Usada por
-        // cadastros.js::salvarProjeto() (Etapas Default v2, §12.30).
-        // Retorna null se o nome não existir mais no Catálogo.
+        // já nasce como tarefa (folha), sem filho nenhum. Item 16
+        // (prompt_gemini.md §14, leva 4): Executor E Responsável já
+        // nascem preenchidos com o Analista do Cadastro de Projetos
+        // (antes só Executor vinha preenchido, Responsável ficava
+        // vazio). Usada por cadastros.js::salvarProjeto() (Etapas
+        // Default v2, §12.30). Retorna null se o nome não existir mais
+        // no Catálogo.
         function criarEtapaDefaultAPartirDoCatalogo(nomeEtapa, nomeAnalistaProjeto) {
             const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
             const encontrada = etapasLego.find(e => e.nome === nomeEtapa);
@@ -134,7 +137,7 @@
 
         // Pedido do usuário: abrir um projeto já mostra a lista de Etapas
         // (raiz sempre começa expandida), mas os níveis DENTRO de cada
-        // Etapa (Setor/Pavimento/Tarefa) começam recolhidos — só abrem
+        // Etapa (Sub-etapa/Pavimento/Tarefa) começam recolhidos — só abrem
         // quando a pessoa clica. 'raiz' mantém o padrão antigo (ausente
         // no objeto = expandida); qualquer outra chave ('n-...') agora
         // tem o padrão invertido (ausente = recolhida).
@@ -145,11 +148,17 @@
             carregarArvoreProjetoAtual();
         }
 
-        // --- REORDENAR NÓS (arrastar e soltar) ---
+        // --- REORDENAR ETAPAS (arrastar e soltar) ---
+        // Etapas são todas irmãs direto na raiz do projeto. Reordenar
+        // filhos abaixo da Etapa (Sub-etapa/Pavimento/Tarefa misturados
+        // livremente) não tem mais arrastar-e-soltar dedicado nesta
+        // versão — simplificação deliberada, dado que agora podem ser
+        // de níveis diferentes convivendo na mesma lista (ver
+        // prompt_gemini.md §12.31 pra nota completa).
         // Item 14 (prompt_gemini.md §14 — decisão do usuário: todos os
-        // níveis, só reordenar entre irmãos, sem reparenting): antes
-        // só Etapa tinha isso; agora vale pra qualquer nível. `path` é
-        // o mesmo formato usado por resolverNoPorPath() ("0", "0-1",
+        // níveis, só reordenar entre irmãos, sem reparenting):
+        // generalização do que já existia só pra Etapa. `path` é o
+        // mesmo formato usado por resolverNoPorPath() ("0", "0-1",
         // "0-1-2"...) — o último segmento é o índice do nó dentro da
         // lista de irmãos (arv.etapas na raiz, ou .filhos do pai em
         // qualquer profundidade); os segmentos anteriores identificam
@@ -199,21 +208,29 @@
         }
 
         // --- CONSTANTES DE NÍVEL ---
-        // Ordem obrigatória (Setor sempre antes de Pavimento, sempre
+        // Ordem obrigatória (Sub-etapa sempre antes de Pavimento, sempre
         // antes de Tarefa) — mas cada um pode ser pulado. `niveisFilhoDisponiveis()`
         // devolve quais níveis ainda cabem como filho de um nó de um
         // certo nível (tudo que vem DEPOIS dele nesta lista).
-        const NIVEIS_ORDEM = ['etapa', 'setor', 'pavimento', 'tarefa'];
-        const ICONE_POR_NIVEL = { etapa: '📁', setor: '📐', pavimento: '🧮', tarefa: '⚙️' };
-        const COR_BOTAO_POR_NIVEL = { setor: '#10b981', pavimento: '#64748b', tarefa: '#475569' };
-        const ROTULO_BOTAO_POR_NIVEL = { setor: 'Set', pavimento: 'Pav', tarefa: 'Tar' };
+        const NIVEIS_ORDEM = ['etapa', 'subetapa', 'pavimento', 'tarefa'];
+        const ICONE_POR_NIVEL = { etapa: '📁', subetapa: '📐', pavimento: '🧮', tarefa: '⚙️' };
+        const COR_BOTAO_POR_NIVEL = { subetapa: '#10b981', pavimento: '#64748b', tarefa: '#475569' };
+        // Item 13 (revisão 2026-09-01): rótulo do botão "+ Pav" virou
+        // "+ Loc" — "Pavimento" nem sempre é um pavimento de verdade (o
+        // usuário achou o nome "Local" mais adequado pra esse nível,
+        // já que ele pode representar qualquer subdivisão física, não
+        // só andar de prédio). Só o RÓTULO mudou aqui — o `nivel`
+        // interno continua 'pavimento' (mesma string em toda a
+        // aplicação, banco de dados, etc.), pra não precisar de uma
+        // reforma do tamanho da Setor→Sub-etapa só por causa de um nome.
+        const ROTULO_BOTAO_POR_NIVEL = { subetapa: 'Sub', pavimento: 'Loc', tarefa: 'Tar' };
 
         function niveisFilhoDisponiveis(nivelAtual) {
             const idx = NIVEIS_ORDEM.indexOf(nivelAtual);
             return idx === -1 ? [] : NIVEIS_ORDEM.slice(idx + 1);
         }
 
-        // Etapa/Setor/Pavimento agindo como folha NÃO ganha mais um
+        // Etapa/Sub-etapa/Pavimento agindo como folha NÃO ganha mais um
         // card separado embaixo — a PRÓPRIA linha já mostra Executor e
         // Status, coladinhos no nome (§12.33: "a etapa deveria vir com
         // status de tarefa", não um card duplicado abaixo).
@@ -308,7 +325,7 @@
         function abrirFormEncaixe(nivel, pai) {
             const pd = document.getElementById('painel-propriedades-lego');
 
-            const catsPorNivel = { 'etapa':'etapas', 'setor':'setores', 'pavimento':'pavimentos', 'tarefa':'tarefas' };
+            const catsPorNivel = { 'etapa':'etapas', 'subetapa':'subetapas', 'pavimento':'pavimentos', 'tarefa':'tarefas' };
             const pecas = JSON.parse(localStorage.getItem('banco_' + catsPorNivel[nivel] + '_lego')) || [];
             const funcs = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
 
@@ -326,25 +343,25 @@
                        '<select id="l-nome" style="background:white;" onchange="'+onchangeNome+'">'+optionsHtml+'</select>' +
                        '</div>';
 
-            // Etapa e Setor não pedem NADA além do Nome — nascem como
+            // Etapa e Sub-etapa não pedem NADA além do Nome — nascem como
             // tarefa (folha), com Executor/Custo/Pontos/Verba em
             // branco/zero, editáveis depois clicando no próprio card.
-            // Item 10 (prompt_gemini.md §14, leva 4): Setor passou a
+            // Item 10 (prompt_gemini.md §14, leva 4): Sub-etapa passou a
             // pedir Área Física/Peso do Esforço também, na criação —
             // precisa disso pra competir por Área Equivalente contra
-            // Setores irmãos quando a Etapa tem Setor(es) como filho
+            // Sub-etapas irmãs quando a Etapa tem Sub-etapa(s) como filho
             // direto (regra "nunca mistura tipo de filho": nesse caso
-            // a Etapa não pode ter Pavimento/Tarefa direto — só Setor).
-            if(nivel === 'setor') {
-                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Área Física (m²):</label><input type="number" id="l-setor-area" value="500"></div>' +
-                        '<div class="form-group col-12" style="margin-top:8px;"><label>Peso de Esforço:</label><input type="number" id="l-setor-peso" value="1.0" step="0.1"></div>';
+            // a Etapa não pode ter Pavimento/Tarefa direto — só Sub-etapa).
+            if(nivel === 'subetapa') {
+                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Área Física (m²):</label><input type="number" id="l-subetapa-area" value="500"></div>' +
+                        '<div class="form-group col-12" style="margin-top:8px;"><label>Peso de Esforço:</label><input type="number" id="l-subetapa-peso" value="1.0" step="0.1"></div>';
             }
             if(nivel === 'pavimento') {
                 // Continua pedindo Tipo de Pavimento/Área/Peso na
                 // criação — é sobre o dado FÍSICO do pavimento (mestre
                 // ou repetido, área real), não faz parte da
                 // generalização de nível.
-                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Tipo de Pavimento:</label><select id="l-tipo-pav" style="background:white;" onchange="document.getElementById(\'box-area-mestre\').style.display = this.value===\'mestre\'?\'block\':\'none\'"><option value="mestre">Mestre (Detalhável Original)</option><option value="repetido">Repetido (Ocultado na Árvore)</option></select></div>' +
+                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Tipo de Local:</label><select id="l-tipo-pav" style="background:white;" onchange="document.getElementById(\'box-area-mestre\').style.display = this.value===\'mestre\'?\'block\':\'none\'"><option value="mestre">Mestre (Detalhável Original)</option><option value="repetido">Repetido (Ocultado na Árvore)</option></select></div>' +
                         '<div id="box-area-mestre" style="display:block; margin-top:10px;">' +
                         '<div class="form-group col-12"><label>Área Física Real (m²):</label><input type="number" id="l-pav-area" value="500"></div>' +
                         '<div class="form-group col-12" style="margin-top:8px;"><label>Peso de Esforço:</label><input type="number" id="l-pav-peso" value="1.0" step="0.1"></div>' +
@@ -427,9 +444,9 @@
                 if (!Array.isArray(noPai.filhos)) noPai.filhos = [];
                 const novoNo = criarNoVazio(nome, nivel, '');
 
-                if (nivel === 'setor') {
-                    novoNo.area_fisica = document.getElementById('l-setor-area').value;
-                    novoNo.peso_esforco = document.getElementById('l-setor-peso').value;
+                if (nivel === 'subetapa') {
+                    novoNo.area_fisica = document.getElementById('l-subetapa-area').value;
+                    novoNo.peso_esforco = document.getElementById('l-subetapa-peso').value;
                 }
                 if (nivel === 'pavimento') {
                     let tipoPav = document.getElementById('l-tipo-pav').value;
@@ -447,7 +464,7 @@
                 }
 
                 noPai.filhos.push(novoNo);
-                if (nivel === 'pavimento') recalcularDistribuicaoVerbaSetores(arv);
+                if (nivel === 'pavimento') recalcularAreaEquivalenteGlobalPavimentos(arv);
             }
 
             localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
@@ -461,7 +478,7 @@
         // profundidade (antes só existia exatamente 2 níveis abaixo da
         // Etapa; agora pode estar em qualquer lugar, já que os níveis
         // são puláveis).
-        function recalcularDistribuicaoVerbaSetores(arv) {
+        function recalcularAreaEquivalenteGlobalPavimentos(arv) {
             let somaAreaEquivalenteTotal = 0;
             function caminhar(no) {
                 if (no.nivel === 'pavimento' && no.tipo_pavimento === 'mestre') {
@@ -473,15 +490,6 @@
             arv.soma_a_eq = somaAreaEquivalenteTotal;
         }
 
-        // Normalmente vive em js/distribuicao-custos.js — este harness
-        // isolado (só Árvore) nunca carrega esse arquivo, mas
-        // visualizarNo() (logo abaixo) passou a chamar formatarMoeda()
-        // numa sincronização com o app principal (ver
-        // prompt_gemini.md, parte 63) sem essa dependência junto.
-        function formatarMoeda(valor) {
-            return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        }
-
         function visualizarNo(path) {
             const pd = document.getElementById('painel-propriedades-lego');
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos'));
@@ -489,7 +497,7 @@
 
             if (path === 'raiz') {
                 let pObj = todas[projetoSelecionadoAtivo];
-                recalcularDistribuicaoVerbaSetores(pObj);
+                recalcularAreaEquivalenteGlobalPavimentos(pObj);
 
                 const projetosCadastro = JSON.parse(localStorage.getItem('banco_projetos')) || [];
                 const projCadastro = projetosCadastro.find(x => x.nome === projetoSelecionadoAtivo);
@@ -556,27 +564,34 @@
                        '<div class="form-grid" style="margin-top:8px;">' +
                        '<div class="form-group col-12"><label>Componente Vinculado:</label><input type="text" value="' + escapeHtml(no.nome) + '" readonly style="background:#e2e8f0;"></div>';
 
-            if(nivel === 'setor') {
+            // Coparticipação (Escritório/Supervisão) — opcional, por
+            // Etapa ou Sub-etapa, não mais amarrada a nenhum nome
+            // específico (ver CHANGELOG.md, reforma Setor→Sub-etapa).
+            if (nivel === 'etapa' || nivel === 'subetapa') {
+                html += '<div class="form-group col-12" style="margin-top:10px;"><label style="display:flex; align-items:center; gap:6px; font-weight:normal;"><input type="checkbox" id="edit-no-coparticipacao"' + (no.tem_coparticipacao ? ' checked' : '') + '> Habilitar Coparticipação (Escritório/Supervisão)</label></div>';
+            }
+
+            if(nivel === 'subetapa') {
                 // Item 10 (prompt_gemini.md §14, leva 4): mesma lógica
                 // de Área Equivalente/Fração de Verba que Pavimento já
-                // mostra, só que comparando contra os Setores IRMÃOS
-                // (mesmo pai), não contra o projeto inteiro — Setor só
-                // compete dentro da própria Etapa/Setor pai.
+                // mostra, só que comparando contra as Sub-etapas IRMÃS
+                // (mesmo pai), não contra o projeto inteiro — Sub-etapa só
+                // compete dentro da própria Etapa/Sub-etapa pai.
                 const caminhoPai = path.slice(0, path.lastIndexOf('-'));
-                const noPaiDoSetor = caminhoPai ? resolverNoPorPath(arv, caminhoPai) : null;
-                const irmaosSetor = noPaiDoSetor ? (noPaiDoSetor.filhos || []) : arv.etapas;
+                const noPaiDaSubEtapa = caminhoPai ? resolverNoPorPath(arv, caminhoPai) : null;
+                const irmaosSubEtapa = noPaiDaSubEtapa ? (noPaiDaSubEtapa.filhos || []) : arv.etapas;
                 let totalAeqIrmaos = 0;
-                irmaosSetor.forEach(irmao => {
-                    if (irmao.nivel === 'setor') totalAeqIrmaos += (parseFloat(irmao.area_fisica) || 0) * (parseFloat(irmao.peso_esforco) || 0);
+                irmaosSubEtapa.forEach(irmao => {
+                    if (irmao.nivel === 'subetapa') totalAeqIrmaos += (parseFloat(irmao.area_fisica) || 0) * (parseFloat(irmao.peso_esforco) || 0);
                 });
-                let a_eq_setor = (parseFloat(no.area_fisica)||0) * (parseFloat(no.peso_esforco)||0);
-                let pct_verba_setor = totalAeqIrmaos > 0 ? ((a_eq_setor / totalAeqIrmaos) * 100).toFixed(1) : '0.0';
+                let a_eq_subetapa = (parseFloat(no.area_fisica)||0) * (parseFloat(no.peso_esforco)||0);
+                let pct_verba_subetapa = totalAeqIrmaos > 0 ? ((a_eq_subetapa / totalAeqIrmaos) * 100).toFixed(1) : '0.0';
 
-                html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física (m²):</label><input type="number" id="edit-setor-area" value="' + (no.area_fisica || 0) + '"></div>' +
-                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso de Esforço:</label><input type="number" id="edit-setor-peso" step="0.1" value="' + (no.peso_esforco || 0) + '"></div>' +
+                html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física (m²):</label><input type="number" id="edit-subetapa-area" value="' + (no.area_fisica || 0) + '"></div>' +
+                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso de Esforço:</label><input type="number" id="edit-subetapa-peso" step="0.1" value="' + (no.peso_esforco || 0) + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span>📐 <b>Área Eq.:</b> ' + a_eq_setor + ' m²</span>' +
-                        '<span>💰 <b>Fração de Verba (entre Setores irmãos):</b> ' + pct_verba_setor + '%</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + a_eq_subetapa + ' m²</span>' +
+                        '<span>💰 <b>Fração de Verba (entre Sub-etapas irmãs):</b> ' + pct_verba_subetapa + '%</span>' +
                         '</div>';
             }
 
@@ -586,7 +601,7 @@
                 let pct_verba = ((a_eq / total_a_eq) * 100).toFixed(1);
 
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física Real (m²):</label><input type="number" id="edit-pav-area" value="' + no.area_fisica + '"></div>' +
-                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Pavimento:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
+                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Local:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
                         '<span>📐 <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
                         '<span>💰 <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +
@@ -713,15 +728,20 @@
             const nivel = path.indexOf('-') === -1 ? 'etapa' : no.nivel;
             const ehFolha = ehNoFolha(no);
 
-            if (nivel === 'setor') {
-                no.area_fisica = document.getElementById('edit-setor-area').value;
-                no.peso_esforco = document.getElementById('edit-setor-peso').value;
+            if (nivel === 'subetapa') {
+                no.area_fisica = document.getElementById('edit-subetapa-area').value;
+                no.peso_esforco = document.getElementById('edit-subetapa-peso').value;
             }
 
             if (nivel === 'pavimento') {
                 no.area_fisica = document.getElementById('edit-pav-area').value;
                 no.peso_esforco = document.getElementById('edit-pav-peso').value;
-                recalcularDistribuicaoVerbaSetores(arv);
+                recalcularAreaEquivalenteGlobalPavimentos(arv);
+            }
+
+            if (nivel === 'etapa' || nivel === 'subetapa') {
+                const chkCoparticipacao = document.getElementById('edit-no-coparticipacao');
+                no.tem_coparticipacao = !!(chkCoparticipacao && chkCoparticipacao.checked);
             }
 
             const ehNoDeExecucao = (nivel === 'tarefa') || ehFolha;

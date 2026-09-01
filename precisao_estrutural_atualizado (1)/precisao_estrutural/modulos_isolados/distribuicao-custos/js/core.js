@@ -22,15 +22,20 @@
 // cenários — inclusive colisão case-insensitive e edição não colidir
 // consigo mesma).
 // =========================================================================
-function escapeHtml(s) {
-    return String(s === undefined || s === null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 // Codinome voltou a ser campo digitado (cadastros.js) — obrigatório e
 // único, com migração retroativa preenchendo o primeiro nome pra quem
 // não tinha (ver migração v11, abaixo). O fallback aqui (split do
 // nome) só entra em cenários residuais: nome sem cadastro
 // correspondente encontrado, ou (por segurança) campo vazio.
+// Movida de desempenho-projeto.js pra cá (auditoria de segurança,
+// 2026-08-26): precisa estar num arquivo carregado CEDO — core.js é o
+// primeiro — pra ficar disponível pra todo arquivo que monta HTML via
+// innerHTML com texto vindo de formulário (nome de cliente,
+// funcionário, tarefa etc.), não só pra quem a definia originalmente.
+function escapeHtml(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function nomeParaExibicao(nomeCompleto) {
     if (!nomeCompleto) return '';
     const funcionarios = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
@@ -41,14 +46,14 @@ function nomeParaExibicao(nomeCompleto) {
 
 // Travessia genérica da Árvore Genérica Recursiva (prompt_gemini.md
 // §12.31, arvore.js): devolve uma lista achatada de TODOS os nós-folha
-// de um array de Etapas — Etapa/Setor/Pavimento agindo como tarefa
+// de um array de Etapas — Etapa/Sub-etapa/Pavimento agindo como tarefa
 // (sem filho no próximo nível), OU Tarefa de verdade dentro de um
 // Pavimento container. Cada item:
 // { no: <objeto com os campos de Tarefa>,
 //   path: "0"/"0-1"/"0-1-2"/"0-1-2-3" — MESMO formato que
 //   arvore.js::visualizarNo()/salvarAlteracoesNo()/removerNo() usam,
 //   já serve pra chamar essas funções direto;
-//   localizacao: "Nome da Etapa"/"Etapa › Setor"/"Etapa › Setor › Pav"
+//   localizacao: "Nome da Etapa"/"Etapa › Sub-etapa"/"Etapa › Sub-etapa › Pav"
 //   — breadcrumb legível pra exibir em telas de lista (Atribuição de
 //   Tarefas, Kanban "sob responsabilidade", etc.) }.
 // Substitui, em qualquer arquivo que precise varrer a árvore pra achar
@@ -60,10 +65,10 @@ function nomeParaExibicao(nomeCompleto) {
 // mais campos fixos por nível (`etapa.setores`/`setor.pavimentos`/
 // `pavimento.tarefas`). Todo nó (Etapa e qualquer filho) guarda seus
 // filhos num ÚNICO array `filhos`, e cada filho carrega um campo
-// `nivel` ('setor'|'pavimento'|'tarefa') dizendo o que ele é. Isso
-// permite que uma Etapa tenha um Setor, OU um Pavimento direto, OU uma
+// `nivel` ('subetapa'|'pavimento'|'tarefa') dizendo o que ele é. Isso
+// permite que uma Etapa tenha uma Sub-etapa, OU um Pavimento direto, OU uma
 // Tarefa direto como filho — a ORDEM relativa continua obrigatória
-// (Setor sempre antes de Pavimento, que sempre antes de Tarefa,
+// (Sub-etapa sempre antes de Pavimento, que sempre antes de Tarefa,
 // nunca invertido), mas cada nível pode ser PULADO. Etapa continua
 // vivendo em `arv.etapas` (array de topo, sem mudança); só o que está
 // ABAIXO da Etapa virou genérico.
@@ -92,12 +97,35 @@ function ehNoFolha(no) {
     return !no || !Array.isArray(no.filhos) || no.filhos.length === 0;
 }
 
+// Item 5/6/7 (prompt_gemini.md §14, leva 4 — bug confirmado): banco_arvores_projetos
+// é indexado por nome de projeto, mas nada garante que toda chave ali
+// ainda corresponda a um projeto vivo em banco_projetos — deletar ou
+// renomear um projeto no Cadastro podia deixar (ou ainda deixa, se
+// veio de antes desta correção) uma árvore órfã sob o nome antigo, que
+// o Kanban e a Atribuição de Tarefas mostravam porque liam
+// Object.keys(banco_arvores_projetos) direto, sem cruzar com a lista
+// atual do Cadastro. deletarProjeto()/salvarProjeto() (cadastros.js)
+// já foram corrigidas pra não deixar órfãos NOVOS — esta função aqui é
+// o filtro defensivo usado por quem LISTA projetos/tarefas, cobrindo
+// tanto órfãos futuros (por segurança) quanto órfãos que já existiam
+// no localStorage de antes da correção.
+function obterArvoresProjetosAtivas() {
+    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const projetosCadastro = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    const nomesValidos = new Set(projetosCadastro.map(p => p.nome));
+    const ativas = {};
+    Object.keys(arvores).forEach(nome => {
+        if (nomesValidos.has(nome)) ativas[nome] = arvores[nome];
+    });
+    return ativas;
+}
+
 // Devolve uma lista achatada de TODOS os nós-folha de um array de
 // Etapas, em QUALQUER profundidade (já que os níveis agora são
 // puláveis, não dá mais pra saber de antemão se a folha vai estar a 1,
 // 2, 3 ou mais níveis de distância). Cada item:
 // { no: <objeto com os campos de Tarefa>, path: "0"/"0-1"/"0-2-0" etc,
-//   localizacao: "Etapa › Setor › Pavimento" — breadcrumb legível,
+//   localizacao: "Etapa › Sub-etapa › Pavimento" — breadcrumb legível,
 //   só com os nomes dos nós realmente presentes no caminho até ali }.
 function coletarNosFolhaDaArvore(etapas) {
     const resultado = [];
@@ -488,6 +516,181 @@ function coletarNosFolhaDaArvore(etapas) {
         } catch (e) { /* nada salvo ainda, sem problema */ }
         localStorage.setItem(marcadorV11, '1');
     }
+
+    // Migração v12 — Reforma Setor→Sub-etapa (ver CHANGELOG.md): retag
+    // genérico de qualquer nó `nivel === 'setor'`, em qualquer projeto/
+    // profundidade, pra `nivel === 'subetapa'`. Sem suposição de nome —
+    // roda igual pra qualquer projeto, é no-op pra quem não tem nó
+    // nenhum nesse nível.
+    const marcadorV12 = 'banco_arvores_projetos_migrado_v12_setor_para_subetapa';
+    if (!localStorage.getItem(marcadorV12)) {
+        try {
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+            function retagSetorParaSubetapa(no) {
+                if (!no || typeof no !== 'object') return;
+                if (no.nivel === 'setor') { no.nivel = 'subetapa'; alterouArvores = true; }
+                (no.filhos || []).forEach(retagSetorParaSubetapa);
+            }
+            Object.values(arvores).forEach(arv => (arv.etapas || []).forEach(retagSetorParaSubetapa));
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+
+            // Catálogo: banco_setores_lego -> banco_subetapas_lego.
+            // IMPORTANTE: `banco_subetapas_lego` pode já existir como
+            // dado ÓRFÃO de uma nomenclatura AINDA MAIS antiga (quando
+            // "Sub-etapa" era o nome do que hoje é Pavimento — ver a
+            // migração de nomenclatura antiga logo acima, linhas
+            // ~169-172). Esse dado órfão nunca é lido por nenhum código
+            // atual (confirmado — só a migração antiga o referenciava,
+            // condicionada a `banco_pavimentos_lego` não existir, que
+            // já existe há muito tempo em qualquer instalação real).
+            // Por isso aqui SOBRESCREVE sem checar se já existe — o
+            // conteúdo real e em uso hoje é sempre o de
+            // `banco_setores_lego`, nunca o órfão.
+            if (localStorage.getItem('banco_setores_lego')) {
+                localStorage.setItem('banco_subetapas_lego', localStorage.getItem('banco_setores_lego'));
+                localStorage.removeItem('banco_setores_lego');
+            }
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV12, '1');
+    }
+
+    // Migração v13 — Reforma Setor→Sub-etapa (parte 2): empacota as 4
+    // etapas legadas "achatadas" (Pré-Lançamento/Lançamento/Análise/
+    // Cargas — Etapas de topo sem `nivel`) dentro de uma nova Etapa
+    // "Análise Global", como Sub-etapas. Casamento por nome SEM
+    // diferenciar maiúsculas/minúsculas (dado real de produção tem
+    // esses nomes em CAIXA ALTA — "PRÉ-LANÇAMENTO" etc. — enquanto o
+    // catálogo seed usa Title Case; confirmado testando contra os
+    // dados reais antes de subir, ver CHANGELOG.md) e PARCIAL (empacota
+    // só as que existirem — projeto sem nenhuma das 4 é no-op; projeto
+    // que já tem uma Etapa "Análise Global" é pulado, defensivo, pra
+    // nunca duplicar/colidir). O nome ORIGINAL do nó nunca é alterado —
+    // só a detecção ignora caixa.
+    // `peso_esforco="1"` em todas + `area_fisica` = o % que a etapa já
+    // tinha salvo (Distribuição de Custos) faz a Área Equivalente entre
+    // elas reproduzir EXATAMENTE a proporção de % que já existia — os
+    // números não mudam pro usuário depois da migração. Roda DEPOIS da
+    // v12 (precisa do retag pra Sub-etapa já ter acontecido, mas não
+    // depende diretamente dele — só da ordem de execução no arquivo).
+    const marcadorV13 = 'banco_arvores_projetos_migrado_v13_analise_global';
+    if (!localStorage.getItem(marcadorV13)) {
+        try {
+            const NOMES_ETAPAS_LEGADAS_NORMALIZADOS = ['pré-lançamento', 'lançamento', 'análise', 'cargas'];
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            const salvosAnalista = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
+            let alterouArvores = false, alterouAnalista = false;
+
+            Object.keys(arvores).forEach(nomeProjeto => {
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+                if (arv.etapas.some(e => e.nome.toLowerCase() === 'análise global')) return; // já existe, não mexe
+
+                const encontrados = [];
+                arv.etapas.forEach((e, idx) => {
+                    if (!e.nivel && NOMES_ETAPAS_LEGADAS_NORMALIZADOS.indexOf((e.nome || '').toLowerCase()) !== -1) encontrados.push({ etapa: e, idx: idx });
+                });
+                if (encontrados.length === 0) return; // projeto não tem essa forma legada — no-op
+
+                const primeiroIdx = Math.min.apply(null, encontrados.map(function (f) { return f.idx; }));
+                const salvoProjeto = salvosAnalista[nomeProjeto] || {};
+                const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
+                let somaPct = 0;
+
+                const subetapas = encontrados.map(function (f) {
+                    const etapa = f.etapa;
+                    etapa.nivel = 'subetapa';
+                    const dadosEtapa = salvoEtapas[etapa.nome];
+                    const pctSalvo = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
+                    somaPct += pctSalvo;
+                    etapa.peso_esforco = "1";
+                    etapa.area_fisica = String(pctSalvo);
+                    return etapa;
+                });
+
+                const idxsRemover = {};
+                encontrados.forEach(function (f) { idxsRemover[f.idx] = true; });
+                arv.etapas = arv.etapas.filter(function (e, idx) { return !idxsRemover[idx]; });
+
+                const analiseGlobal = {
+                    nome: "Análise Global", status: "Apontada", executor: "", responsavel: "",
+                    custo_max: "0", qtd_fisica: "0", unidade_fisica: "-", pontos: "0",
+                    horas_reais: "0.0", is_outlier: false, verba: "0", filhos: subetapas
+                };
+                arv.etapas.splice(Math.min(primeiroIdx, arv.etapas.length), 0, analiseGlobal);
+                alterouArvores = true;
+
+                if (somaPct > 0) {
+                    if (!salvosAnalista[nomeProjeto]) salvosAnalista[nomeProjeto] = { etapas: {} };
+                    if (!salvosAnalista[nomeProjeto].etapas) salvosAnalista[nomeProjeto].etapas = salvoEtapas;
+                    salvosAnalista[nomeProjeto].etapas['Análise Global'] = { pct: String(somaPct) };
+                    alterouAnalista = true;
+                }
+
+                // Coparticipação: única exceção deliberada de nome-match
+                // no código novo, só aqui na migração — marca a Etapa
+                // que já se chamava "Detalhamento" como tendo
+                // Coparticipação habilitada, pra preservar o
+                // comportamento de hoje sem exigir que o usuário
+                // reconfigure manualmente depois do upgrade.
+                const etapaDet = arv.etapas.find(function (e) { return e.nome.toLowerCase().indexOf('detalhamento') !== -1; });
+                if (etapaDet) { etapaDet.tem_coparticipacao = true; alterouArvores = true; }
+            });
+
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+            if (alterouAnalista) localStorage.setItem('banco_distribuicao_custos_analista', JSON.stringify(salvosAnalista));
+
+            const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
+            if (!etapasLego.some(function (e) { return e.nome === 'Análise Global'; })) {
+                etapasLego.push({ nome: 'Análise Global', base_h: '2.0' });
+                localStorage.setItem('banco_etapas_lego', JSON.stringify(etapasLego));
+            }
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV13, '1');
+    }
+
+    // Migração v14 (revisão 2026-09-01, item 12): pedido do usuário — "as
+    // únicas etapas cadastradas deverão ser Análise Global e
+    // Detalhamento; as demais serão sub-etapas e devem estar no
+    // cadastro de sub-etapas". Feito só a metade ADITIVA aqui —
+    // qualquer nome do catálogo de Etapa que não seja "Detalhamento"
+    // nem "Análise Global" entra no catálogo de Sub-etapa (se ainda não
+    // estiver lá). NÃO remove nada de banco_etapas_lego automaticamente
+    // (ver por quê abaixo) — a remoção final é 1 clique manual no
+    // 🗑️ de cada linha, em Cadastro → Gestão de Etapas (já existe,
+    // não precisou de UI nova).
+    //
+    // Por que não remove sozinho: a trava de sanidade do sync
+    // (_syncSnapshotPareceIncompleto, sync-provisorio.js, criada depois
+    // do incidente real de 2026-08-31 documentado no CHANGELOG) bloqueia
+    // qualquer ENVIO que encolha uma lista "de verdade" (>=5 itens) pra
+    // menos da metade — banco_etapas_lego tem 8 itens hoje, a lista
+    // final teria 2 (75% de encolhimento), então cairia direto nesse
+    // bloqueio pra QUALQUER cliente que tentasse migrar sozinho: a
+    // mudança ficaria só local, nunca sincronizaria, e a cada
+    // recarregamento um PULL traria de volta os 8 itens do servidor —
+    // um loop sem saída automática. Descoberto testando contra o app
+    // real antes de considerar isso pronto (não é hipotético). A
+    // exclusão manual, um item de cada vez, fica bem abaixo desse
+    // limite e sincroniza normalmente.
+    const marcadorV14 = 'banco_etapas_lego_migrado_v14_so_detalhamento_analise_global';
+    if (!localStorage.getItem(marcadorV14)) {
+        try {
+            const NOMES_ETAPA_PERMITIDOS_NORMALIZADOS = ['detalhamento', 'análise global'];
+            const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
+            const subetapasLego = JSON.parse(localStorage.getItem('banco_subetapas_lego')) || [];
+
+            let alterouSubetapas = false;
+            etapasLego.forEach(function (e) {
+                const nomeNormalizado = (e.nome || '').toLowerCase();
+                if (NOMES_ETAPA_PERMITIDOS_NORMALIZADOS.indexOf(nomeNormalizado) !== -1) return;
+                const jaExiste = subetapasLego.some(function (s) { return (s.nome || '').toLowerCase() === nomeNormalizado; });
+                if (!jaExiste) { subetapasLego.push(e); alterouSubetapas = true; }
+            });
+            if (alterouSubetapas) localStorage.setItem('banco_subetapas_lego', JSON.stringify(subetapasLego));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV14, '1');
+    }
 })();
 
 // --- SEEDS INICIAIS (idênticos ao index.html original, exceto o
@@ -509,7 +712,7 @@ const funcionariosSeed = [
 const projetosSeed = [{ nome: "Residencial Excellence", prefixo: "PRJ-BC-01", cliente: "Pasqualotto & GT" }];
 const componentesSeed = {
     etapas: [{ nome: "Detalhamento Estrutural" }],
-    setores: [{ nome: "Pavimento Térreo" }, { nome: "Tipo Padrão" }],
+    subetapas: [{ nome: "Pavimento Térreo" }, { nome: "Tipo Padrão" }],
     pavimentos: [{ nome: "Dimensionamento de Vigas" }],
     tarefas: [{ nome: "Detalhamento de vigas", base_h: "2.0", pontos: "1.0", unidade_fisica: "m³" }]
 };
@@ -518,7 +721,7 @@ if (!localStorage.getItem('banco_clientes')) localStorage.setItem('banco_cliente
 if (!localStorage.getItem('banco_funcionarios')) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionariosSeed));
 if (!localStorage.getItem('banco_projetos')) localStorage.setItem('banco_projetos', JSON.stringify(projetosSeed));
 
-['etapas', 'setores', 'pavimentos', 'tarefas'].forEach(cat => {
+['etapas', 'subetapas', 'pavimentos', 'tarefas'].forEach(cat => {
     if (!localStorage.getItem('banco_' + cat + '_lego')) localStorage.setItem('banco_' + cat + '_lego', JSON.stringify(componentesSeed[cat]));
 });
 
@@ -549,9 +752,14 @@ function limparWorkspace() {
 
     // Usa as funções de renderização completas (com clique para editar e excluir)
     // em vez da renderização simplificada e somente-leitura que existia antes.
-    renderizarTabelaClientes();
-    renderizarTabelaFuncionarios();
-    renderizarTabelaProjetos();
+    // Guardas `typeof === 'function'` (achado real testando módulos
+    // isolados, 2026-09-01): estas 3 vivem em cadastros.js, que só a
+    // página de Cadastro carrega — sem a guarda, core.js quebrava
+    // qualquer outro módulo isolado (arvore/, kanban/, etc.) logo no
+    // boot, antes mesmo do módulo em si rodar.
+    if (typeof renderizarTabelaClientes === 'function') renderizarTabelaClientes();
+    if (typeof renderizarTabelaFuncionarios === 'function') renderizarTabelaFuncionarios();
+    if (typeof renderizarTabelaProjetos === 'function') renderizarTabelaProjetos();
 }
 
 function filtrarTabela(modulo) {
@@ -563,7 +771,7 @@ function filtrarTabela(modulo) {
 // Cadastro em abas (pedido do usuário) — substitui o antigo menu em
 // cascata (7 itens sempre visíveis na barra lateral) por 1 item só
 // ("📝 Cadastro"), que abre uma tela com essas 7 abas dentro.
-const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'setores', 'pavimentos', 'tarefas', 'feriados'];
+const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'subetapas', 'pavimentos', 'tarefas', 'feriados'];
 let cadAbaAtiva = 'clientes'; // lembra a última aba usada, mesmo padrão de aprovAbaAtiva (aprovacoes-calendario.js)
 
 function abrirAbaCadastro(modulo) {
@@ -589,8 +797,8 @@ function abrirAbaCadastro(modulo) {
         funcionarios: 'Gestão de Funcionários',
         projetos: 'LISTA DE PROJETOS',
         etapas: 'Gestão de ETAPAS',
-        setores: 'Gestão de SETORES',
-        pavimentos: 'Gestão de PAVIMENTOS',
+        subetapas: 'Gestão de SUB-ETAPAS',
+        pavimentos: 'Gestão de LOCAIS',
         tarefas: 'Gestão de TAREFAS',
         feriados: 'Feriados'
     };
@@ -602,9 +810,48 @@ function abrirAbaCadastro(modulo) {
     // Pedido do usuário (prompt_gemini.md §14, item 1): Feriados virou
     // aba do Cadastro em vez de item próprio no menu principal — tela
     // própria (calendário de feriados), não o padrão genérico de
-    // catálogo (Etapas/Setores/Pavimentos/Tarefas).
+    // catálogo (Etapas/Sub-etapas/Pavimentos/Tarefas).
     else if (modulo === 'feriados') carregarPainelFeriados();
-    else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
+    else renderizarListaLegoComum(modulo); // etapas/subetapas/pavimentos/tarefas
+}
+
+// Pedido do usuário: quando um Projeto está "aberto" (na Árvore/Estrutura
+// de Projeto OU na Distribuição de Custos dele), o título principal da
+// tela mostra o NOME do projeto (em vez de um rótulo genérico), e logo
+// abaixo aparecem 2 "orelhas" (abas) — Estrutura de Projeto / Custos —
+// pra pular de uma pra outra sem re-escolher o projeto. Sem projeto
+// aberto, a barra de orelhas fica escondida e cada tela cuida do seu
+// próprio título genérico (esta função só MEXE no título quando HÁ
+// projeto — ver `nomeProjeto` vazio abaixo).
+function atualizarOrelhasProjetoAtivo(nomeProjeto, abaAtiva) {
+    const barra = document.getElementById('orelhas-projeto-ativo');
+    if (!barra) return;
+    if (!nomeProjeto) {
+        barra.style.display = 'none';
+        return;
+    }
+    barra.style.display = 'flex';
+    document.getElementById('page-context-title').innerText = nomeProjeto;
+    const orelhaEstrutura = document.getElementById('orelha-estrutura-projeto');
+    const orelhaCustos = document.getElementById('orelha-custos-projeto');
+    const orelhaDetalhamento = document.getElementById('orelha-detalhamento-projeto');
+    const orelhaDiagnostico = document.getElementById('orelha-diagnostico-projeto');
+    const orelhaBonificacao = document.getElementById('orelha-bonificacao-projeto');
+    if (orelhaEstrutura) orelhaEstrutura.classList.toggle('active', abaAtiva === 'estrutura');
+    if (orelhaCustos) orelhaCustos.classList.toggle('active', abaAtiva === 'custos');
+    // Reforma de orelhas (prompt_gemini.md, retomada 2026-08-25): as
+    // orelhas "Desempenho" (Produtividade) e "Distribuições"
+    // (Financeira) viraram sub-abas DENTRO de uma única orelha
+    // "Detalhamento" — as duas continuam mandando 'desempenho'/
+    // 'distribuicoes' aqui (irParaDesempenhoDoProjetoAtivo()/
+    // irParaDistribuicoesDoProjetoAtivo() não mudaram), só que agora as
+    // duas acendem a MESMA orelha de topo; qual sub-aba (.subaba-pill)
+    // fica marcada como ativa é decidido estaticamente no HTML de cada
+    // painel (#panel-desempenho-projeto/#panel-distribuicoes-projeto),
+    // não aqui.
+    if (orelhaDetalhamento) orelhaDetalhamento.classList.toggle('active', abaAtiva === 'desempenho' || abaAtiva === 'distribuicoes');
+    if (orelhaDiagnostico) orelhaDiagnostico.classList.toggle('active', abaAtiva === 'diagnostico');
+    if (orelhaBonificacao) orelhaBonificacao.classList.toggle('active', abaAtiva === 'bonificacao');
 }
 
 function alternarModulo(modulo) {
@@ -669,7 +916,7 @@ function alternarModulo(modulo) {
         abrirAbaCadastro(cadAbaAtiva);
     } else if (ABAS_CADASTRO.includes(modulo)) {
         // As 7 abas de dentro de #panel-cadastro (Clientes,
-        // Funcionários, Projetos, Etapas, Setores, Pavimentos, Tarefas)
+        // Funcionários, Projetos, Etapas, Sub-etapas, Pavimentos, Tarefas)
         // chamam alternarModulo(modulo) direto — mesma função que
         // fecharFormulario() já chama pra voltar da tela de edição pra
         // lista, sem precisar de um caminho separado.
@@ -703,6 +950,76 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
     carregarPainelDistribuicaoCustos();
     escolherProjetoDistribuicaoInicial(nome);
+}
+
+// Pedido do usuário: 3ª orelha do Hub "📁 Projetos", ao lado de
+// Estrutura de Projeto/Custos — mostra horas previstas×realizadas,
+// custo real, % de conclusão e o saldo (verba − custo) do projeto
+// (ver js/desempenho-projeto.js pelos cálculos). Mesmo padrão de
+// irParaDistribuicaoCustosDoProjetoAtivo() acima, mas com a mesma
+// cautela de irParaEstruturaProjetoDoProjetoAtivo() quanto à origem do
+// nome do projeto: `projetoSelecionadoAtivo` cobre quem vem da
+// Estrutura de Projeto, mas quem abriu o projeto direto pelo portal da
+// Distribuição de Custos nunca passou por ali — nesse caso o nome só
+// existe no select `#dc-projeto`.
+function irParaDesempenhoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-desempenho-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome);
+}
+
+// 4ª orelha do Hub "📁 Projetos" — leituras automáticas (Diagnóstico)
+// em cima dos mesmos dados de Desempenho, ver
+// js/desempenho-projeto.js::calcularDiagnosticoProjeto(). Mesmo padrão
+// de origem do nome do projeto que irParaDesempenhoDoProjetoAtivo().
+function irParaDiagnosticoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-diagnostico-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'diagnostico');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDiagnostico === 'function') carregarPainelDiagnostico(nome);
+}
+
+// 5ª orelha do Hub "📁 Projetos" — Bonificação (Lucro/Sobra e
+// Bonificação por Executor, rateio da Verba Global em 3 blocos), ver
+// js/desempenho-projeto.js::calcularBonificacaoProjeto(). Mesmo padrão
+// de origem do nome do projeto das outras orelhas.
+function irParaBonificacaoDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-bonificacao-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'bonificacao');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelBonificacao === 'function') carregarPainelBonificacao(nome);
+}
+
+// 6ª orelha do Hub "📁 Projetos" — Distribuições (relatório editorial
+// de bonificação, formato trazido pelo usuário de um Artifact de
+// referência), ver js/desempenho-projeto.js::calcularDistribuicoesProjeto().
+// Mesmo padrão de origem do nome do projeto das outras orelhas.
+function irParaDistribuicoesDoProjetoAtivo() {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-distribuicoes-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'distribuicoes');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof carregarPainelDistribuicoes === 'function') carregarPainelDistribuicoes(nome);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {
@@ -1140,6 +1457,14 @@ function aplicarPermissoesMenu() {
 // `executor` ia pro Kanban, os demais iam pra Árvore; revertido a
 // pedido explícito do usuário). `carregarPainelKanban()` já
 // pré-seleciona o próprio nome no dropdown (melhoria #7).
+// Pedido posterior (prompt_gemini.md parte 31): Analista e
+// Administrador passam a abrir direto a tela de seleção de projetos
+// (mesma tela do item "📁 Projetos" do menu, via
+// `renderizerProjetosParaSelecaoArvore()`, que já filtra pra Analista
+// através de `obterNomesProjetosPermitidos()` — pra Administrador essa
+// função não filtra nada, então ele vê a lista completa de projetos,
+// que é o comportamento esperado). Detalhista/Estagiário (nivel
+// 'executor') e Supervisor continuam indo direto pro Kanban.
 function abrirTelaInicialPorNivel() {
     if (!usuarioLogado) return;
     if (usuarioLogado.nivel === 'analista' || usuarioLogado.nivel === 'administrador') {
@@ -1204,7 +1529,13 @@ function iniciarAppPosLogin() {
     migrarStatusPendenteValidacao();
     migrarValorHoraParaHistorico();
     limparWorkspace();
-    ['etapas', 'setores', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
+    // renderizarListaLegoComum vive em catalogo-lego.js — nem todo
+    // módulo isolado carrega esse arquivo (achado real testando
+    // módulos isolados, 2026-09-01, mesmo motivo da guarda acima em
+    // limparWorkspace()).
+    if (typeof renderizarListaLegoComum === 'function') {
+        ['etapas', 'subetapas', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
+    }
     if (typeof atualizarBadgePendenciasAprovacoes === 'function') atualizarBadgePendenciasAprovacoes();
 }
 

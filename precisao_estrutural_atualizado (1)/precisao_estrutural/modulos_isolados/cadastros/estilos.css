@@ -465,10 +465,14 @@
            proporcionalmente pra preencher o container — inclusive as
            colunas que deveriam ficar do mesmo tamanho. `width:auto`
            aqui faz a tabela ficar exatamente do tamanho da soma das
-           colunas declaradas, sem esticar. Mesma lógica pra
-           "Pavimento" na Aba "Verba por Pavimento" logo abaixo. */
+           colunas declaradas, sem esticar. Mesma lógica pras tabelas de
+           Sub-etapa na aba "Verba por Sub-etapa" logo abaixo — revisão
+           de 2026-09-01: cada tabela agora vive dentro de um quadro por
+           Etapa (.vt-card), não mais direto dentro de "Verba por
+           Sub-etapa" — por isso o seletor deixou de exigir filho DIRETO
+           (`>`) de #conteudo-verba-pavimento. */
         #conteudo-distribuicao-analista table.tabela-compacta,
-        #conteudo-verba-pavimento > .table-wrapper > table {
+        #conteudo-verba-pavimento .table-wrapper > table {
             table-layout: fixed;
             width: auto;
         }
@@ -528,6 +532,17 @@
         .campo-percentual { position: relative; display: inline-block; width: 100%; }
         .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; text-align: center; }
         .campo-percentual .sufixo-pct { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #64748b; pointer-events: none; }
+
+        /* Item 9 (revisão 2026-09-01): campo "% Fundo Distribuição de
+           Lucros" (aba "Verba por Sub-etapa") ficava estreito demais pro
+           número aparecer inteiro, e as setas de incremento do
+           type="number" roubavam o pouco espaço que sobrava. Remove as
+           setas (Chrome/Safari + Firefox) — só digitação manual mesmo,
+           a largura maior (92px, ver renderizarTabelasVerbaPavimento())
+           já resolve o corte de texto sozinha. */
+        .campo-percentual-sem-seta input::-webkit-outer-spin-button,
+        .campo-percentual-sem-seta input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .campo-percentual-sem-seta input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
         /* Pedido do usuário: borda visível só nos campos de % (não nos
            de Verba/valor) do Fundo Garantidor e das linhas de Total —
@@ -864,6 +879,31 @@
         #panel-distribuicoes-projeto .dist-orc-emph td.dist-num { color: var(--dist-accent); }
         #panel-distribuicoes-projeto .dist-orc-subtotal { border-top: 2px solid var(--dist-border-strong); background: var(--dist-surface-2); }
         #panel-distribuicoes-projeto .dist-orc-subtotal td { font-weight: 700; color: var(--dist-ink); }
+
+        /* Livro-caixa do Resumo financeiro (reforma 2026-09-01, pedido
+           do usuário — prévia aprovada num Artifact antes desta
+           implementação): um "livro" por bloco (Contrato→Fundo
+           Garantidor, cada Etapa, Caixa por Executor, resumos finais),
+           4 colunas Histórico/Entrada/Saída/Saldo. */
+        #panel-distribuicoes-projeto .dist-livro-book { background: var(--dist-surface); border: 1px solid var(--dist-border-strong); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+        #panel-distribuicoes-projeto .dist-livro-book:last-child { margin-bottom: 0; }
+        #panel-distribuicoes-projeto .dist-livro-head { background: var(--dist-ink); color: var(--dist-surface); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 7px 12px; }
+        #panel-distribuicoes-projeto .dist-livro-tab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        #panel-distribuicoes-projeto .dist-livro-tab thead td { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--dist-ink-muted); background: var(--dist-surface-2); padding: 5px 12px; border-bottom: 1px solid var(--dist-border-strong); text-align: right; }
+        #panel-distribuicoes-projeto .dist-livro-tab thead td:first-child { text-align: left; }
+        #panel-distribuicoes-projeto .dist-livro-tab tbody td { padding: 5px 12px; border-bottom: 1px solid var(--dist-border); }
+        #panel-distribuicoes-projeto .dist-livro-tab tbody tr:last-child td { border-bottom: none; }
+        #panel-distribuicoes-projeto .dist-livro-tab td.lbl { color: var(--dist-ink-2); }
+        #panel-distribuicoes-projeto .dist-livro-tab td.n { text-align: right; color: var(--dist-ink); font-variant-numeric: tabular-nums; }
+        #panel-distribuicoes-projeto .dist-livro-tab td.n.empty { color: var(--dist-border-strong); }
+        #panel-distribuicoes-projeto .dist-livro-tab td.n.pos { color: var(--dist-good); font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-livro-tab td.n.neg { color: var(--dist-critical); font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-livro-tab tr.saldo { background: var(--dist-surface-2); }
+        #panel-distribuicoes-projeto .dist-livro-tab tr.saldo td { font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-livro-tab tr.total td { border-top: 1px solid var(--dist-border-strong); font-weight: 700; }
+        #panel-distribuicoes-projeto .dist-livro-tab tr.result td { background: var(--dist-critical-soft); color: var(--dist-critical); font-weight: 800; }
+        #panel-distribuicoes-projeto .dist-livro-tab tr.result td.lbl { color: var(--dist-critical); }
+        #panel-distribuicoes-projeto .dist-livro-memo { font-size: 11px; color: var(--dist-ink-muted); padding: 6px 12px 8px; }
 
         #panel-distribuicoes-projeto .dist-callout { margin-top: 14px; background: var(--dist-critical-soft); border: 1px solid var(--dist-critical); border-radius: 3px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
         #panel-distribuicoes-projeto .dist-callout.good { background: var(--dist-good-soft); border-color: var(--dist-good); }

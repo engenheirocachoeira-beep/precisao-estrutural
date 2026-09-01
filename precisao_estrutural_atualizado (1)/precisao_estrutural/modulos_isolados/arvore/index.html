@@ -47,8 +47,14 @@
     <script src="js/core.js"></script>
     <script src="js/arvore.js"></script>
     <script>
-        document.getElementById('panel-blank-state').style.display = 'none';
-        alternarModulo('arvore');
+        // Achado real (2026-09-01): chamar alternarModulo() direto aqui
+        // era desfeito pelo window.onload de core.js (que sempre reseta
+        // pra tela em branco no boot, ver limparWorkspace()) — como
+        // onload só dispara DEPOIS deste script, a chamada direta
+        // "ganhava" na hora mas perdia segundos depois, silenciosamente.
+        // Registrar num listener de 'load' garante rodar DEPOIS do
+        // reset do core.js, não antes.
+        window.addEventListener('load', function () { alternarModulo('arvore'); });
     </script>
 </body>
 </html>

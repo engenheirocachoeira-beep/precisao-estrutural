@@ -152,7 +152,9 @@ body { display:block; padding: 20px; }
     <script src="js/cadastros.js"></script>
     <script src="js/importexport.js"></script>
 <script>
-document.getElementById('panel-blank-state').style.display = 'none';
-alternarModulo('clientes');
+// Ver comentário equivalente em modulos_isolados/arvore/index.html
+// (achado real 2026-09-01: chamada direta era desfeita pelo
+// window.onload de core.js, que dispara depois e reseta a tela).
+window.addEventListener('load', function () { alternarModulo('clientes'); });
 </script>
 </body></html>

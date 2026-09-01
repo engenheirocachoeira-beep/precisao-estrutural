@@ -62,8 +62,10 @@
     <script src="js/core.js"></script>
     <script src="js/bi.js"></script>
     <script>
-        document.getElementById('panel-blank-state').style.display = 'none';
-        alternarModulo('bi_calibracao');
+        // Ver comentário equivalente em modulos_isolados/arvore/index.html
+        // (achado real 2026-09-01: chamada direta era desfeita pelo
+        // window.onload de core.js, que dispara depois e reseta a tela).
+        window.addEventListener('load', function () { alternarModulo('bi_calibracao'); });
     </script>
 </body>
 </html>
