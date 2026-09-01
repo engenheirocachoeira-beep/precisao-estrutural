@@ -124,7 +124,7 @@
                         <button type="button" id="cad-aba-funcionarios" class="aprov-aba" onclick="alternarModulo('funcionarios')">🪪 Funcionários</button>
                         <button type="button" id="cad-aba-projetos" class="aprov-aba" onclick="alternarModulo('projetos')">📁 Projetos</button>
                         <button type="button" id="cad-aba-etapas" class="aprov-aba" onclick="alternarModulo('etapas')">🧱 Etapas</button>
-                        <button type="button" id="cad-aba-setores" class="aprov-aba" onclick="alternarModulo('setores')">📐 Setores</button>
+                        <button type="button" id="cad-aba-subetapas" class="aprov-aba" onclick="alternarModulo('subetapas')">📐 Sub-etapas</button>
                         <button type="button" id="cad-aba-pavimentos" class="aprov-aba" onclick="alternarModulo('pavimentos')">🧮 Pavimentos</button>
                         <button type="button" id="cad-aba-tarefas" class="aprov-aba" onclick="alternarModulo('tarefas')">⚙️ Tarefas</button>
                         <button type="button" id="cad-aba-feriados" class="aprov-aba" onclick="alternarModulo('feriados')">📅 Feriados</button>
@@ -273,9 +273,9 @@
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Etapa</th><th style="width:110px;">% Sugerido</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-etapas-body"></tbody></table></div>
                     <div class="footer-actions"><input type="text" id="add-etapas-nome" placeholder="Nova Etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('etapas')">Fabricar</button></div>
                 </div>
-                <div id="panel-setores-lista" class="sub-panel-cadastro">
-                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Setor</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-setores-body"></tbody></table></div>
-                    <div class="footer-actions"><input type="text" id="add-setores-nome" placeholder="Nova Setor..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('setores')">Fabricar</button></div>
+                <div id="panel-subetapas-lista" class="sub-panel-cadastro">
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Sub-etapa</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-subetapas-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-subetapas-nome" placeholder="Nova Sub-etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('subetapas')">Fabricar</button></div>
                 </div>
                 <div id="panel-pavimentos-lista" class="sub-panel-cadastro">
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Pavimento</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
@@ -405,7 +405,7 @@
                     <div id="dc-conteudo-principal" style="display:none; flex: 1; overflow-y: auto;">
                     <div class="tab-bar">
                         <div id="aba-orcamento-global" class="tab-selector active" onclick="alternarAbaDistribuicao('orcamento-global')">Orçamento Global</div>
-                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Verba Global para Produção</div>
+                        <div id="aba-distribuicao-analista" class="tab-selector" onclick="alternarAbaDistribuicao('distribuicao-analista')">Verba por Etapa</div>
                         <div id="aba-verba-pavimento" class="tab-selector" onclick="alternarAbaDistribuicao('verba-pavimento')">Verba por Pavimento</div>
                         <div id="aba-verba-por-tarefa" class="tab-selector" onclick="alternarAbaDistribuicao('verba-por-tarefa')">Verba por Tarefa</div>
                         <button type="button" onclick="irParaEstruturaProjetoDoProjetoAtivo()" title="Ver Estrutura de Projeto deste mesmo projeto" style="margin-left:auto; background:#7c3aed; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;">📁 Estrutura de Projeto</button>
@@ -445,8 +445,8 @@
                             </div>
 
                             <div class="form-section">
-                                <div class="form-section-title">4. Coparticipações no Detalhamento</div>
-                                <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 10px; border-radius:6px; margin-bottom:10px; font-size:11px; color:#1e40af;">Independente do % geral do item 3 acima — define só o quanto Escritório/Supervisão participam especificamente da Etapa "Detalhamento". Deixe 0% se este projeto não tem coparticipação. Campo fica bloqueado quando o % geral do item 3 correspondente é 0%.</div>
+                                <div class="form-section-title">4. Coparticipação Global (Escritório/Supervisão)</div>
+                                <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 10px; border-radius:6px; margin-bottom:10px; font-size:11px; color:#1e40af;">Independente do % geral do item 3 acima — define só o quanto Escritório/Supervisão participam das etapas/sub-etapas que tiverem a Coparticipação habilitada (marcação na própria Árvore de Projeto). Deixe 0% se este projeto não tem coparticipação. Campo fica bloqueado quando o % geral do item 3 correspondente é 0%.</div>
                                 <div class="form-grid">
                                     <div class="col-4"></div>
                                     <div class="form-group col-4"><label>% Coparticipação Supervisão:</label><div class="campo-percentual"><input type="number" id="dc-pct-coparticipacao-supervisor" step="0.01" oninput="recalcularDistribuicaoCustos()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></div>
@@ -513,20 +513,20 @@
                             <input type="text" id="vp-valor-fundo-lucros" readonly style="width:140px; background:#f0fdf4; font-weight:bold; color:#166534; text-align:right;">
                             <button class="btn-success" style="margin-left:auto;" onclick="salvarFundoLucrosPavimento()">Salvar % Fundo Distribuição de Lucros</button>
                         </div>
-                        <div id="vp-setores-wrapper" style="display:none; margin-bottom:18px;">
-                            <div style="font-weight:bold; color:#0f223f; font-size:12px; margin-bottom:6px;">🗂️ Verba por Setor <small style="color:#94a3b8; font-weight:normal;">(Área/Peso editáveis aqui — Setores competem entre si dentro da mesma Etapa/Setor pai)</small></div>
+                        <div id="vp-subetapas-wrapper" style="display:none; margin-bottom:18px;">
+                            <div style="font-weight:bold; color:#0f223f; font-size:12px; margin-bottom:6px;">🗂️ Verba por Sub-etapa <small style="color:#94a3b8; font-weight:normal;">(Área/Peso editáveis aqui — Sub-etapas competem entre si dentro da mesma Etapa/Sub-etapa pai)</small></div>
                             <div class="table-wrapper" style="max-height:250px;">
                                 <table class="tabela-compacta">
                                     <thead><tr>
-                                        <th>Setor</th>
-                                        <th style="width:100px;">Etapa/Setor pai</th>
+                                        <th>Sub-etapa</th>
+                                        <th style="width:100px;">Etapa/Sub-etapa pai</th>
                                         <th class="col-centralizada" style="width:90px;">Área</th>
                                         <th class="col-centralizada" style="width:90px;">Peso de Esforço</th>
                                         <th class="col-centralizada" style="width:120px;">Área Equivalente</th>
                                         <th class="col-centralizada" style="width:80px;">% da Verba</th>
                                         <th style="width:130px; text-align:right;">Verba</th>
                                     </tr></thead>
-                                    <tbody id="vp-setores-tabela-body"></tbody>
+                                    <tbody id="vp-subetapas-tabela-body"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -873,7 +873,7 @@
                                 <div class="grid-filtros">
                                     <div class="campo"><label>Projeto</label><select id="rel-custos-filtro-projeto"></select></div>
                                     <div class="campo"><label>Etapa</label><select id="rel-custos-filtro-etapa"></select></div>
-                                    <div class="campo"><label>Setor</label><select id="rel-custos-filtro-setor"></select></div>
+                                    <div class="campo"><label>Sub-etapa</label><select id="rel-custos-filtro-subetapa"></select></div>
                                     <div class="campo"><label>Pavimento</label><select id="rel-custos-filtro-pavimento"></select></div>
                                     <div class="campo"><label>Tarefa</label><select id="rel-custos-filtro-tarefa"></select></div>
                                     <div class="campo"><label>Cliente</label><select id="rel-custos-filtro-cliente"></select></div>

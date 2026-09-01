@@ -5,14 +5,19 @@
 // aplica um percentual de impostos pra achar o valor líquido, e distribui
 // esse líquido entre Analista/Supervisor/Escritório por percentual editável.
 //
-// Aba 2 "Parcela Global para Produção" (nome até 2026-08-15: "Distribuição
-// de Custos Analista"): tabela com uma linha por Etapa da árvore do
+// Aba 2 "Verba por Etapa" (nomes anteriores: "Distribuição de Custos
+// Analista" até 2026-08-15, depois "Verba Global para Produção" até a
+// reforma Setor→Sub-etapa): tabela com uma linha por Etapa da árvore do
 // projeto + uma linha fixa "Fundo Garantidor" no final. A Verba de cada
 // Etapa já sai líquida do % de Fundo Garantidor (desconto GLOBAL aplicado
 // em cada Etapa — Etapas somam 100% ENTRE SI, Fundo Garantidor não entra
 // nessa soma). Só pode ser aberta com um projeto já selecionado na aba 1
 // (bloqueado em alternarAbaDistribuicao). Responsável não é editável —
-// sempre reproduz o Analista designado no cadastro do projeto.
+// sempre reproduz o Analista designado no cadastro do projeto. Cada
+// Etapa cascateia sua verba recursivamente pras Sub-etapas (Área
+// Equivalente), Pavimentos (Área Equivalente) e Tarefas (Pontos) —
+// não é mais restrito a uma única Etapa achada por nome (ver
+// CHANGELOG.md, reforma Setor→Sub-etapa).
 //
 // (A antiga Aba 3 "Verba para Detalhamento" foi REMOVIDA em 2026-08-15 —
 // ficou redundante depois que a Aba 2 passou a mostrar a Verba líquida
@@ -287,25 +292,31 @@ function carregarAbaDistribuicaoAnalista() {
         return;
     }
 
-    tbody.innerHTML = etapas.map(etapa => {
-        const linhaEtapa = construirLinhaDistribuicaoAnalista(etapa.nome, salvoEtapas[etapa.nome] || {}, false, nomeAnalista, buscarPctSugerido(etapa.nome));
-        // Pedido do usuário: logo abaixo da Etapa "Detalhamento", 2
-        // linhas informativas com a coparticipação de Escritório/
-        // Supervisão (Item 4 da Aba 1) — mesma fórmula já usada lá,
-        // ver calcularVerbaDetalhamentoPuro().
-        return etapa.nome.toLowerCase().includes('detalhamento') ? linhaEtapa + construirLinhasCoparticipacaoDetalhamento() : linhaEtapa;
+    tbody.innerHTML = etapas.map((etapa, fIdx) => {
+        const linhaEtapa = construirLinhaDistribuicaoAnalista(etapa.nome, salvoEtapas[etapa.nome] || {}, false, nomeAnalista, buscarPctSugerido(etapa.nome), !!etapa.tem_coparticipacao, fIdx);
+        // Reforma Setor→Sub-etapa: Coparticipação virou uma marcação
+        // opcional por Etapa/Sub-etapa (`tem_coparticipacao`, setável na
+        // Árvore de Projeto) — não é mais amarrada ao nome "Detalhamento".
+        // Logo abaixo de QUALQUER Etapa flagada, 2 linhas informativas com
+        // a coparticipação de Escritório/Supervisão (Item 4 da Aba 1) —
+        // mesma fórmula de sempre, ver calcularVerbaCoparticipacaoPuro().
+        // `fIdx` (índice da Etapa) garante ids únicos mesmo que mais de
+        // uma Etapa esteja flagada ao mesmo tempo.
+        return etapa.tem_coparticipacao ? linhaEtapa + construirLinhasCoparticipacao(fIdx) : linhaEtapa;
     }).join('') +
         construirLinhaDistribuicaoAnalista('Fundo Garantidor', {}, true, nomeAnalista);
     recalcularTabelaDistribuicaoAnalista();
 }
 
-// Pedido do usuário: 2 linhas só-leitura logo abaixo da Etapa
-// "Detalhamento", mostrando quanto Supervisão/Escritório coparticipam
-// dela (Item 4 da Aba 1 "Orçamento Global") — nunca somadas ao Total
-// (Etapas)/Total Geral, porque vêm de um bolo diferente (Escritório/
-// Supervisor, não o do Analista). Valores recalculados ao vivo em
-// recalcularTabelaDistribuicaoAnalista().
-function construirLinhasCoparticipacaoDetalhamento() {
+// Pedido do usuário: 2 linhas só-leitura logo abaixo de qualquer Etapa
+// com Coparticipação habilitada (`tem_coparticipacao`), mostrando
+// quanto Supervisão/Escritório coparticipam dela (Item 4 da Aba 1
+// "Orçamento Global") — nunca somadas ao Total (Etapas)/Total Geral,
+// porque vêm de um bolo diferente (Escritório/Supervisor, não o do
+// Analista). Valores recalculados ao vivo em
+// recalcularTabelaDistribuicaoAnalista(). `fIdx` garante ids únicos
+// quando mais de uma Etapa está flagada ao mesmo tempo.
+function construirLinhasCoparticipacao(fIdx) {
     const linha = (idBase, rotulo) =>
         '<tr style="background:#f8fafc;">' +
         '<td style="padding-left:22px; color:#64748b;">↳ ' + rotulo + '</td>' +
@@ -313,7 +324,7 @@ function construirLinhasCoparticipacaoDetalhamento() {
         '<td id="' + idBase + '-verba" class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
         '<td></td>' +
         '</tr>';
-    return linha('dca-copart-supervisor', 'Coparticipação Supervisor') + linha('dca-copart-escritorio', 'Coparticipação Escritório');
+    return linha('dca-copart-supervisor-' + fIdx, 'Coparticipação Supervisor') + linha('dca-copart-escritorio-' + fIdx, 'Coparticipação Escritório');
 }
 
 // Reforma de 2026-08-17 (parte 6 — o usuário reconsiderou a parte 1):
@@ -325,7 +336,7 @@ function construirLinhasCoparticipacaoDetalhamento() {
 // (atualizado por recalcularTabelaDistribuicaoAnalista()) — e a coluna
 // "Verba" voltou a ser uma só (não tem mais desconto pra discretizar
 // em 3 colunas).
-function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGarantidor, nomeAnalista, pctSugerido) {
+function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGarantidor, nomeAnalista, pctSugerido, temCoparticipacao, fIdx) {
     // Pedido do usuário: linha do Fundo Garantidor usa o MESMO formato
     // de célula das Etapas (só muda o preenchimento — fundo verde,
     // ver estiloLinha abaixo).
@@ -334,14 +345,17 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     // explicada no aviso azul acima da tabela, e o texto extra quebrava
     // em 2 linhas nesta coluna estreita, deixando esta linha mais alta
     // que as demais (pedido do usuário: mesma altura sempre).
-    // Pedido do usuário: a Etapa "Detalhamento" mostra o rótulo "Verba
-    // Detalhamento - Analista" aqui (deixa claro que é só a fatia do
-    // Analista — as 2 linhas de coparticipação logo abaixo, ver
-    // construirLinhasCoparticipacaoDetalhamento(), completam o
-    // quadro). `data-etapa` continua com o nome real da Etapa (usado
-    // pra salvar) — só o texto exibido muda.
-    const ehDetalhamento = !ehFundoGarantidor && nomeLinha.toLowerCase().includes('detalhamento');
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (ehDetalhamento ? 'Verba Detalhamento - Analista' : escapeHtml(nomeLinha));
+    // Reforma Setor→Sub-etapa: qualquer Etapa com Coparticipação
+    // habilitada mostra o rótulo "Verba <Nome> - Analista" aqui (deixa
+    // claro que é só a fatia do Analista — as 2 linhas de coparticipação
+    // logo abaixo, ver construirLinhasCoparticipacao(), completam o
+    // quadro). Não é mais restrito à Etapa "Detalhamento" por nome.
+    // `data-etapa` continua com o nome real da Etapa (usado pra salvar)
+    // — só o texto exibido muda. `data-tem-coparticipacao` marca a linha
+    // pra recalcularTabelaDistribuicaoAnalista() achar todas as Etapas
+    // flagadas sem depender de nome nenhum.
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (temCoparticipacao ? 'Verba ' + escapeHtml(nomeLinha) + ' - Analista' : escapeHtml(nomeLinha));
+    const marcadorCoparticipacao = temCoparticipacao ? ' data-tem-coparticipacao="1" data-fidx="' + fIdx + '"' : '';
 
     let celulaPct;
     if (ehFundoGarantidor) {
@@ -355,7 +369,7 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     } else {
         const pct = dadosSalvos.pct !== undefined ? dadosSalvos.pct : (pctSugerido !== undefined ? pctSugerido : '');
         const pctFormatado = pct === '' ? '' : (parseFloat(pct) || 0).toFixed(2);
-        celulaPct = '<td><div class="campo-percentual" style="width:80px;"><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + escapeHtml(nomeLinha) + '" value="' + pctFormatado + '" oninput="recalcularTabelaDistribuicaoAnalista()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></td>';
+        celulaPct = '<td><div class="campo-percentual" style="width:80px;"><input type="number" step="0.01" class="dca-input-pct" data-etapa="' + escapeHtml(nomeLinha) + '"' + marcadorCoparticipacao + ' value="' + pctFormatado + '" oninput="recalcularTabelaDistribuicaoAnalista()" onblur="formatarCampoPercentual(this)"><span class="sufixo-pct">%</span></div></td>';
     }
 
     const marcadorLinha = ehFundoGarantidor ? ' data-fundo-garantidor-linha="1"' : '';
@@ -413,27 +427,31 @@ function recalcularTabelaDistribuicaoAnalista() {
         if (celulaVerbaFundo) celulaVerbaFundo.innerText = formatarMoeda(verbaFundoGarantidor);
     }
 
-    // Coparticipação de Escritório/Supervisão no Detalhamento (Item 4
-    // da Aba 1) — mesma fórmula de calcularVerbaDetalhamentoPuro(),
-    // usando o % de Detalhamento AO VIVO desta tabela (não o salvo),
-    // pra atualizar em tempo real enquanto o usuário digita. Nunca
-    // entra em totalPct/totalVerba — vem de um bolo diferente
-    // (Escritório/Supervisor, não o do Analista).
+    // Coparticipação de Escritório/Supervisão (Item 4 da Aba 1) — mesma
+    // fórmula de calcularVerbaCoparticipacaoPuro(), agora pra QUALQUER
+    // Etapa flagada com tem_coparticipacao (`data-tem-coparticipacao`
+    // no próprio input), não mais só "a" Etapa Detalhamento. Cada Etapa
+    // flagada tem seu PRÓPRIO par de linhas (ids sufixados por
+    // `data-fidx`), calculado com o % AO VIVO dela — nunca entra em
+    // totalPct/totalVerba, vem de um bolo diferente (Escritório/
+    // Supervisor, não o do Analista).
     const pctCoparticipacaoSupervisor = parseFloat(document.getElementById('dc-pct-coparticipacao-supervisor').value) || 0;
     const pctCoparticipacaoEscritorio = parseFloat(document.getElementById('dc-pct-coparticipacao-escritorio').value) || 0;
-    const inputDetalhamento = Array.from(document.querySelectorAll('#dca-tabela-body .dca-input-pct')).find(el => el.dataset.etapa.toLowerCase().includes('detalhamento'));
-    const pctDetalhamentoAoVivo = inputDetalhamento ? (parseFloat(inputDetalhamento.value) || 0) : 0;
-    const { verbaEscritorio, verbaSupervisor } = calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctDetalhamentoAoVivo);
+    document.querySelectorAll('#dca-tabela-body .dca-input-pct[data-tem-coparticipacao]').forEach(inputEtapa => {
+        const fIdx = inputEtapa.dataset.fidx;
+        const pctEtapaAoVivo = parseFloat(inputEtapa.value) || 0;
+        const { verbaEscritorio, verbaSupervisor } = calcularVerbaCoparticipacaoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapaAoVivo);
 
-    const elCopSupPct = document.getElementById('dca-copart-supervisor-pct');
-    const elCopSupVerba = document.getElementById('dca-copart-supervisor-verba');
-    if (elCopSupPct) elCopSupPct.innerText = pctCoparticipacaoSupervisor.toFixed(2) + '%';
-    if (elCopSupVerba) elCopSupVerba.innerText = formatarMoeda(verbaSupervisor);
+        const elCopSupPct = document.getElementById('dca-copart-supervisor-' + fIdx + '-pct');
+        const elCopSupVerba = document.getElementById('dca-copart-supervisor-' + fIdx + '-verba');
+        if (elCopSupPct) elCopSupPct.innerText = pctCoparticipacaoSupervisor.toFixed(2) + '%';
+        if (elCopSupVerba) elCopSupVerba.innerText = formatarMoeda(verbaSupervisor);
 
-    const elCopEscPct = document.getElementById('dca-copart-escritorio-pct');
-    const elCopEscVerba = document.getElementById('dca-copart-escritorio-verba');
-    if (elCopEscPct) elCopEscPct.innerText = pctCoparticipacaoEscritorio.toFixed(2) + '%';
-    if (elCopEscVerba) elCopEscVerba.innerText = formatarMoeda(verbaEscritorio);
+        const elCopEscPct = document.getElementById('dca-copart-escritorio-' + fIdx + '-pct');
+        const elCopEscVerba = document.getElementById('dca-copart-escritorio-' + fIdx + '-verba');
+        if (elCopEscPct) elCopEscPct.innerText = pctCoparticipacaoEscritorio.toFixed(2) + '%';
+        if (elCopEscVerba) elCopEscVerba.innerText = formatarMoeda(verbaEscritorio);
+    });
 
     // Linha de totalização (pedido do usuário) — só a soma das Etapas.
     const elTotalPct = document.getElementById('dca-total-pct');
@@ -500,13 +518,14 @@ function salvarDistribuicaoAnalista() {
     alert('Distribuição por etapa salva para "' + nomeProjeto + '".');
 }
 
-// --- CÁLCULO COMPARTILHADO: FÓRMULA ESPECIAL DA ETAPA "DETALHAMENTO" ---
+// --- CÁLCULO COMPARTILHADO: FÓRMULA DE COPARTICIPAÇÃO ---
 // Fórmula pura (não depende de DOM nem localStorage, só dos números que
-// recebe) — chamada de dentro de calcularVerbaPorEtapa/calcularVerbaPorEtapaSalvo
-// (abaixo), só para a Etapa cujo nome contém "Detalhamento" (regra de
-// negócio: essa Etapa pode ter custo compartilhado com Escritório e
-// Supervisor via COPARTICIPAÇÃO; as demais Etapas usam só a fatia do
-// Analista).
+// recebe) — chamada pra qualquer Etapa/Sub-etapa com Coparticipação
+// habilitada (`tem_coparticipacao`, ver recalcularTabelaDistribuicaoAnalista()
+// e recalcularDistribuicaoCustos()), não mais restrita à Etapa
+// "Detalhamento" por nome (regra de negócio: uma Etapa flagada pode ter
+// custo compartilhado com Escritório e Supervisor via COPARTICIPAÇÃO;
+// as demais Etapas usam só a fatia do Analista).
 //
 // Reforma de 2026-08-17 (Item 4, "Coparticipações no Detalhamento" —
 // Aba 1/Orçamento Global): ANTES, Escritório/Supervisor participavam do
@@ -519,8 +538,8 @@ function salvarDistribuicaoAnalista() {
 // que NÃO herdam do % geral — só ficam disponíveis pra editar quando o
 // % geral correspondente (item 3) não é 0% (trava aplicada em
 // recalcularDistribuicaoCustos(), não aqui — esta função só calcula).
-function calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctDetalhamento) {
-    const verbaAnalista = pctDetalhamento / 100 * valorAnalistaTotal;
+function calcularVerbaCoparticipacaoPuro(pctAnalista, pctCoparticipacaoSupervisor, pctCoparticipacaoEscritorio, valorAnalistaTotal, pctEtapaFlagada) {
+    const verbaAnalista = pctEtapaFlagada / 100 * valorAnalistaTotal;
 
     const verbaEscritorio = pctAnalista > 0 ? verbaAnalista * (pctCoparticipacaoEscritorio / pctAnalista) : 0;
     const verbaSupervisor = pctAnalista > 0 ? verbaAnalista * (pctCoparticipacaoSupervisor / pctAnalista) : 0;
@@ -534,7 +553,7 @@ function calcularVerbaDetalhamentoPuro(pctAnalista, pctCoparticipacaoSupervisor,
 // Verba Líquida do projeto INTEIRO direto entre todos os Pavimentos,
 // ignorando de qual Etapa cada um era). Agora: cada Etapa recebe sua
 // própria verba (calcularVerbaPorEtapa, abaixo) e essa verba cascateia
-// recursivamente pelos filhos dela — Setor ou Pavimento usam Área
+// recursivamente pelos filhos dela — Sub-etapa ou Pavimento usam Área
 // Equivalente (área×peso) entre si, Tarefa usa Pontos — nunca os dois
 // juntos no mesmo nível, porque a regra de negócio (confirmada pelo
 // usuário) já garante que os filhos de um mesmo nó nunca são de tipos
@@ -559,7 +578,7 @@ function distribuirVerbaRecursiva(no, verba) {
             distribuirVerbaRecursiva(f, parte);
         });
     } else {
-        // Filhos são Setor ou Pavimento — competem por Área Equivalente
+        // Filhos são Sub-etapa ou Pavimento — competem por Área Equivalente
         // (área_fisica × peso_esforco, mesmo campo em ambos os níveis).
         const totalAreaEq = filhos.reduce((soma, f) => soma + (parseFloat(f.area_fisica) || 0) * (parseFloat(f.peso_esforco) || 0), 0);
         filhos.forEach(f => {
@@ -570,16 +589,27 @@ function distribuirVerbaRecursiva(no, verba) {
     }
 }
 
+// Reforma Setor→Sub-etapa: qualquer Etapa (não só uma achada por nome)
+// pode ter execução granular (Pavimento/Tarefa por baixo, com verba de
+// verdade em vez de manual) — checado estruturalmente (a subárvore tem
+// algum nó nivel==='pavimento' em qualquer profundidade?), não por
+// nome. Usado por calcularVerbaPorEtapa/Salvo (abaixo) pra marcar
+// `temExecucaoGranular` em vez do antigo `ehDetalhamento`.
+function subarvoreTemPavimento(no) {
+    if (!no) return false;
+    if (no.nivel === 'pavimento') return true;
+    return (no.filhos || []).some(subarvoreTemPavimento);
+}
+
 // Verba de CADA Etapa do projeto (versão "AO VIVO", lê os %'s direto do
 // DOM da Aba 1/Aba 2 — usada quando essas abas estão abertas na tela;
 // calcularVerbaPorEtapaSalvo(), abaixo, é a mesma conta mas 100% a
-// partir do que já está salvo, pra outras telas). Verba de TODA Etapa
-// (Detalhamento incluída) é sempre %etapa × Parcela Global — SEM
-// desconto nenhum (Fundo Garantidor não desconta mais de cada Etapa,
-// voltou a ser uma fatia própria do mesmo bolo de 100% — ver
-// recalcularTabelaDistribuicaoAnalista(), acima) e SEM Coparticipação
-// de Escritório/Supervisor somada (isso é um valor à parte, só
-// preview na Aba 1 — ver recalcularDistribuicaoCustos()).
+// partir do que já está salvo, pra outras telas). Verba de TODA Etapa é
+// sempre %etapa × Parcela Global — SEM desconto nenhum (Fundo
+// Garantidor não desconta mais de cada Etapa, voltou a ser uma fatia
+// própria do mesmo bolo de 100% — ver recalcularTabelaDistribuicaoAnalista(),
+// acima) e SEM Coparticipação de Escritório/Supervisor somada (isso é
+// um valor à parte, só preview na Aba 1 — ver recalcularDistribuicaoCustos()).
 function calcularVerbaPorEtapa(nomeProjeto) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
@@ -602,11 +632,11 @@ function calcularVerbaPorEtapa(nomeProjeto) {
     return etapas.map(etapa => {
         const dadosEtapa = salvoEtapas[etapa.nome];
         const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
-        const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
+        const temExecucaoGranular = subarvoreTemPavimento(etapa);
 
         const verba = pctEtapa / 100 * valorAnalistaTotal;
 
-        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta: verba, verbaLiquida: verba };
+        return { nome: etapa.nome, no: etapa, temExecucaoGranular, pctEtapa, verbaBruta: verba, verbaLiquida: verba };
     });
 }
 
@@ -653,7 +683,7 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
     return etapas.map(etapa => {
         const dadosEtapa = salvoEtapas[etapa.nome];
         const pctEtapa = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
-        const ehDetalhamento = etapa.nome.toLowerCase().includes('detalhamento');
+        const temExecucaoGranular = subarvoreTemPavimento(etapa);
 
         // Verba da Etapa é SEMPRE %etapa × Parcela Global — sem desconto
         // de Fundo Garantidor (voltou a ser fatia própria do mesmo
@@ -661,7 +691,7 @@ function calcularVerbaPorEtapaSalvo(nomeProjeto) {
         // (valor à parte, só preview na Aba 1).
         const verba = pctEtapa / 100 * valorAnalistaTotal;
 
-        return { nome: etapa.nome, no: etapa, ehDetalhamento, pctEtapa, verbaBruta: verba, verbaLiquida: verba };
+        return { nome: etapa.nome, no: etapa, temExecucaoGranular, pctEtapa, verbaBruta: verba, verbaLiquida: verba };
     });
 }
 
@@ -685,104 +715,115 @@ function obterPctFundoLucrosPavimento(nomeProjeto) {
     return (salvo && salvo.pct !== undefined && salvo.pct !== '') ? (parseFloat(salvo.pct) || 0) : 5;
 }
 
-// --- CÁLCULO COMPARTILHADO: LISTA DE PAVIMENTOS COM VERBA ---
-// Acha a Etapa "Detalhamento", desconta o % de Fundo Distribuição de
-// Lucros da verba líquida dela, e cascateia só esse valor
-// (distribuirVerbaRecursiva) pelos Setor/Pavimento dentro dela — não
-// mais por TODAS as Etapas. Precisa ser a MESMA árvore carregada em
-// memória pra cascata (rodada no nó de Etapa) e a coleta de Pavimentos
-// (que lê `_verbaCalc` desses mesmos nós) baterem.
-function listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride) {
+// --- CÁLCULO COMPARTILHADO: CASCATA COMPLETA DE TODAS AS ETAPAS ---
+// Reforma Setor→Sub-etapa: antes só a Etapa "Detalhamento" (achada por
+// nome) tinha sua verba cascateada — agora TODA Etapa de topo cascateia
+// (distribuirVerbaRecursiva, já genérica e recursiva — Sub-etapa/
+// Pavimento por Área Equivalente, Tarefa por Pontos, em qualquer
+// profundidade).
+//
+// O % de Fundo Distribuição de Lucros só é descontado de Etapas cuja
+// subárvore TEM Pavimento (`subarvoreTemPavimento`) — esse fundo existe
+// especificamente pra alimentar o "bolo" de Distribuição de
+// Lucro/Estagiários, que só é populado a partir de Pavimentos (ver
+// `listarPavimentosDoProjeto`, campo `valorFundoLucros`, e
+// `distribuicao-lucro.js`). Bug real encontrado testando contra dados
+// de produção antes de subir: a primeira versão descontava esse %
+// de TODA Etapa incondicionalmente — numa Etapa só de Sub-etapas (sem
+// Pavimento nenhum, ex: "Análise Global"), esse dinheiro "descontado"
+// não tinha pra onde ir (nenhum Pavimento pra recolher a fatia), então
+// simplesmente desaparecia da Verba por Sub-etapa sem aparecer em lugar
+// nenhum. Corrigido pra só descontar onde o fundo de fato tem destino.
+function calcularVerbaCascataCompleta(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
     const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
-
-    const etapaDetalhamento = etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
-    if (!etapaDetalhamento) return [];
-
-    const fIdxDetalhamento = etapas.indexOf(etapaDetalhamento);
-    const verbaEtapa = (verbasPorEtapa || []).find(v => v.nome === etapaDetalhamento.nome);
-    const verbaLiquidaEtapa = verbaEtapa ? verbaEtapa.verbaLiquida : 0;
     const pctFundoLucros = (pctFundoLucrosOverride !== undefined && pctFundoLucrosOverride !== null) ? pctFundoLucrosOverride : obterPctFundoLucrosPavimento(nomeProjeto);
-    const valorFundoLucrosTotal = pctFundoLucros / 100 * verbaLiquidaEtapa;
-    const verbaParaCascata = verbaLiquidaEtapa - valorFundoLucrosTotal;
 
-    distribuirVerbaRecursiva(etapaDetalhamento, verbaParaCascata);
+    etapas.forEach(etapa => {
+        const infoVerba = (verbasPorEtapa || []).find(v => v.nome === etapa.nome);
+        const verbaLiquidaEtapa = infoVerba ? infoVerba.verbaLiquida : 0;
+        const valorFundoLucrosEtapa = subarvoreTemPavimento(etapa) ? (pctFundoLucros / 100 * verbaLiquidaEtapa) : 0;
+        distribuirVerbaRecursiva(etapa, verbaLiquidaEtapa - valorFundoLucrosEtapa);
+    });
+    return { etapas, pctFundoLucros };
+}
 
-    // Árvore Genérica Recursiva v2 (prompt_gemini.md §12.31): Pavimento
-    // pode estar em QUALQUER profundidade agora (Etapa>Pavimento direto,
-    // Etapa>Setor>Pavimento, etc.) — acha qualquer nó com
-    // `nivel === 'pavimento'`, sem assumir posição fixa. Não precisa
-    // descer além do Pavimento encontrado: pela ordem obrigatória, o
-    // único filho que ele pode ter é Tarefa.
+// Acha, em QUALQUER Etapa (não mais só "Detalhamento"), os nós
+// nivel==='pavimento' em qualquer profundidade (Árvore Genérica
+// Recursiva v2, prompt_gemini.md §12.31) — reaproveita a cascata já
+// rodada por calcularVerbaCascataCompleta acima, sem lógica de
+// travessia própria.
+function listarPavimentosDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride) {
+    const { etapas, pctFundoLucros } = calcularVerbaCascataCompleta(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride);
     const pavimentos = [];
-    function caminhar(no, path) {
-        if (no.nivel === 'pavimento') {
-            const area = parseFloat(no.area_fisica) || 0;
-            const peso = parseFloat(no.peso_esforco) || 0;
-            const tarefasFilhas = (no.filhos || []).filter(f => f.nivel === 'tarefa');
-            const pctDoTotal = verbaParaCascata > 0 ? ((no._verbaCalc || 0) / verbaParaCascata) : 0;
-            pavimentos.push({
-                nome: no.nome, area: area, peso: peso, areaEquivalente: area * peso,
-                tarefas: tarefasFilhas, caminho: path, etapa: etapaDetalhamento.nome,
-                valorVerba: no._verbaCalc || 0,
-                pctVerba: pctDoTotal * 100,
-                valorFundoLucros: pctDoTotal * valorFundoLucrosTotal
-            });
-            return;
+
+    etapas.forEach((etapa, fIdx) => {
+        const infoVerba = (verbasPorEtapa || []).find(v => v.nome === etapa.nome);
+        const verbaLiquidaEtapa = infoVerba ? infoVerba.verbaLiquida : 0;
+        // Mesma condição de calcularVerbaCascataCompleta (só desconta
+        // onde o fundo tem destino) — na prática irrelevante aqui, já
+        // que esta função só PUSHA algo quando acha um nó Pavimento de
+        // verdade (etapas sem Pavimento nunca chegam a usar esta
+        // variável), mas mantido consistente pra não confundir leitura
+        // futura.
+        const valorFundoLucrosTotalEtapa = subarvoreTemPavimento(etapa) ? (pctFundoLucros / 100 * verbaLiquidaEtapa) : 0;
+        const verbaParaCascataEtapa = verbaLiquidaEtapa - valorFundoLucrosTotalEtapa;
+
+        function caminhar(no, path) {
+            if (no.nivel === 'pavimento') {
+                const area = parseFloat(no.area_fisica) || 0;
+                const peso = parseFloat(no.peso_esforco) || 0;
+                const tarefasFilhas = (no.filhos || []).filter(f => f.nivel === 'tarefa');
+                const pctDoTotal = verbaParaCascataEtapa > 0 ? ((no._verbaCalc || 0) / verbaParaCascataEtapa) : 0;
+                pavimentos.push({
+                    nome: no.nome, area: area, peso: peso, areaEquivalente: area * peso,
+                    tarefas: tarefasFilhas, caminho: path, etapa: etapa.nome,
+                    valorVerba: no._verbaCalc || 0,
+                    pctVerba: pctDoTotal * 100,
+                    valorFundoLucros: pctDoTotal * valorFundoLucrosTotalEtapa
+                });
+                return;
+            }
+            (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx));
         }
-        (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx));
-    }
-    caminhar(etapaDetalhamento, '' + fIdxDetalhamento);
+        caminhar(etapa, '' + fIdx);
+    });
     return pavimentos;
 }
 
 // Mesma ideia de listarPavimentosDoProjeto, mas coleta nós
-// nivel==='setor' dentro da Etapa "Detalhamento" — usa a MESMA
-// árvore/cascata (reexecuta distribuirVerbaRecursiva, idempotente — os
-// nós já tinham `_verbaCalc` de uma chamada anterior na mesma função
-// que a chama, mas rodar de novo aqui não muda o resultado, só garante
-// que funciona mesmo se chamada isoladamente). `nomePai` é só pra
-// exibição (saber de qual Etapa/Setor o Setor listado depende).
-function listarSetoresDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride) {
-    const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = arvores[nomeProjeto];
-    const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
+// nivel==='subetapa' — em QUALQUER Etapa, não mais só "Detalhamento".
+// `nomePai` é só pra exibição (saber de qual Etapa/Sub-etapa a
+// Sub-etapa listada depende).
+function listarSubEtapasDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride) {
+    const { etapas } = calcularVerbaCascataCompleta(nomeProjeto, verbasPorEtapa, pctFundoLucrosOverride);
+    const subetapas = [];
 
-    const etapaDetalhamento = etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
-    if (!etapaDetalhamento) return [];
-
-    const fIdxDetalhamento = etapas.indexOf(etapaDetalhamento);
-    const verbaEtapa = (verbasPorEtapa || []).find(v => v.nome === etapaDetalhamento.nome);
-    const verbaLiquidaEtapa = verbaEtapa ? verbaEtapa.verbaLiquida : 0;
-    const pctFundoLucros = (pctFundoLucrosOverride !== undefined && pctFundoLucrosOverride !== null) ? pctFundoLucrosOverride : obterPctFundoLucrosPavimento(nomeProjeto);
-    const verbaParaCascata = verbaLiquidaEtapa - (pctFundoLucros / 100 * verbaLiquidaEtapa);
-
-    distribuirVerbaRecursiva(etapaDetalhamento, verbaParaCascata);
-
-    const setores = [];
-    function caminhar(no, path, nomePai, verbaDoPai) {
-        if (no.nivel === 'setor') {
-            const area = parseFloat(no.area_fisica) || 0;
-            const peso = parseFloat(no.peso_esforco) || 0;
-            setores.push({
-                nome: no.nome, nomePai: nomePai, area: area, peso: peso, areaEquivalente: area * peso,
-                caminho: path, valorVerba: no._verbaCalc || 0,
-                pctVerba: verbaDoPai > 0 ? ((no._verbaCalc || 0) / verbaDoPai * 100) : 0
-            });
-            (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, no.nome, no._verbaCalc || 0));
-            return;
+    etapas.forEach((etapa, fIdx) => {
+        function caminhar(no, path, nomePai, verbaDoPai) {
+            if (no.nivel === 'subetapa') {
+                const area = parseFloat(no.area_fisica) || 0;
+                const peso = parseFloat(no.peso_esforco) || 0;
+                subetapas.push({
+                    nome: no.nome, nomePai: nomePai, area: area, peso: peso, areaEquivalente: area * peso,
+                    caminho: path, valorVerba: no._verbaCalc || 0,
+                    pctVerba: verbaDoPai > 0 ? ((no._verbaCalc || 0) / verbaDoPai * 100) : 0
+                });
+                (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, no.nome, no._verbaCalc || 0));
+                return;
+            }
+            (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, nomePai, verbaDoPai));
         }
-        (no.filhos || []).forEach((filho, idx) => caminhar(filho, path + '-' + idx, nomePai, verbaDoPai));
-    }
-    caminhar(etapaDetalhamento, '' + fIdxDetalhamento, etapaDetalhamento.nome, verbaParaCascata);
-    return setores;
+        caminhar(etapa, '' + fIdx, etapa.nome, etapa._verbaCalc || 0);
+    });
+    return subetapas;
 }
 
 // Item 10 (prompt_gemini.md §14, leva 4): Área Física e Peso do
-// Esforço do Setor editáveis direto na Aba 4 — mesmo padrão de
+// Esforço da Sub-etapa editáveis direto na Aba 4 — mesmo padrão de
 // editarAreaPesoVerbaPavimento (item 13).
-function editarAreaPesoVerbaSetor(inputEl) {
+function editarAreaPesoVerbaSubEtapa(inputEl) {
     if (distribuicaoCustosSomenteLeitura()) return;
     const nomeProjeto = document.getElementById('dc-projeto').value;
     if (!nomeProjeto) return;
@@ -791,9 +832,9 @@ function editarAreaPesoVerbaSetor(inputEl) {
     const arv = todas[nomeProjeto];
     if (!arv) return;
 
-    const setor = resolverNoPorPath(arv, inputEl.dataset.caminho);
-    if (!setor) return; // caminho não existe mais (árvore mudou entre carregar e editar) — ignora
-    setor[inputEl.dataset.campo] = inputEl.value;
+    const subetapa = resolverNoPorPath(arv, inputEl.dataset.caminho);
+    if (!subetapa) return; // caminho não existe mais (árvore mudou entre carregar e editar) — ignora
+    subetapa[inputEl.dataset.campo] = inputEl.value;
 
     localStorage.setItem('banco_arvores_projetos', JSON.stringify(todas));
     renderizarTabelasVerbaPavimento(); // não usa carregarAbaVerbaPavimento() aqui — não pode resetar o % Fundo Distribuição de Lucros se a pessoa estiver digitando nele
@@ -837,7 +878,7 @@ function carregarAbaVerbaPavimento() {
     renderizarTabelasVerbaPavimento();
 }
 
-// Recalcula e redesenha só as tabelas (Setores/Pavimentos/totais) — NÃO
+// Recalcula e redesenha só as tabelas (Sub-etapas/Pavimentos/totais) — NÃO
 // mexe no campo de % Fundo Distribuição de Lucros, pra não perder o que
 // a pessoa está digitando (mesmo padrão que a antiga aba "Verba para
 // Detalhamento" já usava pro % Distribuição de Lucros dela). Lê o %
@@ -857,24 +898,25 @@ function renderizarTabelasVerbaPavimento() {
     const elValorFundoLucros = document.getElementById('vp-valor-fundo-lucros');
     if (elValorFundoLucros) elValorFundoLucros.value = formatarMoeda(valorFundoLucrosTotal);
 
-    // Item 10 (prompt_gemini.md §14, leva 4): tabela de Setores, só
-    // aparece se o projeto realmente tiver algum Setor cadastrado —
-    // reaproveita a mesma cascata já rodada acima (calcularListaPavimentosComVerba
-    // já executou distribuirVerbaRecursiva em toda a árvore; aqui só
-    // colhe os nós nivel==='setor', que já ficaram com `_verbaCalc`
+    // Item 10 (prompt_gemini.md §14, leva 4): tabela de Sub-etapas, só
+    // aparece se o projeto realmente tiver alguma Sub-etapa cadastrada
+    // (em QUALQUER Etapa, não mais só "Detalhamento") — reaproveita a
+    // mesma cascata já rodada acima (calcularListaPavimentosComVerba já
+    // executou distribuirVerbaRecursiva em toda a árvore; aqui só colhe
+    // os nós nivel==='subetapa', que já ficaram com `_verbaCalc`
     // preenchido).
-    const setoresWrapper = document.getElementById('vp-setores-wrapper');
-    const setores = listarSetoresDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosAoVivo);
-    if (setores.length === 0) {
-        setoresWrapper.style.display = 'none';
+    const subetapasWrapper = document.getElementById('vp-subetapas-wrapper');
+    const subetapas = listarSubEtapasDoProjeto(nomeProjeto, verbasPorEtapa, pctFundoLucrosAoVivo);
+    if (subetapas.length === 0) {
+        subetapasWrapper.style.display = 'none';
     } else {
-        setoresWrapper.style.display = 'block';
-        document.getElementById('vp-setores-tabela-body').innerHTML = setores.map(s => {
+        subetapasWrapper.style.display = 'block';
+        document.getElementById('vp-subetapas-tabela-body').innerHTML = subetapas.map(s => {
             return '<tr>' +
                 '<td>' + escapeHtml(s.nome) + '</td>' +
                 '<td style="color:#64748b; font-size:11px;">' + escapeHtml(s.nomePai) + '</td>' +
-                '<td class="col-centralizada"><input type="number" step="0.01" value="' + (parseFloat(s.area) || 0).toFixed(2) + '" data-caminho="' + s.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaSetor(this)" onblur="formatarCampoDecimal2(this)" style="width:80px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
-                '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.peso + '" data-caminho="' + s.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaSetor(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
+                '<td class="col-centralizada"><input type="number" step="0.01" value="' + (parseFloat(s.area) || 0).toFixed(2) + '" data-caminho="' + s.caminho + '" data-campo="area_fisica" onchange="editarAreaPesoVerbaSubEtapa(this)" onblur="formatarCampoDecimal2(this)" style="width:80px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
+                '<td class="col-centralizada"><input type="number" step="0.01" value="' + s.peso + '" data-caminho="' + s.caminho + '" data-campo="peso_esforco" onchange="editarAreaPesoVerbaSubEtapa(this)" style="width:70px;" ' + (distribuicaoCustosSomenteLeitura() ? 'readonly' : '') + '></td>' +
                 '<td class="col-centralizada">' + s.areaEquivalente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
                 '<td class="col-centralizada">' + s.pctVerba.toFixed(2) + '%</td>' +
                 '<td style="font-weight:bold; color:#166534; text-align:right;">' + formatarMoeda(s.valorVerba) + '</td>' +
@@ -1135,7 +1177,7 @@ function atribuirExecutorVerbaPorTarefa(selectEl) {
 function recalcularGrupoVerbaPorTarefa(inputOrigem) {
     // Bug pré-existente encontrado ao validar a reforma de 2026-08-15:
     // pegar o grupo fatiando `dataset.caminho` (`.split('-').slice(0,3)`)
-    // supunha Pavimento sempre a 3 níveis de profundidade (Etapa>Setor>
+    // supunha Pavimento sempre a 3 níveis de profundidade (Etapa>Sub-etapa>
     // Pavimento) — quebra quando Pavimento está direto sob a Etapa (2
     // níveis, ex.: projeto piloto "AP PRAIA"), porque um caminho de
     // Tarefa de 3 segmentos vira o "grupo" inteiro por engano, sem bater
@@ -1321,40 +1363,46 @@ function recalcularDistribuicaoCustos() {
     if (inputCoparticipacaoEscritorio.disabled) { inputCoparticipacaoEscritorio.value = '0'; formatarCampoPercentual(inputCoparticipacaoEscritorio); }
 
     // Valor Coparticipação (preview) — mesma fórmula de
-    // calcularVerbaDetalhamentoPuro() (abaixo), só que pra pré-visualizar
-    // aqui na aba 1 antes mesmo de ir na aba 2. Precisa buscar a %
-    // salva da Etapa "Detalhamento" (aba 2/`banco_distribuicao_custos_analista`)
-    // — se o projeto ainda não tem árvore ou essa % nunca foi salva,
-    // mostra R$ 0,00 (comportamento normal, não é erro).
+    // calcularVerbaCoparticipacaoPuro() (abaixo), só que pra
+    // pré-visualizar aqui na aba 1 antes mesmo de ir na aba 2. Soma a %
+    // já salva de TODAS as Etapas com Coparticipação habilitada (aba
+    // 2/`banco_distribuicao_custos_analista`) — se o projeto ainda não
+    // tem árvore, não tem nenhuma Etapa flagada, ou essa % nunca foi
+    // salva, mostra R$ 0,00 (comportamento normal, não é erro).
     const pctCoparticipacaoSupervisor = parseFloat(inputCoparticipacaoSupervisor.value) || 0;
     const pctCoparticipacaoEscritorio = parseFloat(inputCoparticipacaoEscritorio.value) || 0;
-    const pctEtapaDetalhamento = obterPctEtapaDetalhamentoSalvo(nomeProjeto);
-    const verbaAnalistaDetalhamento = pctEtapaDetalhamento / 100 * valorAnalistaTotal;
+    const pctEtapasFlagadas = obterPctEtapasCoparticipacaoSalvo(nomeProjeto);
+    const verbaAnalistaFlagadas = pctEtapasFlagadas / 100 * valorAnalistaTotal;
 
-    const valorCoparticipacaoSupervisor = pctAnalista > 0 ? verbaAnalistaDetalhamento * (pctCoparticipacaoSupervisor / pctAnalista) : 0;
-    const valorCoparticipacaoEscritorio = pctAnalista > 0 ? verbaAnalistaDetalhamento * (pctCoparticipacaoEscritorio / pctAnalista) : 0;
+    const valorCoparticipacaoSupervisor = pctAnalista > 0 ? verbaAnalistaFlagadas * (pctCoparticipacaoSupervisor / pctAnalista) : 0;
+    const valorCoparticipacaoEscritorio = pctAnalista > 0 ? verbaAnalistaFlagadas * (pctCoparticipacaoEscritorio / pctAnalista) : 0;
     document.getElementById('dc-valor-coparticipacao-supervisor').value = formatarMoeda(valorCoparticipacaoSupervisor);
     document.getElementById('dc-valor-coparticipacao-escritorio').value = formatarMoeda(valorCoparticipacaoEscritorio);
 }
 
-// Busca a % já salva da Etapa "Detalhamento" (aba 2 — banco_distribuicao_custos_analista),
-// usada tanto pelo preview do item 4 (acima) quanto pela fórmula real
-// de calcularVerbaDetalhamentoPuro() via calcularVerbaPorEtapa(Salvo)().
-// Retorna 0 se o projeto não tem árvore, não tem Etapa "Detalhamento",
-// ou essa % nunca foi salva — comportamento normal (ainda não configurado),
-// não é erro.
-function obterPctEtapaDetalhamentoSalvo(nomeProjeto) {
+// Soma a % já salva (aba 2 — banco_distribuicao_custos_analista) de
+// TODAS as Etapas com Coparticipação habilitada (`tem_coparticipacao`)
+// — não busca mais "a" Etapa Detalhamento por nome. Usado tanto pelo
+// preview do item 4 (acima) quanto pela fórmula real de
+// calcularVerbaCoparticipacaoPuro() via calcularVerbaPorEtapa(Salvo)().
+// Retorna 0 se o projeto não tem árvore, não tem nenhuma Etapa flagada,
+// ou essas %'s nunca foram salvas — comportamento normal (ainda não
+// configurado), não é erro.
+function obterPctEtapasCoparticipacaoSalvo(nomeProjeto) {
     const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = arvores[nomeProjeto];
     const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
-    const etapaDetalhamento = etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
-    if (!etapaDetalhamento) return 0;
+    const etapasFlagadas = etapas.filter(e => e.tem_coparticipacao);
+    if (etapasFlagadas.length === 0) return 0;
 
     const salvos = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
     const salvoProjeto = salvos[nomeProjeto] || {};
     const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
-    const dadosEtapa = salvoEtapas[etapaDetalhamento.nome];
-    return (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
+    return etapasFlagadas.reduce((soma, etapa) => {
+        const dadosEtapa = salvoEtapas[etapa.nome];
+        const pct = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
+        return soma + pct;
+    }, 0);
 }
 
 function salvarDistribuicaoCustos() {

@@ -171,6 +171,24 @@ function coletarTodasTarefasDeTodosProjetos() {
         const valorVerbaPorCaminhoPavimento = {};
         pavimentosComVerba.forEach(p => { valorVerbaPorCaminhoPavimento[p.caminho] = p.valorVerba; });
 
+        // Reforma Setor→Sub-etapa: mapa adicional cobrindo QUALQUER
+        // folha da árvore (Etapa/Sub-etapa agindo como folha, Tarefa
+        // direto sob Etapa/Sub-etapa sem Pavimento por trás) — antes
+        // ficava sempre sem teto (Pontos Máximo = 0); agora usa a mesma
+        // cascata recursiva (distribuirVerbaRecursiva, via
+        // calcularVerbaCascataCompleta) que já roda pra Pavimento
+        // acima, reaproveitando `coletarNosFolhaDaArvore` em vez de
+        // qualquer travessia nova — confirmado com o usuário que esse
+        // teto passa a valer pra essas folhas também.
+        const valorVerbaPorCaminhoQualquerFolha = {};
+        if (typeof calcularVerbaCascataCompleta === 'function' && typeof calcularVerbaPorEtapaSalvo === 'function') {
+            const verbasPorEtapaCascata = calcularVerbaPorEtapaSalvo(nomeProjeto);
+            const { etapas: etapasCascata } = calcularVerbaCascataCompleta(nomeProjeto, verbasPorEtapaCascata);
+            coletarNosFolhaDaArvore(etapasCascata).forEach(({ no: noFolha, path: pathFolha }) => {
+                valorVerbaPorCaminhoQualquerFolha[pathFolha] = noFolha._verbaCalc || 0;
+            });
+        }
+
         // Melhoria #26 (prompt_gemini.md §12.12): fallback do Responsável
         // quando a Tarefa não tem um customizado — precisa do Analista
         // do projeto (Cadastro de Projetos), calculado uma vez por
@@ -182,12 +200,13 @@ function coletarTodasTarefasDeTodosProjetos() {
         // Árvore Genérica Recursiva (prompt_gemini.md §12.31): não há
         // mais `etapa.tipo` — coletarNosFolhaDaArvore() (core.js) acha
         // as tarefas em qualquer profundidade. "Verba por Área
-        // Equivalente" só se aplica onde já existe Pavimento físico de
+        // Equivalente" se aplica onde já existe Pavimento físico de
         // verdade (path de 3 posições = Pavimento agindo como folha,
-        // ou 4 posições = Tarefa dentro de Pavimento container) — nos
-        // outros casos (Etapa/Setor agindo como folha, sem Pavimento
-        // nenhum por trás), `pontosMaximo` fica 0: o teto real dessas
-        // é o `custo_max` fixo do próprio nó, mostrado noutro lugar.
+        // ou 4 posições = Tarefa dentro de Pavimento container); nos
+        // outros casos (Etapa/Sub-etapa agindo como folha, ou Tarefa
+        // direto sob Etapa/Sub-etapa sem Pavimento por trás), o teto
+        // vem da mesma cascata recursiva por Área Equivalente/Pontos
+        // (reforma Setor→Sub-etapa — antes ficava sempre 0 aqui).
         coletarNosFolhaDaArvore(arv.etapas).forEach(({ no: tarefa, path, localizacao }) => {
             const segs = path.split('-');
             const partes = localizacao.split(' › ');
@@ -233,14 +252,23 @@ function coletarTodasTarefasDeTodosProjetos() {
                 // adicional por Pontos dentro dele.
                 valorVerbaPav = valorVerbaPorCaminhoPavimento[path] || 0;
                 pontosMaximo = (tarefa.executor && custoHora > 0) ? (valorVerbaPav / custoHora) : 0;
+            } else {
+                // Reforma Setor→Sub-etapa: Etapa/Sub-etapa agindo como
+                // folha, ou Tarefa direto sob Etapa/Sub-etapa sem
+                // Pavimento por trás — antes ficava sempre 0; agora usa
+                // o valor já calculado pela cascata recursiva (Área
+                // Equivalente entre Sub-etapas irmãs, ou Pontos entre
+                // Tarefas irmãs, conforme o caso — `path` aqui já é o
+                // caminho da própria folha, então o valor já vem
+                // totalmente dividido, sem precisar de rateio extra).
+                valorVerbaPav = valorVerbaPorCaminhoQualquerFolha[path] || 0;
+                pontosMaximo = (tarefa.executor && custoHora > 0) ? (valorVerbaPav / custoHora) : 0;
             }
-            // Etapa-folha ou Setor-folha: fica 0 mesmo — sem Pavimento
-            // físico envolvido, teto real é o custo_max fixo do nó.
 
             lista.push({
                 projeto: nomeProjeto,
                 etapa: partes[0],
-                setor: partes[1] || '—',
+                subetapa: partes[1] || '—',
                 pavimento: partes[2] || '—',
                 localizacao: localizacao,
                 tarefa: tarefa.nome,
@@ -316,7 +344,7 @@ function ordenarListaPorExecutorEData(lista, mapaDatasInicioPorExecutor) {
 // Função pura: recebe a fila JÁ ORDENADA (por ordem_fila) de UM executor,
 // remove a tarefa arrastada e insere imediatamente antes da tarefa-alvo
 // (mesma convenção de "soltar sobre X insere antes de X" usada em
-// Etapas/Setores na Árvore de Projeto). Renumera todos sequencialmente a
+// Etapas/Sub-etapas na Árvore de Projeto). Renumera todos sequencialmente a
 // partir de `proximoNumero`. Retorna null se não há nada a fazer (arrasto
 // sobre si mesmo, ou caminho arrastado/alvo não existe mais na fila —
 // pode acontecer se a árvore mudou entre o render e o drop).
@@ -745,7 +773,7 @@ function renderizarPainelAtribuicaoTarefas() {
         const estiloLinha = estiloPartes.length ? ' style="' + estiloPartes.join(';') + ';"' : '';
 
         // Coluna Localização mostra só o caminho ATÉ a tarefa (Etapa ›
-        // Setor › Pavimento), sem repetir o nome dela — a coluna
+        // Sub-etapa › Pavimento), sem repetir o nome dela — a coluna
         // Tarefa logo ao lado já mostra isso. `t.localizacao` (usado
         // no filtro/agrupamento) continua com o caminho completo,
         // intacto; a redução é só na exibição desta célula.

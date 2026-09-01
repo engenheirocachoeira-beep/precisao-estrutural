@@ -4084,3 +4084,140 @@ que a contagem de `## ` (headings) nos dois arquivos novos soma o
 esperado. `diff -w` confirmou que o conteúdo do trecho final é
 idêntico ao original (só difere em quebra de linha CRLF vs. LF, que o
 git já normaliza sozinho neste repo).
+
+## Retomada em 2026-08-31 (parte 65) — Reforma Setor→Sub-etapa: cascata financeira genérica pra qualquer Etapa
+
+Pedido do usuário: implementação do plano aprovado (impressão de que o
+sistema estava "particularizado demais" — 11 pontos no código só
+tratavam a etapa "Detalhamento" como especial). Plano completo em
+`C:\Users\CACHOEIRA\.claude\plans\spicy-whistling-rossum.md` (aprovado
+via ExitPlanMode) — aqui documento a execução e os 2 problemas reais
+achados testando contra dados de produção antes de subir.
+
+**O que mudou**:
+1. **Setor → Sub-etapa** (rename mecânico): `nivel === 'setor'` →
+   `'subetapa'` em toda a árvore; catálogo próprio
+   (`banco_setores_lego` → `banco_subetapas_lego`); rótulos/ids em
+   `index.html`, `arvore.js`, `core.js`, `relatorios.js` (que tem um
+   `NIVEIS_ARVORE_CUSTO` independente do `NIVEIS_ORDEM` de `arvore.js`
+   — precisou de ajuste separado). `recalcularDistribuicaoVerbaSetores`
+   (nome já estava errado — na real soma Pavimento globalmente, não
+   Setor) renomeado pra `recalcularAreaEquivalenteGlobalPavimentos`
+   como parte da limpeza.
+2. **Cascata genérica** (`distribuicao-custos.js`): novo helper
+   `calcularVerbaCascataCompleta()` roda `distribuirVerbaRecursiva()`
+   (motor que já existia e já era genérico) pra TODA Etapa de topo, não
+   mais só a achada por `nome.includes('detalhamento')`.
+   `listarPavimentosDoProjeto`/`listarSubEtapasDoProjeto` (renomeada de
+   `listarSetoresDoProjeto`) reaproveitam esse helper, removendo 8 dos
+   11 pontos de nome-match do arquivo. `calcularVerbaPorEtapa(Salvo)`:
+   campo `ehDetalhamento` renomeado `temExecucaoGranular`, calculado
+   estruturalmente (a subárvore tem algum nó Pavimento?), não por nome.
+3. **Coparticipação opcional** (`no.tem_coparticipacao`, setável no
+   painel de edição de nó na Árvore, Etapa ou Sub-etapa) — as "2 linhas
+   extras" na Aba 2 agora aparecem embaixo de QUALQUER Etapa flagada
+   (ids sufixados por índice, `dca-copart-supervisor-0` etc., pra
+   suportar mais de uma flagada ao mesmo tempo), não só Detalhamento.
+   Rótulo "Verba Detalhamento - Analista" virou "Verba `<Nome>` -
+   Analista", genérico.
+4. **Pontos Máximo/Painel de Progresso** (confirmado com o usuário):
+   `atribuicao-tarefas.js`/`painel-progresso.js` ganharam um segundo
+   mapa (`coletarNosFolhaDaArvore` + `_verbaCalc`, mesmo padrão do mapa
+   de Pavimento que já existia) cobrindo QUALQUER folha — antes ficava
+   sempre 0/manual pra Etapa/Sub-etapa sem Pavimento por trás.
+5. **`desempenho-projeto.js`** (escopo maior do que os 2 pontos vistos
+   inicialmente): `calcularLinhasFolhaComVerba` generalizada (junta o
+   `pavimentoNome` de TODOS os pavimentos de TODAS as etapas, não só
+   Detalhamento, via um `Set` de etapas-com-pavimento). Os 2 KPIs que
+   ainda acham "a" etapa Detalhamento por nome (linhas ~896/~1023, pra
+   preview de horas) foram **deliberadamente deixados como estão** —
+   generalizar pra somar-múltiplas-etapas-granulares é maior (toca
+   Bonificação/Distribuições inteiras) e fica pra uma rodada própria,
+   seguindo a sequência de pouso que o próprio plano recomendou.
+6. **Migração automática** (`core.js`, v12/v13, mesmo padrão das
+   migrações v2-v11 já existentes): v12 retagga qualquer `nivel==='setor'`
+   pra `'subetapa'` em qualquer projeto/profundidade; v13 empacota as 4
+   etapas legadas achatadas (Pré-Lançamento/Lançamento/Análise/Cargas)
+   dentro de uma nova Etapa "Análise Global" como Sub-etapas, com
+   `area_fisica` = o % que cada uma já tinha salvo (e `peso_esforco="1"`
+   em todas) — reproduz a proporção antiga EXATAMENTE via Área
+   Equivalente. Marca a etapa "Detalhamento" com `tem_coparticipacao=true`
+   (única exceção de nome-match no código novo, só na migração, pra
+   preservar o comportamento de hoje sem o usuário precisar reconfigurar
+   manualmente).
+
+**2 problemas reais achados testando contra os dados de produção reais
+antes de subir** (leitura via SDK do Firebase numa aba isolada, nunca
+carregando `sync-provisorio.js` — zero risco de escrever de volta):
+
+1. **Nomes reais estão em CAIXA ALTA** ("PRÉ-LANÇAMENTO"), não Title
+   Case como o catálogo seed sugeria ("Pré-Lançamento") — a primeira
+   versão da migração v13 usava comparação exata sensível a
+   maiúsculas/minúsculas e não encontrou NENHUMA etapa legada no
+   projeto piloto real. Corrigido pra comparação normalizada
+   (`.toLowerCase()`) em ambos os lados, preservando o nome original do
+   nó (só a detecção ignora caixa).
+2. **Colisão de catálogo órfão**: já existia uma chave
+   `banco_subetapas_lego` no banco real — resíduo de uma nomenclatura
+   AINDA MAIS antiga (quando "Sub-etapa" era o nome do que hoje é
+   Pavimento, migração já existente em `core.js` linhas ~169-172).
+   Continha dado não-relacionado e órfão ("COMPATIBILIZAÇÃO/IFC/FACHADA").
+   A v12 original só migrava o catálogo real de Setor
+   (`banco_setores_lego`, com "SETOR A/B/C/Único" em uso de verdade) se
+   a chave nova ainda não existisse — como já existia (com lixo),
+   pulava, e o catálogo real ficaria perdido/inacessível. Corrigido pra
+   sobrescrever sempre (confirmado que nada no código atual lê o dado
+   órfão).
+3. **Bug de cálculo achado só testando os NÚMEROS, não só a
+   estrutura**: a primeira versão de `calcularVerbaCascataCompleta`
+   descontava o % de Fundo Distribuição de Lucros de TODA Etapa
+   incondicionalmente — numa Etapa só de Sub-etapas sem Pavimento
+   nenhum (ex: "Análise Global"), esse dinheiro "descontado" não tinha
+   pavimento nenhum pra recolher a fatia (`valorFundoLucros` só é
+   populado ao colher nós Pavimento), então simplesmente desaparecia:
+   a soma das Sub-etapas ficava 5% menor que a Verba líquida da própria
+   Etapa (R$40.431,85 vs. R$42.559,84 no piloto real). Corrigido pra só
+   descontar onde o fundo tem destino de verdade (`subarvoreTemPavimento`,
+   já existia pra outro propósito, reaproveitada aqui).
+
+**Verificação**:
+- `node --check` limpo nos 8 arquivos tocados (`core.js`, `arvore.js`,
+  `distribuicao-custos.js`, `desempenho-projeto.js`,
+  `atribuicao-tarefas.js`, `painel-progresso.js`, `relatorios.js`,
+  `index.html` — balanceamento de `<div>` conferido, 420/420).
+- Lógica da migração testada isoladamente em Node puro (5 cenários:
+  projeto real completo, casamento parcial, nenhuma etapa legada,
+  projeto já com "Análise Global" — defensivo, idempotência) antes de
+  qualquer teste no navegador — todos passaram.
+- Testado ao vivo contra os 10 projetos reais de produção, **sempre
+  leitura isolada** (SDK do Firebase direto numa aba que nunca carrega
+  `sync-provisorio.js`, ou — quando precisei ver a UI renderizada de
+  verdade — carregando `index.html` normalmente e desarmando
+  `_syncFirebaseRef`/`_syncTimeoutEnvio` logo após o pull inicial
+  completar, antes do debounce de 3s poder disparar um envio de volta).
+  Confirmado: nenhum `nivel==='setor'` restante em nenhum projeto;
+  "Análise Global" criada corretamente nos projetos com o padrão
+  legado (parcial em alguns, todas as 4 em outros); projeto piloto "AP
+  PRAIA (SAVOIA) - SETOR B" bate número por número com a auditoria
+  feita mais cedo nesta mesma sessão (R$85.119,68 Verba Global,
+  85%/15% Fundo Garantidor, R$12.767,95, 21 pavimentos) — a reforma não
+  mudou nenhum valor existente, só generalizou o mecanismo. Telas
+  consumidoras (Propriedades Contratuais, Atribuição de Tarefas,
+  Painel de Progresso — este já mostrando 100% pra "Análise Global"
+  totalmente finalizada, usando o valor calculado) sem erro no console.
+
+**Pendências documentadas, não resolvidas nesta rodada** (consciente,
+seguindo a sequência de pouso do plano):
+- `desempenho-projeto.js`: os 2 KPIs de preview de horas ainda acham
+  "a" etapa Detalhamento por nome (item 5 acima).
+- `modulos_isolados/`: nenhuma cópia isolada foi tocada — mesmo
+  precedente já registrado várias vezes nesta sessão. Precisam do
+  mesmo tratamento depois: `arvore/`, `catalogo/`,
+  `distribuicao-custos/` (2 cópias), `atribuicao-tarefas/` (cópia
+  própria de `distribuicao-custos.js`), `bi/`, `kanban/`, `relatorios/`,
+  `cadastros/`.
+- Comentários (só prosa, zero código funcional) em `catalogo-lego.js`,
+  `bi.js`, `distribuicao-lucro.js`, `aprovacoes-calendario.js`,
+  `kanban.js`, `apontamento.js` ainda mencionam "Setor" — cosmético,
+  confirmado sem nenhum `nivel==='setor'` funcional restante em
+  nenhum desses arquivos.

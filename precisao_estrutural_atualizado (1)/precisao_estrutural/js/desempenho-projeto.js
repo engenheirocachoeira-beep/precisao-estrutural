@@ -92,12 +92,13 @@ function calcularConclusaoProjeto(nomeProjeto) {
 // Cada folha da árvore vira 1 registro {nome, executor, pontos, horas,
 // verba, custo, etapaNome, pavimentoNome}. Verba de cada folha é a
 // fatia dela (ponderada por Pontos) dentro do "pai com verba própria":
-// Pavimento, pra quem está dentro da Etapa "Detalhamento" (mesma
-// cascata que listarPavimentosDoProjeto/distribuicao-custos.js já usa
-// pra Distribuição de Custos e Distribuição de Lucro — só ela tem essa
-// granularidade, regra de negócio já existente); a própria Etapa, pras
-// demais (generalização do mesmo princípio — ponderação por Pontos
-// entre as folhas de uma Etapa sem Pavimento).
+// Pavimento, pra quem está numa Etapa com execução granular por baixo
+// (mesma cascata que listarPavimentosDoProjeto/distribuicao-custos.js
+// já usa pra Distribuição de Custos e Distribuição de Lucro — reforma
+// Setor→Sub-etapa: QUALQUER Etapa com Pavimento na subárvore, não mais
+// só a achada por nome "Detalhamento"); a própria Etapa, pras demais
+// (generalização do mesmo princípio — ponderação por Pontos entre as
+// folhas de uma Etapa sem Pavimento).
 //
 // Regra do usuário (pedido anterior): "nas tarefas onde as horas não
 // estão apontadas considere que o custo seja igual à verba" — sem
@@ -111,12 +112,13 @@ function calcularLinhasFolhaComVerba(nomeProjeto) {
     if (!arv || !Array.isArray(arv.etapas)) return [];
 
     const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-    const etapaDetalhamento = arv.etapas.find(e => e.nome.toLowerCase().includes('detalhamento'));
     const linhas = [];
+    const etapasComPavimento = new Set();
 
-    if (etapaDetalhamento && typeof calcularListaPavimentosComVerbaSalva === 'function') {
+    if (typeof calcularListaPavimentosComVerbaSalva === 'function') {
         const pavimentos = calcularListaPavimentosComVerbaSalva(nomeProjeto).pavimentos;
         pavimentos.forEach(p => {
+            etapasComPavimento.add(p.etapa);
             const totalPontosPav = (p.tarefas || []).reduce((s, t) => s + (parseFloat(t.pontos) || 0), 0);
             (p.tarefas || []).forEach(t => {
                 const pontos = parseFloat(t.pontos) || 0;
@@ -124,13 +126,13 @@ function calcularLinhasFolhaComVerba(nomeProjeto) {
                 const sessoes = Array.isArray(t.sessoes_trabalho) ? t.sessoes_trabalho : [];
                 const horas = sessoes.reduce((s2, s) => s2 + (parseFloat(s.duracao) || 0), 0);
                 const custo = horas > 0 ? ((typeof calcularCustoRealTarefa === 'function') ? calcularCustoRealTarefa(t, t.executor) : 0) : verba;
-                linhas.push({ nome: t.nome, executor: t.executor, pontos: pontos, horas: horas, verba: verba, custo: custo, etapaNome: etapaDetalhamento.nome, pavimentoNome: p.nome });
+                linhas.push({ nome: t.nome, executor: t.executor, pontos: pontos, horas: horas, verba: verba, custo: custo, etapaNome: p.etapa, pavimentoNome: p.nome });
             });
         });
     }
 
     arv.etapas.forEach(etapa => {
-        if (etapa === etapaDetalhamento) return;
+        if (etapasComPavimento.has(etapa.nome)) return;
         const infoVerba = verbasPorEtapa.find(v => v.nome === etapa.nome);
         const verbaEtapa = infoVerba ? infoVerba.verbaLiquida : 0;
         const folhas = coletarNosFolhaDaArvore([etapa]);
@@ -263,7 +265,14 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
     const valorFundoGarantidor = pctFundoGarantidor / 100 * valorAnalista;
 
     const dadosPavimentos = (typeof calcularListaPavimentosComVerbaSalva === 'function') ? calcularListaPavimentosComVerbaSalva(nomeProjeto) : null;
-    const etapaDetalhamento = etapas.find(e => e.ehDetalhamento);
+    // Reforma Setor→Sub-etapa: `temExecucaoGranular` é estrutural (a
+    // subárvore da Etapa tem Pavimento), não mais achado por nome
+    // "Detalhamento". Continua pegando só a PRIMEIRA etapa granular
+    // encontrada — esta tela (KPIs/Bonificação/Distribuições) ainda
+    // assume uma única etapa granular por projeto, igual sempre foi;
+    // generalizar pra somar várias fica pra uma rodada própria (ver
+    // CHANGELOG.md).
+    const etapaDetalhamento = etapas.find(e => e.temExecucaoGranular);
 
     return {
         valorContrato, pctImpostos, valorImpostos, valorLiquido,
@@ -907,8 +916,8 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     const linhasEtapasOrc = fin.etapas.map(e => ({
         label: escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)',
         previsto: e.verbaLiquida,
-        realizado: e.ehDetalhamento ? custoRealDetalhamento : e.verbaLiquida,
-        emph: e.ehDetalhamento
+        realizado: e.temExecucaoGranular ? custoRealDetalhamento : e.verbaLiquida,
+        emph: e.temExecucaoGranular
     }));
     linhasEtapasOrc.push({ label: 'Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', previsto: fin.valorFundoGarantidor, realizado: fundoGarantidorRealizado, emph: absorcaoFundoGarantidor > 0 });
     const totalEtapasRealizado = fin.totalVerbaEtapas - fin.verbaDetalhamentoBruta + custoRealDetalhamento;

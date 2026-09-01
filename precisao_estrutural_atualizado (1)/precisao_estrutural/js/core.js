@@ -46,14 +46,14 @@ function nomeParaExibicao(nomeCompleto) {
 
 // Travessia genérica da Árvore Genérica Recursiva (prompt_gemini.md
 // §12.31, arvore.js): devolve uma lista achatada de TODOS os nós-folha
-// de um array de Etapas — Etapa/Setor/Pavimento agindo como tarefa
+// de um array de Etapas — Etapa/Sub-etapa/Pavimento agindo como tarefa
 // (sem filho no próximo nível), OU Tarefa de verdade dentro de um
 // Pavimento container. Cada item:
 // { no: <objeto com os campos de Tarefa>,
 //   path: "0"/"0-1"/"0-1-2"/"0-1-2-3" — MESMO formato que
 //   arvore.js::visualizarNo()/salvarAlteracoesNo()/removerNo() usam,
 //   já serve pra chamar essas funções direto;
-//   localizacao: "Nome da Etapa"/"Etapa › Setor"/"Etapa › Setor › Pav"
+//   localizacao: "Nome da Etapa"/"Etapa › Sub-etapa"/"Etapa › Sub-etapa › Pav"
 //   — breadcrumb legível pra exibir em telas de lista (Atribuição de
 //   Tarefas, Kanban "sob responsabilidade", etc.) }.
 // Substitui, em qualquer arquivo que precise varrer a árvore pra achar
@@ -65,10 +65,10 @@ function nomeParaExibicao(nomeCompleto) {
 // mais campos fixos por nível (`etapa.setores`/`setor.pavimentos`/
 // `pavimento.tarefas`). Todo nó (Etapa e qualquer filho) guarda seus
 // filhos num ÚNICO array `filhos`, e cada filho carrega um campo
-// `nivel` ('setor'|'pavimento'|'tarefa') dizendo o que ele é. Isso
-// permite que uma Etapa tenha um Setor, OU um Pavimento direto, OU uma
+// `nivel` ('subetapa'|'pavimento'|'tarefa') dizendo o que ele é. Isso
+// permite que uma Etapa tenha uma Sub-etapa, OU um Pavimento direto, OU uma
 // Tarefa direto como filho — a ORDEM relativa continua obrigatória
-// (Setor sempre antes de Pavimento, que sempre antes de Tarefa,
+// (Sub-etapa sempre antes de Pavimento, que sempre antes de Tarefa,
 // nunca invertido), mas cada nível pode ser PULADO. Etapa continua
 // vivendo em `arv.etapas` (array de topo, sem mudança); só o que está
 // ABAIXO da Etapa virou genérico.
@@ -125,7 +125,7 @@ function obterArvoresProjetosAtivas() {
 // puláveis, não dá mais pra saber de antemão se a folha vai estar a 1,
 // 2, 3 ou mais níveis de distância). Cada item:
 // { no: <objeto com os campos de Tarefa>, path: "0"/"0-1"/"0-2-0" etc,
-//   localizacao: "Etapa › Setor › Pavimento" — breadcrumb legível,
+//   localizacao: "Etapa › Sub-etapa › Pavimento" — breadcrumb legível,
 //   só com os nomes dos nós realmente presentes no caminho até ali }.
 function coletarNosFolhaDaArvore(etapas) {
     const resultado = [];
@@ -516,6 +516,138 @@ function coletarNosFolhaDaArvore(etapas) {
         } catch (e) { /* nada salvo ainda, sem problema */ }
         localStorage.setItem(marcadorV11, '1');
     }
+
+    // Migração v12 — Reforma Setor→Sub-etapa (ver CHANGELOG.md): retag
+    // genérico de qualquer nó `nivel === 'setor'`, em qualquer projeto/
+    // profundidade, pra `nivel === 'subetapa'`. Sem suposição de nome —
+    // roda igual pra qualquer projeto, é no-op pra quem não tem nó
+    // nenhum nesse nível.
+    const marcadorV12 = 'banco_arvores_projetos_migrado_v12_setor_para_subetapa';
+    if (!localStorage.getItem(marcadorV12)) {
+        try {
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+            function retagSetorParaSubetapa(no) {
+                if (!no || typeof no !== 'object') return;
+                if (no.nivel === 'setor') { no.nivel = 'subetapa'; alterouArvores = true; }
+                (no.filhos || []).forEach(retagSetorParaSubetapa);
+            }
+            Object.values(arvores).forEach(arv => (arv.etapas || []).forEach(retagSetorParaSubetapa));
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+
+            // Catálogo: banco_setores_lego -> banco_subetapas_lego.
+            // IMPORTANTE: `banco_subetapas_lego` pode já existir como
+            // dado ÓRFÃO de uma nomenclatura AINDA MAIS antiga (quando
+            // "Sub-etapa" era o nome do que hoje é Pavimento — ver a
+            // migração de nomenclatura antiga logo acima, linhas
+            // ~169-172). Esse dado órfão nunca é lido por nenhum código
+            // atual (confirmado — só a migração antiga o referenciava,
+            // condicionada a `banco_pavimentos_lego` não existir, que
+            // já existe há muito tempo em qualquer instalação real).
+            // Por isso aqui SOBRESCREVE sem checar se já existe — o
+            // conteúdo real e em uso hoje é sempre o de
+            // `banco_setores_lego`, nunca o órfão.
+            if (localStorage.getItem('banco_setores_lego')) {
+                localStorage.setItem('banco_subetapas_lego', localStorage.getItem('banco_setores_lego'));
+                localStorage.removeItem('banco_setores_lego');
+            }
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV12, '1');
+    }
+
+    // Migração v13 — Reforma Setor→Sub-etapa (parte 2): empacota as 4
+    // etapas legadas "achatadas" (Pré-Lançamento/Lançamento/Análise/
+    // Cargas — Etapas de topo sem `nivel`) dentro de uma nova Etapa
+    // "Análise Global", como Sub-etapas. Casamento por nome SEM
+    // diferenciar maiúsculas/minúsculas (dado real de produção tem
+    // esses nomes em CAIXA ALTA — "PRÉ-LANÇAMENTO" etc. — enquanto o
+    // catálogo seed usa Title Case; confirmado testando contra os
+    // dados reais antes de subir, ver CHANGELOG.md) e PARCIAL (empacota
+    // só as que existirem — projeto sem nenhuma das 4 é no-op; projeto
+    // que já tem uma Etapa "Análise Global" é pulado, defensivo, pra
+    // nunca duplicar/colidir). O nome ORIGINAL do nó nunca é alterado —
+    // só a detecção ignora caixa.
+    // `peso_esforco="1"` em todas + `area_fisica` = o % que a etapa já
+    // tinha salvo (Distribuição de Custos) faz a Área Equivalente entre
+    // elas reproduzir EXATAMENTE a proporção de % que já existia — os
+    // números não mudam pro usuário depois da migração. Roda DEPOIS da
+    // v12 (precisa do retag pra Sub-etapa já ter acontecido, mas não
+    // depende diretamente dele — só da ordem de execução no arquivo).
+    const marcadorV13 = 'banco_arvores_projetos_migrado_v13_analise_global';
+    if (!localStorage.getItem(marcadorV13)) {
+        try {
+            const NOMES_ETAPAS_LEGADAS_NORMALIZADOS = ['pré-lançamento', 'lançamento', 'análise', 'cargas'];
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            const salvosAnalista = JSON.parse(localStorage.getItem('banco_distribuicao_custos_analista')) || {};
+            let alterouArvores = false, alterouAnalista = false;
+
+            Object.keys(arvores).forEach(nomeProjeto => {
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+                if (arv.etapas.some(e => e.nome.toLowerCase() === 'análise global')) return; // já existe, não mexe
+
+                const encontrados = [];
+                arv.etapas.forEach((e, idx) => {
+                    if (!e.nivel && NOMES_ETAPAS_LEGADAS_NORMALIZADOS.indexOf((e.nome || '').toLowerCase()) !== -1) encontrados.push({ etapa: e, idx: idx });
+                });
+                if (encontrados.length === 0) return; // projeto não tem essa forma legada — no-op
+
+                const primeiroIdx = Math.min.apply(null, encontrados.map(function (f) { return f.idx; }));
+                const salvoProjeto = salvosAnalista[nomeProjeto] || {};
+                const salvoEtapas = salvoProjeto.etapas || salvoProjeto;
+                let somaPct = 0;
+
+                const subetapas = encontrados.map(function (f) {
+                    const etapa = f.etapa;
+                    etapa.nivel = 'subetapa';
+                    const dadosEtapa = salvoEtapas[etapa.nome];
+                    const pctSalvo = (dadosEtapa && dadosEtapa.pct !== undefined && dadosEtapa.pct !== '') ? (parseFloat(dadosEtapa.pct) || 0) : 0;
+                    somaPct += pctSalvo;
+                    etapa.peso_esforco = "1";
+                    etapa.area_fisica = String(pctSalvo);
+                    return etapa;
+                });
+
+                const idxsRemover = {};
+                encontrados.forEach(function (f) { idxsRemover[f.idx] = true; });
+                arv.etapas = arv.etapas.filter(function (e, idx) { return !idxsRemover[idx]; });
+
+                const analiseGlobal = {
+                    nome: "Análise Global", status: "Apontada", executor: "", responsavel: "",
+                    custo_max: "0", qtd_fisica: "0", unidade_fisica: "-", pontos: "0",
+                    horas_reais: "0.0", is_outlier: false, verba: "0", filhos: subetapas
+                };
+                arv.etapas.splice(Math.min(primeiroIdx, arv.etapas.length), 0, analiseGlobal);
+                alterouArvores = true;
+
+                if (somaPct > 0) {
+                    if (!salvosAnalista[nomeProjeto]) salvosAnalista[nomeProjeto] = { etapas: {} };
+                    if (!salvosAnalista[nomeProjeto].etapas) salvosAnalista[nomeProjeto].etapas = salvoEtapas;
+                    salvosAnalista[nomeProjeto].etapas['Análise Global'] = { pct: String(somaPct) };
+                    alterouAnalista = true;
+                }
+
+                // Coparticipação: única exceção deliberada de nome-match
+                // no código novo, só aqui na migração — marca a Etapa
+                // que já se chamava "Detalhamento" como tendo
+                // Coparticipação habilitada, pra preservar o
+                // comportamento de hoje sem exigir que o usuário
+                // reconfigure manualmente depois do upgrade.
+                const etapaDet = arv.etapas.find(function (e) { return e.nome.toLowerCase().indexOf('detalhamento') !== -1; });
+                if (etapaDet) { etapaDet.tem_coparticipacao = true; alterouArvores = true; }
+            });
+
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+            if (alterouAnalista) localStorage.setItem('banco_distribuicao_custos_analista', JSON.stringify(salvosAnalista));
+
+            const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
+            if (!etapasLego.some(function (e) { return e.nome === 'Análise Global'; })) {
+                etapasLego.push({ nome: 'Análise Global', base_h: '2.0' });
+                localStorage.setItem('banco_etapas_lego', JSON.stringify(etapasLego));
+            }
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV13, '1');
+    }
 })();
 
 // --- SEEDS INICIAIS (idênticos ao index.html original, exceto o
@@ -537,7 +669,7 @@ const funcionariosSeed = [
 const projetosSeed = [{ nome: "Residencial Excellence", prefixo: "PRJ-BC-01", cliente: "Pasqualotto & GT" }];
 const componentesSeed = {
     etapas: [{ nome: "Detalhamento Estrutural" }],
-    setores: [{ nome: "Pavimento Térreo" }, { nome: "Tipo Padrão" }],
+    subetapas: [{ nome: "Pavimento Térreo" }, { nome: "Tipo Padrão" }],
     pavimentos: [{ nome: "Dimensionamento de Vigas" }],
     tarefas: [{ nome: "Detalhamento de vigas", base_h: "2.0", pontos: "1.0", unidade_fisica: "m³" }]
 };
@@ -546,7 +678,7 @@ if (!localStorage.getItem('banco_clientes')) localStorage.setItem('banco_cliente
 if (!localStorage.getItem('banco_funcionarios')) localStorage.setItem('banco_funcionarios', JSON.stringify(funcionariosSeed));
 if (!localStorage.getItem('banco_projetos')) localStorage.setItem('banco_projetos', JSON.stringify(projetosSeed));
 
-['etapas', 'setores', 'pavimentos', 'tarefas'].forEach(cat => {
+['etapas', 'subetapas', 'pavimentos', 'tarefas'].forEach(cat => {
     if (!localStorage.getItem('banco_' + cat + '_lego')) localStorage.setItem('banco_' + cat + '_lego', JSON.stringify(componentesSeed[cat]));
 });
 
@@ -591,7 +723,7 @@ function filtrarTabela(modulo) {
 // Cadastro em abas (pedido do usuário) — substitui o antigo menu em
 // cascata (7 itens sempre visíveis na barra lateral) por 1 item só
 // ("📝 Cadastro"), que abre uma tela com essas 7 abas dentro.
-const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'setores', 'pavimentos', 'tarefas', 'feriados'];
+const ABAS_CADASTRO = ['clientes', 'funcionarios', 'projetos', 'etapas', 'subetapas', 'pavimentos', 'tarefas', 'feriados'];
 let cadAbaAtiva = 'clientes'; // lembra a última aba usada, mesmo padrão de aprovAbaAtiva (aprovacoes-calendario.js)
 
 function abrirAbaCadastro(modulo) {
@@ -617,7 +749,7 @@ function abrirAbaCadastro(modulo) {
         funcionarios: 'Gestão de Funcionários',
         projetos: 'LISTA DE PROJETOS',
         etapas: 'Gestão de ETAPAS',
-        setores: 'Gestão de SETORES',
+        subetapas: 'Gestão de SUB-ETAPAS',
         pavimentos: 'Gestão de PAVIMENTOS',
         tarefas: 'Gestão de TAREFAS',
         feriados: 'Feriados'
@@ -630,9 +762,9 @@ function abrirAbaCadastro(modulo) {
     // Pedido do usuário (prompt_gemini.md §14, item 1): Feriados virou
     // aba do Cadastro em vez de item próprio no menu principal — tela
     // própria (calendário de feriados), não o padrão genérico de
-    // catálogo (Etapas/Setores/Pavimentos/Tarefas).
+    // catálogo (Etapas/Sub-etapas/Pavimentos/Tarefas).
     else if (modulo === 'feriados') carregarPainelFeriados();
-    else renderizarListaLegoComum(modulo); // etapas/setores/pavimentos/tarefas
+    else renderizarListaLegoComum(modulo); // etapas/subetapas/pavimentos/tarefas
 }
 
 // Pedido do usuário: quando um Projeto está "aberto" (na Árvore/Estrutura
@@ -736,7 +868,7 @@ function alternarModulo(modulo) {
         abrirAbaCadastro(cadAbaAtiva);
     } else if (ABAS_CADASTRO.includes(modulo)) {
         // As 7 abas de dentro de #panel-cadastro (Clientes,
-        // Funcionários, Projetos, Etapas, Setores, Pavimentos, Tarefas)
+        // Funcionários, Projetos, Etapas, Sub-etapas, Pavimentos, Tarefas)
         // chamam alternarModulo(modulo) direto — mesma função que
         // fecharFormulario() já chama pra voltar da tela de edição pra
         // lista, sem precisar de um caminho separado.
@@ -1349,7 +1481,7 @@ function iniciarAppPosLogin() {
     migrarStatusPendenteValidacao();
     migrarValorHoraParaHistorico();
     limparWorkspace();
-    ['etapas', 'setores', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
+    ['etapas', 'subetapas', 'pavimentos', 'tarefas'].forEach(c => renderizarListaLegoComum(c));
     if (typeof atualizarBadgePendenciasAprovacoes === 'function') atualizarBadgePendenciasAprovacoes();
 }
 

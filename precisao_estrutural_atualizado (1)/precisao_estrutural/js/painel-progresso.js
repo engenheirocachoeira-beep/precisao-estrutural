@@ -37,16 +37,23 @@
 //   Pontos dela sobre o total de Pontos do Pavimento.
 // - Pavimento agindo como folha: a Verba por Área Equivalente inteira
 //   dele (sem rateio de Pontos, já que não tem Tarefa dentro).
-// - Setor ou Etapa agindo como folha (dentro de uma árvore maior):
-//   usa a própria Verba manual do nó (mesmo espírito que Sub-etapa
-//   já tinha, §12.29).
+// - Sub-etapa ou Etapa agindo como folha (dentro de uma árvore maior):
+//   reforma Setor→Sub-etapa — antes usava a Verba MANUAL digitada na
+//   Árvore (`no.verba`); agora usa a verba já CALCULADA pela mesma
+//   cascata recursiva (Área Equivalente entre Sub-etapas irmãs, ou
+//   100% se a Etapa é folha sozinha) via `verbaPorCaminhoQualquerFolha`
+//   — confirmado com o usuário. Cai de volta pro campo manual só se o
+//   caminho genuinamente não tiver entrado na cascata (projeto sem
+//   Distribuição de Custos configurada ainda).
 // Container Pavimento é tratado à parte (usa a Verba por Área
 // Equivalente como teto, dividida por Pontos entre os filhos Tarefa) —
-// os outros containers (Etapa/Setor com filhos) apenas somam
+// os outros containers (Etapa/Sub-etapa com filhos) apenas somam
 // recursivamente o que os filhos valem.
-function calcularProgressoSubarvore(no, path, nivel, verbaPorCaminhoPavimento) {
+function calcularProgressoSubarvore(no, path, nivel, verbaPorCaminhoPavimento, verbaPorCaminhoQualquerFolha) {
     if (ehNoFolha(no)) {
-        let pesoFolha = parseFloat(no.verba) || 0;
+        let pesoFolha = (verbaPorCaminhoQualquerFolha && path in verbaPorCaminhoQualquerFolha)
+            ? verbaPorCaminhoQualquerFolha[path]
+            : (parseFloat(no.verba) || 0);
         if (nivel === 'pavimento') pesoFolha = verbaPorCaminhoPavimento[path] || 0;
 
         const finalizada = no.status === 'Finalizada';
@@ -79,7 +86,7 @@ function calcularProgressoSubarvore(no, path, nivel, verbaPorCaminhoPavimento) {
 
     let verbaTotal = 0, verbaFinalizada = 0, locDesenv = null, locFinal = null, dataFinal = null;
     no.filhos.forEach((filho, idx) => {
-        const r = calcularProgressoSubarvore(filho, path + '-' + idx, filho.nivel, verbaPorCaminhoPavimento);
+        const r = calcularProgressoSubarvore(filho, path + '-' + idx, filho.nivel, verbaPorCaminhoPavimento, verbaPorCaminhoQualquerFolha);
         verbaTotal += r.verbaTotal;
         verbaFinalizada += r.verbaFinalizada;
         if (r.localizacaoEmDesenvolvimento && !locDesenv) locDesenv = r.localizacaoEmDesenvolvimento;
@@ -99,6 +106,19 @@ function calcularProgressoProjeto(nomeProjeto) {
     const verbaPorCaminhoPavimento = {};
     pavimentosComVerba.forEach(p => { verbaPorCaminhoPavimento[p.caminho] = p.valorVerba; });
 
+    // Reforma Setor→Sub-etapa: mapa adicional cobrindo QUALQUER folha
+    // (Etapa/Sub-etapa agindo como folha) com o valor já calculado pela
+    // cascata recursiva, em vez do campo manual `no.verba` — mesmo
+    // padrão/mesma cascata reaproveitada em atribuicao-tarefas.js.
+    const verbaPorCaminhoQualquerFolha = {};
+    if (typeof calcularVerbaCascataCompleta === 'function' && typeof calcularVerbaPorEtapaSalvo === 'function') {
+        const verbasPorEtapaCascata = calcularVerbaPorEtapaSalvo(nomeProjeto);
+        const { etapas: etapasCascata } = calcularVerbaCascataCompleta(nomeProjeto, verbasPorEtapaCascata);
+        coletarNosFolhaDaArvore(etapasCascata).forEach(({ no: noFolha, path: pathFolha }) => {
+            verbaPorCaminhoQualquerFolha[pathFolha] = noFolha._verbaCalc || 0;
+        });
+    }
+
     return arv.etapas.map((etapa, fIdx) => {
         // Caso mais simples: a própria Etapa é folha (sem filho nenhum)
         // — binário, mesmo espírito de sempre (era só Etapa Única
@@ -113,7 +133,7 @@ function calcularProgressoProjeto(nomeProjeto) {
             };
         }
 
-        const r = calcularProgressoSubarvore(etapa, '' + fIdx, 'etapa', verbaPorCaminhoPavimento);
+        const r = calcularProgressoSubarvore(etapa, '' + fIdx, 'etapa', verbaPorCaminhoPavimento, verbaPorCaminhoQualquerFolha);
         const percentual = r.verbaTotal > 0 ? (r.verbaFinalizada / r.verbaTotal) * 100 : 0;
 
         return {
