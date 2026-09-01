@@ -4830,3 +4830,86 @@ edição nunca chegar no servidor sem a pessoa saber. Próximo passo real:
 usuário confirmar que, depois desta correção, OU o 0% persiste de
 verdade, OU aparece um aviso claro na tela explicando por quê não — o
 que quer que aconteça agora, não deve mais ficar invisível.
+
+**Confirmado pelo usuário**: 0% persiste de verdade agora. Bug fechado.
+
+## Retomada em 2026-09-01 (parte 71) — "Resumo financeiro" vira livro-caixa de verdade + "Caixa por Executor"
+
+Pedido antigo, retomado nesta sessão: a aba "Distribuições" (dentro da
+orelha "Desempenho" do projeto) tinha uma seção "Resumo financeiro" no
+formato "bloco de orçamento" (Previsto × Realizado × Diferença,
+`tabelaOrcamentoBloco()`). Usuário pediu pra virar um livro-caixa de
+verdade (Entrada/Saída/Saldo corrente, como um livro-caixa contábil) —
+prévia construída e aprovada num Artifact (`balancete_financeiro.html`)
+com os números reais de "HOME GARDEN - SETOR C" antes de implementar,
+iterada várias vezes (dados desatualizados corrigidos, "pras"→"para
+as", removido texto de comentário) até o usuário confirmar "Agora ficou
+bom" e pedir a implementação de verdade.
+
+Durante a prévia, usuário pediu mais 2 adições, também implementadas:
+- **"Caixa por Executor"**: dentro do livro de cada Etapa com execução
+  granular, um quadro extra listando Orçado/Custo Real/Saldo por
+  executor do pool — pedido explícito: "o estouro de um pode mascarar
+  o superávit de outro" se só a soma do pool for mostrada (achado real
+  com os dados de "HOME GARDEN - SETOR C": pool fecha em &minus;356,02,
+  mas isso escondia Daniel sozinho estourando &minus;751,30 enquanto
+  Andrey sobrava +395,28 — quase metade do estouro "sumia" dentro do
+  superávit do outro).
+- **"Saldo do Fundo de Distribuição de Lucros"**: quadro final somando
+  a contribuição de cada Etapa pro Fundo de Lucros.
+
+**Implementação** (`js/desempenho-projeto.js`): substituídas as 4
+chamadas a `tabelaOrcamentoBloco()` da seção "Resumo financeiro" por
+uma nova função `htmlLivroCaixaFinanceiro(nomeProjeto, fin)`, com 3
+helpers novos (`distLivroLinha`/`distLivroLinhaSimples`/`distLivroBook`).
+Diferente da prévia (números fixos, só 2 Etapas), a implementação real
+é **genérica pra qualquer número de Etapas** — usa a mesma reforma
+Setor→Sub-etapa já existente no resto do sistema
+(`e.temExecucaoGranular`, estrutural, não mais achado por nome
+"Detalhamento"):
+- Livro 1 "Do Contrato ao Fundo Garantidor": itera `fin.etapas` (todas,
+  não só 2), com uma linha de "Ajuste" automática caso os 3
+  percentuais (Analista/Supervisor/Escritório) não somem exatamente
+  100% — evita que o livro-caixa pare de fechar num projeto configurado
+  diferente do piloto testado.
+- Um livro "Dentro da Etapa X" por Etapa com verba > 0: quem tem
+  execução granular ganha a linha "Custo real do trabalho" + o quadro
+  "Caixa por Executor" (calculado filtrando
+  `calcularLinhasFolhaComVerba()` por Etapa — não reaproveita
+  `calcularBonificacaoProjeto()`, que ainda agrupa TODAS as Etapas
+  granulares num pool só, uma limitação conhecida e documentada à
+  parte); quem não tem, fica em "= Disponível para as Sub-etapas".
+- Fundo Garantidor restante: generalizado pra somar o desempenho
+  (sobra/estouro) de TODAS as Etapas com execução granular, não só
+  uma — mesma fórmula sinalizada que `calcularBonificacaoProjeto()` já
+  usa pra "Margem do Escritório" (sobra soma, estouro desconta, sem
+  piso em zero).
+
+CSS novo em `estilos.css` (`.dist-livro-*`, escopado a
+`#panel-distribuicoes-projeto`), reaproveitando os tokens `--dist-*` já
+existentes (mesmas cores da prévia em Artifact, que já tinha copiado
+esses tokens de propósito). Não replicado em `modulos_isolados/` —
+nenhuma cópia isolada tem o painel `#panel-distribuicoes-projeto`
+(mesmo caso já registrado de `desempenho-projeto.js`, que não tem
+cópia isolada nenhuma).
+
+Removido código morto que só alimentava as chamadas antigas de
+`tabelaOrcamentoBloco()` (`custoRealDetalhamento`, `saldoDetalhamento`,
+`deficitDetalhamento`, `absorcaoFundoGarantidor`,
+`fundoGarantidorRealizado`, `deficitRestante`,
+`parcelaProducaoRealizado`, `linhasEtapasOrc`, `totalEtapasRealizado`)
+— mantidas as 5 linhas (`etapaDetTab`...`verbaDetalhamentoRealizada`)
+que "Índices Globais", logo abaixo na mesma função, ainda usa.
+`tabelaOrcamentoBloco()` continua viva, ainda usada por "Preço por m²".
+
+Testado: `node --check` limpo em `js/desempenho-projeto.js`. Testado ao
+vivo no navegador, dados reais de "HOME GARDEN - SETOR C" (mesmo
+achado de cache de sub-recurso desta sessão — `fetch(cache:'no-store')
++ eval` pra forçar o JS novo, sem reiniciar o app inteiro): os 6 livros
+renderizam (`.dist-livro-book`), e **todo número bate exatamente com a
+prévia aprovada** — Contrato 82.439,36 → ... → Fundo Garantidor
+2.736,99; Análise Global (0%) com R$ 13.684,93 disponível; Detalhamento
+(5%) com custo real R$ 10.756,57 e saldo &minus;356,02; Caixa por
+Executor com Daniel &minus;751,30 / Andrey +395,28 / Total
+&minus;356,02; Fundo Garantidor restante 2.380,96; Saldo do Fundo de
+Distribuição de Lucros 547,40 (0% Análise Global + 5% Detalhamento).

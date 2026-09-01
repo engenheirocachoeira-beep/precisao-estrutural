@@ -813,6 +813,145 @@ function tabelaOrcamentoBloco(titulo, linhas, subtotal) {
     return html;
 }
 
+// --- LIVRO CAIXA (Resumo financeiro em formato de livro-caixa —
+// Entrada/Saída/Saldo corrente, como um livro-caixa de contabilidade)
+// Pedido do usuário (2026-09-01), prévia aprovada num Artifact antes
+// desta implementação. `entrada`/`saida` null vira "—" (célula vazia,
+// mesma convenção do bloco antigo removido).
+function distLivroLinha(label, entrada, saida, saldo, classe) {
+    const cEnt = (entrada === null || entrada === undefined) ? '<td class="n empty">&mdash;</td>' : '<td class="n">' + formatarMoeda(entrada) + '</td>';
+    const cSai = (saida === null || saida === undefined) ? '<td class="n empty">&mdash;</td>' : '<td class="n">' + formatarMoeda(saida) + '</td>';
+    return '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td class="lbl">' + label + '</td>' + cEnt + cSai + '<td class="n">' + formatarMoeda(saldo) + '</td></tr>';
+}
+// Linha "resumo" de 2 colunas (label + valor), sem Entrada/Saída/Saldo
+// — usada pros 2 quadros finais (Fundo Garantidor restante / Saldo do
+// Fundo de Distribuição de Lucros), que somam através de várias Etapas
+// em vez de encadear um saldo corrente único.
+function distLivroLinhaSimples(label, valor, classe) {
+    return '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td class="lbl">' + label + '</td><td class="n">' + formatarMoeda(valor) + '</td></tr>';
+}
+function distLivroBook(titulo, linhasHtml, memo) {
+    return '<div class="dist-livro-book">' +
+        (titulo ? '<div class="dist-livro-head">' + titulo + '</div>' : '') +
+        '<table class="dist-livro-tab"><thead><tr><td>Hist&oacute;rico</td><td>Entrada</td><td>Sa&iacute;da</td><td>Saldo</td></tr></thead><tbody>' + linhasHtml + '</tbody></table>' +
+        (memo ? '<div class="dist-livro-memo">' + memo + '</div>' : '') +
+        '</div>';
+}
+
+function htmlLivroCaixaFinanceiro(nomeProjeto, fin) {
+    const todasLinhas = (typeof calcularLinhasFolhaComVerba === 'function') ? calcularLinhasFolhaComVerba(nomeProjeto) : [];
+    let html = '';
+
+    // --- Livro 1: Do Contrato ao Fundo Garantidor ---
+    let saldo = fin.valorContrato;
+    let linhas = distLivroLinha('Valor do Contrato', fin.valorContrato, null, saldo);
+    saldo -= fin.valorImpostos;
+    linhas += distLivroLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', null, fin.valorImpostos, saldo);
+    saldo -= fin.valorEscritorio;
+    linhas += distLivroLinha('Parcela Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', null, fin.valorEscritorio, saldo);
+    saldo -= fin.valorSupervisor;
+    linhas += distLivroLinha('Parcela Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', null, fin.valorSupervisor, saldo);
+
+    // Escritório + Supervisão + Produção deveriam somar 100% da Parcela
+    // Global (o app só avisa se não fechar, não bloqueia salvar — ver
+    // distribuicao-custos.js) — se não somarem, a diferença aparece
+    // aqui como um ajuste explícito, em vez de sumir silenciosamente e
+    // o livro-caixa não fechar com o resto da tela.
+    const ajusteProducao = saldo - fin.valorAnalista;
+    if (Math.abs(ajusteProducao) > 0.01) {
+        saldo -= ajusteProducao;
+        linhas += distLivroLinha('Ajuste (% n&atilde;o fecham 100%)', ajusteProducao < 0 ? -ajusteProducao : null, ajusteProducao > 0 ? ajusteProducao : null, saldo);
+    }
+
+    fin.etapas.forEach(e => {
+        saldo -= e.verbaLiquida;
+        linhas += distLivroLinha('Etapa "' + escapeHtml(e.nome) + '" (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', null, e.verbaLiquida, saldo);
+    });
+    linhas += distLivroLinha('= Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%)', null, null, saldo, 'saldo');
+    html += distLivroBook('Do Contrato ao Fundo Garantidor', linhas);
+
+    // --- Um livro por Etapa + "Caixa por Executor" pra quem tem
+    // execução granular (Pavimento na subárvore) ---
+    let poolLucroTotal = 0;
+    fin.etapas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
+        let saldoEtapa = e.verbaLiquida;
+        let linhasEtapa = distLivroLinha('Verba recebida da Etapa', e.verbaLiquida, null, saldoEtapa);
+        const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, e.no) : 0;
+        const valorFundo = pctFundo / 100 * e.verbaLiquida;
+        saldoEtapa -= valorFundo;
+        linhasEtapa += distLivroLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + pctFundo.toFixed(0) + '%)', null, valorFundo, saldoEtapa);
+
+        if (e.temExecucaoGranular) {
+            const linhasFolhaEtapa = todasLinhas.filter(l => l.etapaNome === e.nome && l.pavimentoNome);
+            const horasPrevistas = linhasFolhaEtapa.reduce((s, l) => s + l.pontos, 0);
+            const horasRealizadas = linhasFolhaEtapa.reduce((s, l) => s + l.horas, 0);
+            const custoReal = linhasFolhaEtapa.reduce((s, l) => s + l.custo, 0);
+            const verbaPosFundo = saldoEtapa;
+            saldoEtapa -= custoReal;
+            poolLucroTotal += (verbaPosFundo - custoReal);
+            linhasEtapa += distLivroLinha('Custo real do trabalho (' + formatarNumero(horasRealizadas) + 'h)', null, custoReal, saldoEtapa);
+
+            const desvio = custoReal - verbaPosFundo;
+            const memo = 'Or&ccedil;ado para as ' + formatarNumero(horasPrevistas) + 'h previstas: ' + formatarMoeda(verbaPosFundo) +
+                ' &mdash; as ' + formatarNumero(horasRealizadas) + 'h realmente apontadas custaram ' + formatarMoeda(Math.abs(desvio)) + (desvio >= 0 ? ' a mais.' : ' a menos.');
+            html += distLivroBook('Dentro da Etapa "' + escapeHtml(e.nome) + '"', linhasEtapa, memo);
+
+            // Caixa por executor — pedido do usuário: o estouro de um
+            // executor pode mascarar o superávit de outro se só olhar
+            // a soma do pool.
+            const porExecutor = {}, ordemExec = [];
+            linhasFolhaEtapa.forEach(l => {
+                const ex = l.executor || '(sem executor)';
+                if (!porExecutor[ex]) { porExecutor[ex] = { verba: 0, custo: 0 }; ordemExec.push(ex); }
+                porExecutor[ex].verba += l.verba;
+                porExecutor[ex].custo += l.custo;
+            });
+            if (ordemExec.length > 0) {
+                let linhasExec = '', totV = 0, totC = 0;
+                ordemExec.forEach(ex => {
+                    const dEx = porExecutor[ex];
+                    const saldoEx = dEx.verba - dEx.custo;
+                    totV += dEx.verba; totC += dEx.custo;
+                    linhasExec += '<tr><td class="lbl">' + escapeHtml(nomeExecutorExibicao(ex)) + '</td><td class="n">' + formatarMoeda(dEx.verba) + '</td><td class="n">' + formatarMoeda(dEx.custo) + '</td><td class="n ' + (saldoEx >= 0 ? 'pos' : 'neg') + '">' + (saldoEx >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoEx)) + '</td></tr>';
+                });
+                const saldoTotalExec = totV - totC;
+                linhasExec += '<tr class="total"><td class="lbl">= Total do Pool</td><td class="n">' + formatarMoeda(totV) + '</td><td class="n">' + formatarMoeda(totC) + '</td><td class="n ' + (saldoTotalExec >= 0 ? 'pos' : 'neg') + '">' + (saldoTotalExec >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoTotalExec)) + '</td></tr>';
+                html += '<div class="dist-livro-book"><div class="dist-livro-head">Caixa por Executor &mdash; Pool de "' + escapeHtml(e.nome) + '"</div>' +
+                    '<table class="dist-livro-tab"><thead><tr><td>Executor</td><td>Or&ccedil;ado</td><td>Custo Real</td><td>Saldo</td></tr></thead><tbody>' + linhasExec + '</tbody></table></div>';
+            }
+        } else {
+            linhasEtapa += distLivroLinha('= Dispon&iacute;vel para as Sub-etapas', null, null, saldoEtapa, 'saldo');
+            html += distLivroBook('Dentro da Etapa "' + escapeHtml(e.nome) + '"', linhasEtapa);
+        }
+    });
+
+    // --- Fundo Garantidor restante (absorve o desempenho do pool de
+    // execução granular — sobrou verba? soma; estourou? desconta —
+    // mesma regra que calcularBonificacaoProjeto() já usa pra
+    // Margem do Escritório, só generalizada pra somar TODAS as Etapas
+    // com execução granular, não só uma) ---
+    const fundoGarantidorRestante = fin.valorFundoGarantidor + poolLucroTotal;
+    html += '<div class="dist-livro-book"><table class="dist-livro-tab"><tbody>' +
+        distLivroLinhaSimples('Fundo Garantidor (or&ccedil;ado)', fin.valorFundoGarantidor) +
+        distLivroLinhaSimples(poolLucroTotal >= 0 ? '(+) Sobra do Pool de Execu&ccedil;&atilde;o' : '(&minus;) Estouro do Pool de Execu&ccedil;&atilde;o', Math.abs(poolLucroTotal)) +
+        distLivroLinhaSimples('= Fundo Garantidor restante', fundoGarantidorRestante, 'result') +
+        '</tbody></table></div>';
+
+    // --- Saldo do Fundo de Distribuição de Lucros (soma a contribuição
+    // de cada Etapa — pedido do usuário) ---
+    let linhasFundoLucros = '', totalFundoLucros = 0;
+    fin.etapas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
+        const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, e.no) : 0;
+        const valorFundo = pctFundo / 100 * e.verbaLiquida;
+        totalFundoLucros += valorFundo;
+        linhasFundoLucros += distLivroLinhaSimples('Etapa "' + escapeHtml(e.nome) + '" (' + pctFundo.toFixed(0) + '%)', valorFundo);
+    });
+    linhasFundoLucros += distLivroLinhaSimples('= Total do Fundo', totalFundoLucros, 'saldo');
+    html += '<div class="dist-livro-book"><div class="dist-livro-head">Saldo do Fundo de Distribui&ccedil;&atilde;o de Lucros</div><table class="dist-livro-tab"><tbody>' + linhasFundoLucros + '</tbody></table></div>';
+
+    return html;
+}
+
 function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     const meta = d.meta, bonif = d.bonif, fin = d.financeiro;
     const paletaCores = ['var(--dist-cat-1)', 'var(--dist-cat-2)', 'var(--dist-cat-3)'];
@@ -877,78 +1016,27 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
 
     // --- Resumo financeiro (retomada 2026-08-25, parte 42: movido de
     // Produtividade pra cá; parte 49: reposicionado aqui, na coluna
-    // "orçamento" à esquerda — pedido do usuário: "na coluna à
-    // esquerda todo o orçamento. Valor do contrato, impostos, valor
-    // líquido, valor destinado para cada etapa, fundos, distribuição") ---
-    // Parte 50 (reformulação, pedido do usuário com print de planilha
-    // de referência): tabela Previsto×Realizado×Diferença.
-    // Parte 55 (pedido do usuário, revisando a parte 50): a linha
-    // Detalhamento da tabela "Divisão Produção — Etapas" deixou de
-    // usar uma verba escalada por % de horas — agora é literalmente o
-    // CUSTO REAL do Detalhamento (`bonif.poolCusto`, o mesmo valor já
-    // mostrado no headline/KPI "Custo Real do Detalhamento"). Um
-    // eventual estouro (saldo negativo = Verba Previsto − Custo Real)
-    // é absorvido em cascata: primeiro descontado do Fundo Garantidor
-    // (até zerá-lo), e só o que sobrar depois disso é descontado da
-    // Parcela Produção (Divisão Global). Isso NÃO mexe em
-    // `verbaDetalhamentoRealizada` (variável separada, ainda usada só
-    // pra "Distribuição p/ Pavimentos"/"Índices Globais" — blocos que
-    // o usuário não pediu pra mudar desta vez).
-    const custoRealDetalhamento = bonif.poolCusto;
-    const saldoDetalhamento = fin.verbaDetalhamentoBruta - custoRealDetalhamento;
-    const deficitDetalhamento = saldoDetalhamento < 0 ? -saldoDetalhamento : 0;
-    const absorcaoFundoGarantidor = Math.min(deficitDetalhamento, fin.valorFundoGarantidor);
-    const fundoGarantidorRealizado = fin.valorFundoGarantidor - absorcaoFundoGarantidor;
-    const deficitRestante = deficitDetalhamento - absorcaoFundoGarantidor;
-    const parcelaProducaoRealizado = fin.valorAnalista - deficitRestante;
-
-    // Parte 50: "REALIZADO" das demais linhas (que não dependem do
-    // custo real do Detalhamento) decidido via AskUserQuestion —
-    // "recalcular com base nas horas reais". Única etapa com Horas
-    // Previsto/Realizado rastreadas é Detalhamento (as demais, "Bloco
-    // Fixo", recebem o valor cheio da própria Verba independente de
-    // hora — mesmo modelo que Bonificação já usa, ver
-    // calcularBonificacaoProjeto()); o Fundo Garantidor NÃO derivava
-    // das etapas individuais nesta variável auxiliar (é só usada pra
-    // "Distribuição p/ Pavimentos"/"Índices Globais" abaixo).
+    // "orçamento" à esquerda). Reforma de 2026-09-01 (pedido do
+    // usuário, com prévia aprovada num Artifact antes desta
+    // implementação): a antiga tabela Previsto×Realizado×Diferença
+    // virou um LIVRO-CAIXA de verdade (Entrada/Saída/Saldo corrente),
+    // com um livro por Etapa e um "Caixa por Executor" dentro de quem
+    // tem execução granular (pedido do usuário: "o estouro de um pode
+    // mascarar o superávit de outro" se só olhar a soma do pool) — ver
+    // htmlLivroCaixaFinanceiro(), definida logo acima.
+    //
+    // `verbaDetalhamentoRealizada` continua calculada aqui (não migrou
+    // pro livro-caixa) porque "Índices Globais", logo abaixo, ainda
+    // depende dela pro "Preço por m² Detalhável Realizado".
     const etapaDetTab = d.tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
     const horasPrevistoDetFin = etapaDetTab ? etapaDetTab.previsto : 0;
     const horasRealizadoDetFin = etapaDetTab ? etapaDetTab.realizado : 0;
     const pctExecucaoDet = horasPrevistoDetFin > 0 ? (horasRealizadoDetFin / horasPrevistoDetFin) : 1;
     const verbaDetalhamentoRealizada = fin.verbaDetalhamentoBruta * pctExecucaoDet;
 
-    html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Do Valor do Contrato at&eacute; a Verba de cada Etapa</div></div>';
+    html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Livro-caixa: Entradas e Sa&iacute;das at&eacute; a Verba de cada Etapa</div></div>';
     html += '<div class="dist-panel dist-orc-panel">';
-
-    html += tabelaOrcamentoBloco('Valor Global', [
-        { label: 'Valor do Contrato', previsto: fin.valorContrato, realizado: fin.valorContrato },
-        { label: 'Impostos (' + fin.pctImpostos.toFixed(0) + '%)', previsto: -fin.valorImpostos, realizado: -fin.valorImpostos }
-    ], { label: 'Valor L&iacute;quido', previsto: fin.valorLiquido, realizado: fin.valorLiquido });
-
-    html += tabelaOrcamentoBloco('Divis&atilde;o Global', [
-        { label: 'Parcela Produ&ccedil;&atilde;o (' + fin.pctAnalista.toFixed(0) + '%)', previsto: fin.valorAnalista, realizado: parcelaProducaoRealizado, emph: deficitRestante > 0 },
-        { label: 'Parcela Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', previsto: fin.valorSupervisor, realizado: fin.valorSupervisor },
-        { label: 'Parcela Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', previsto: fin.valorEscritorio, realizado: fin.valorEscritorio }
-    ], { label: 'Valor L&iacute;quido', previsto: fin.valorAnalista + fin.valorSupervisor + fin.valorEscritorio, realizado: parcelaProducaoRealizado + fin.valorSupervisor + fin.valorEscritorio });
-
-    const linhasEtapasOrc = fin.etapas.map(e => ({
-        label: escapeHtml(e.nome) + ' (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)',
-        previsto: e.verbaLiquida,
-        realizado: e.temExecucaoGranular ? custoRealDetalhamento : e.verbaLiquida,
-        emph: e.temExecucaoGranular
-    }));
-    linhasEtapasOrc.push({ label: 'Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%, fatia retida)', previsto: fin.valorFundoGarantidor, realizado: fundoGarantidorRealizado, emph: absorcaoFundoGarantidor > 0 });
-    const totalEtapasRealizado = fin.totalVerbaEtapas - fin.verbaDetalhamentoBruta + custoRealDetalhamento;
-    html += tabelaOrcamentoBloco('Divis&atilde;o Produ&ccedil;&atilde;o &mdash; Etapas', linhasEtapasOrc,
-        { label: 'Valor L&iacute;quido', previsto: fin.totalVerbaEtapas + fin.valorFundoGarantidor, realizado: totalEtapasRealizado + fundoGarantidorRealizado });
-
-    if (fin.temEtapaDetalhamento) {
-        const fundoLucrosRealizado = fin.pctFundoLucros / 100 * verbaDetalhamentoRealizada;
-        html += tabelaOrcamentoBloco('Distribui&ccedil;&atilde;o p/ Locais', [
-            { label: 'Verba Detalhamento', previsto: fin.verbaDetalhamentoBruta, realizado: verbaDetalhamentoRealizada },
-            { label: 'Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', previsto: -fin.valorFundoLucros, realizado: -fundoLucrosRealizado }
-        ], { label: 'Verba l&iacute;quida p/ Locais', previsto: fin.verbaLiquidaPavimentos, realizado: verbaDetalhamentoRealizada - fundoLucrosRealizado });
-    }
+    html += htmlLivroCaixaFinanceiro(nomeProjeto, fin);
     html += '</div></div>';
 
     // --- Índices Globais (pedido do usuário) ---
