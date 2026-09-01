@@ -4540,3 +4540,79 @@ Zero erro novo no console em nenhuma das rodadas.
 sempre) — `arvore/`, `catalogo/`, `distribuicao-custos/` (2 cópias),
 `atribuicao-tarefas/` (cópia própria de `distribuicao-custos.js`),
 `kanban/`, `relatorios/`, `cadastros/`.
+
+## Retomada em 2026-09-01 (parte 69) — 3 correções: tela em branco na "Verba por Tarefa", grade de 3 colunas de volta, bug do "% Concluída", varredura final "Pavimento"→"Local"
+
+Feedback real do usuário depois da parte 68 subir pra produção — 4
+correções nesta rodada:
+
+**1. Tela em branco em "Verba por Tarefa"** — usuário reportou e mandou
+o console: `Uncaught TypeError: Cannot set properties of null (setting
+'innerHTML') at carregarAbaVerbaPorTarefa (distribuicao-custos.js:1227)`.
+Causa: o `id` do container mudou de `vt-grid-pavimentos` pra
+`vt-arvore-wrapper` na parte 68 (index.html + distribuicao-custos.js no
+mesmo commit) — um navegador com o HTML antigo em cache (sem o `id`
+novo) rodando o JS novo (que já procura o `id` novo) quebra igual.
+**Sem mudança de código** — era mesmo cache do navegador do usuário (o
+deploy em si estava correto, os 2 arquivos foram commitados juntos).
+Resolvido só com recarregamento forçado (Ctrl+Shift+R).
+
+**2. Cartões voltaram a empilhar 1 por linha, não mais 3 colunas lado
+a lado** — regressão real da parte 68: ao reescrever "Verba por Tarefa"
+como árvore, o container dos cartões-filho de cada Etapa
+(`construirQuadroEtapaVerbaPorTarefa`/`construirNoVerbaPorTarefa`, em
+`js/distribuicao-custos.js`) parou de usar a classe `.vt-grid` (grade
+de 3 colunas, responsiva pra 2/1 em telas menores — a mesma classe que
+"Verba por Tarefa" já usava ANTES da parte 68, só que aplicada na `div`
+errada durante a reescrita). Corrigido: `class="vt-grid"` de volta nos
+2 containers de filhos (nível Etapa e o nível intermediário genérico,
+raramente usado hoje). A classe em si não mudou (`estilos.css`
+intocado).
+
+**3. Bug real do usuário: "% Concluída" mostrava 44% com TODAS as
+tarefas Finalizada** — ver diagnóstico já registrado como item 15 da
+lista de revisões acumuladas. Causa confirmada: `desempenho-projeto.js
+::calcularConclusaoProjeto()` chamava `calcularProgressoSubarvore()`
+com só 4 argumentos — faltava o 5º (`verbaPorCaminhoQualquerFolha`),
+que `painel-progresso.js::calcularProgressoProjeto()` já constrói
+desde uma reforma anterior (Setor→Sub-etapa) mas nunca foi replicado
+pro gêmeo de Detalhamento→Produtividade. Sem esse mapa,
+`calcularProgressoSubarvore` cai no fallback do campo manual
+`no.verba` pra qualquer folha fora de Pavimento — campo que nunca foi
+preenchido pras Sub-etapas/Tarefas de "Análise Global" (etapa sem
+Pavimento), então o peso delas na média zerava mesmo com status
+"Finalizada". Corrigido replicando o mesmo bloco (`calcularVerbaCascataCompleta`
++ `calcularVerbaPorEtapaSalvo` + `coletarNosFolhaDaArvore`) em
+`calcularConclusaoProjeto()`, passando o mapa como 5º argumento — igual
+`painel-progresso.js` já fazia. Testado contra "HOME GARDEN - SETOR C"
+(projeto real do bug relatado): **100%** agora, batendo com o status
+real de todas as tarefas.
+
+**4. Varredura final "Pavimento"→"Local"** (item 16 da lista — a parte
+68 só cobriu um recorte inicial). Achados em `js/desempenho-projeto.js`
+(dashboard de Desempenho/Financeira do projeto — telas que a varredura
+anterior não tinha alcançado): rótulo "é o Pavimento com o maior
+desvio absoluto" (achado automático de Bonificação) → "é o Local...";
+título de bloco `porPavimento.titulo` ("Por Pavimento"→"Por Local");
+`porTarefa.tag` ("...somada em todos os pavimentos"→"...em todos os
+locais"); títulos da tabela Financeira ("Distribuição p/
+Pavimentos"/"Verba líquida p/ Pavimentos"→"...p/ Locais"); título e
+subtítulo do gráfico de desvio de horas ("Desvio de horas por
+Pavimento"/"por pavimento"→"por Local"/"por local"); opção do filtro
+"Agrupar por" ("Pavimento"→"Local"). Deliberadamente NÃO tocado (mesmo
+critério da parte 68): nomes de nível internos (`nivel==='pavimento'`,
+`pavimentoNome`, `etapasComPavimento` etc.) e comentários — só prosa,
+sem efeito visível.
+
+Testado ao vivo contra "HOME GARDEN - SETOR C" (sync desligado,
+`localStorage.clear()` + recarregar pra simular pull limpo). Confirmado
+via DOM: `#vt-arvore-wrapper .vt-grid` com `display:grid` e 3 colunas
+em ambas as Etapas; `calcularConclusaoProjeto('HOME GARDEN - SETOR C')`
+retorna exatamente `100`; painel Detalhamento→Produtividade mostra "%
+CONCLUÍDA 100% ... concluído"; "Desvio de horas por Local" e "Agrupar
+por: ... Local" na tela; aba Financeira com "Distribuição p/ Locais" e
+"Verba líquida p/ Locais" confirmados via `<th>`/texto renderizado.
+`node --check` limpo em `distribuicao-custos.js` e
+`desempenho-projeto.js`. Zero erro novo no console.
+
+**Não tocado**: `modulos_isolados/` (mesmo precedente de sempre).

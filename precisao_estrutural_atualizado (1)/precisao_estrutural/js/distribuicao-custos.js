@@ -1253,7 +1253,7 @@ function construirQuadroEtapaVerbaPorTarefa(etapa, caminho) {
             '<span style="font-weight:bold; color:#1e40af; font-size:13px;">🗂️ ' + escapeHtml(etapa.nome) + '</span>' +
             '<span style="margin-left:auto; font-size:12px; color:#64748b;">' + formatarMoeda(etapa._verbaCalc || 0) + '</span>' +
         '</div>' +
-        '<div' + estiloOculto + ' style="padding:12px 14px; background:#f8fafc;">' + filhosHtml + '</div>' +
+        '<div' + estiloOculto + ' class="vt-grid" style="padding:12px 14px; background:#f8fafc;">' + filhosHtml + '</div>' +
     '</div>';
 }
 
@@ -1283,7 +1283,7 @@ function construirNoVerbaPorTarefa(no, caminho) {
             '<span style="font-weight:600; font-size:12.5px; color:#334155;">' + escapeHtml(no.nome) + '</span>' +
             '<span style="margin-left:auto; font-size:11.5px; color:#64748b;">' + formatarMoeda(no._verbaCalc || 0) + '</span>' +
         '</div>' +
-        '<div' + estiloOculto + ' style="padding-left:18px;">' + filhosHtml + '</div>' +
+        '<div' + estiloOculto + ' class="vt-grid" style="padding-left:18px;">' + filhosHtml + '</div>' +
     '</div>';
 }
 

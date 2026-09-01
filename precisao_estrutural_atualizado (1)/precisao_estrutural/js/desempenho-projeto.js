@@ -67,6 +67,24 @@ function calcularConclusaoProjeto(nomeProjeto) {
     const verbaPorCaminhoPavimento = {};
     pavimentosComVerba.forEach(p => { verbaPorCaminhoPavimento[p.caminho] = p.valorVerba; });
 
+    // Revisão de 2026-09-01 (item 15) — bug real encontrado pelo usuário
+    // (projeto "HOME GARDEN - SETOR C" com TODAS as tarefas
+    // "Finalizada" mostrando 44% em vez de 100%): faltava o mesmo mapa
+    // que painel-progresso.js::calcularProgressoProjeto() já constrói
+    // (ver ali, mesmo comentário) — sem ele, calcularProgressoSubarvore
+    // cai no fallback do campo manual `no.verba` pra QUALQUER folha fora
+    // de Pavimento (Sub-etapa ou Tarefa direto sob uma Etapa sem
+    // Pavimento, ex: "Análise Global") — campo que nunca foi preenchido
+    // pra essas folhas, zerando o peso delas na média mesmo finalizadas.
+    const verbaPorCaminhoQualquerFolha = {};
+    if (typeof calcularVerbaCascataCompleta === 'function' && typeof calcularVerbaPorEtapaSalvo === 'function' && typeof coletarNosFolhaDaArvore === 'function') {
+        const verbasPorEtapaCascata = calcularVerbaPorEtapaSalvo(nomeProjeto);
+        const { etapas: etapasCascata } = calcularVerbaCascataCompleta(nomeProjeto, verbasPorEtapaCascata);
+        coletarNosFolhaDaArvore(etapasCascata).forEach(({ no: noFolha, path: pathFolha }) => {
+            verbaPorCaminhoQualquerFolha[pathFolha] = noFolha._verbaCalc || 0;
+        });
+    }
+
     const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
 
     let pesoTotal = 0, pesoConcluido = 0;
@@ -79,7 +97,7 @@ function calcularConclusaoProjeto(nomeProjeto) {
         if (ehNoFolha(etapa)) {
             pctEtapa = etapa.status === 'Finalizada' ? 100 : 0;
         } else {
-            const r = calcularProgressoSubarvore(etapa, '' + fIdx, 'etapa', verbaPorCaminhoPavimento);
+            const r = calcularProgressoSubarvore(etapa, '' + fIdx, 'etapa', verbaPorCaminhoPavimento, verbaPorCaminhoQualquerFolha);
             pctEtapa = r.verbaTotal > 0 ? (r.verbaFinalizada / r.verbaTotal) * 100 : 0;
         }
         pesoTotal += pesoEtapa;
@@ -508,7 +526,7 @@ function calcularDiagnosticoProjeto(nomeProjeto) {
         if (Math.abs(piorPav.realizado - piorPav.previsto) > 0) {
             const desvio = piorPav.realizado - piorPav.previsto;
             achados.push({ severidade: desvio >= 0 ? 'ruim' : 'bom', icone: desvio >= 0 ? '🔴' : '🟢',
-                texto: piorPav.nome + ' é o Pavimento com o maior desvio absoluto (' + (desvio >= 0 ? '+' : '') + desvio.toFixed(2).replace('.', ',') + 'h, Índice de ' + piorPav.indice.toFixed(1).replace('.', ',') + '%).' });
+                texto: piorPav.nome + ' é o Local com o maior desvio absoluto (' + (desvio >= 0 ? '+' : '') + desvio.toFixed(2).replace('.', ',') + 'h, Índice de ' + piorPav.indice.toFixed(1).replace('.', ',') + '%).' });
         }
     }
 
@@ -591,8 +609,8 @@ if (typeof module !== 'undefined' && module.exports) {
 let desempCacheFiltro = null;
 const DESEMP_DIMENSOES = {
     porEtapa: { titulo: 'Por Etapa', tag: null },
-    porPavimento: { titulo: 'Por Pavimento', tag: 'só Detalhamento tem essa granularidade' },
-    porTarefa: { titulo: 'Por Tarefa', tag: 'atividade do Cadastro, somada em todos os pavimentos' },
+    porPavimento: { titulo: 'Por Local', tag: 'só Detalhamento tem essa granularidade' },
+    porTarefa: { titulo: 'Por Tarefa', tag: 'atividade do Cadastro, somada em todos os locais' },
     porExecutor: { titulo: 'Por Executor', tag: null }
 };
 
@@ -926,10 +944,10 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
 
     if (fin.temEtapaDetalhamento) {
         const fundoLucrosRealizado = fin.pctFundoLucros / 100 * verbaDetalhamentoRealizada;
-        html += tabelaOrcamentoBloco('Distribui&ccedil;&atilde;o p/ Pavimentos', [
+        html += tabelaOrcamentoBloco('Distribui&ccedil;&atilde;o p/ Locais', [
             { label: 'Verba Detalhamento', previsto: fin.verbaDetalhamentoBruta, realizado: verbaDetalhamentoRealizada },
             { label: 'Fundo Distribui&ccedil;&atilde;o de Lucros (' + fin.pctFundoLucros.toFixed(0) + '%)', previsto: -fin.valorFundoLucros, realizado: -fundoLucrosRealizado }
-        ], { label: 'Verba l&iacute;quida p/ Pavimentos', previsto: fin.verbaLiquidaPavimentos, realizado: verbaDetalhamentoRealizada - fundoLucrosRealizado });
+        ], { label: 'Verba l&iacute;quida p/ Locais', previsto: fin.verbaLiquidaPavimentos, realizado: verbaDetalhamentoRealizada - fundoLucrosRealizado });
     }
     html += '</div></div>';
 
@@ -1089,7 +1107,7 @@ function renderizarDesempenhoProjeto(d) {
             '<div class="dist-panel">' + distDivChart(itens, formatarHorasChart) + '</div></div>';
     }
     html += graficoDesvioHoras('Desvio de horas por Executor', 'previsto &minus; realizado, por pessoa', tab.porExecutor.map(l => Object.assign({ chave: 'porExecutor' }, l)));
-    html += graficoDesvioHoras('Desvio de horas por Pavimento', 'previsto &minus; realizado, por pavimento', tab.porPavimento);
+    html += graficoDesvioHoras('Desvio de horas por Local', 'previsto &minus; realizado, por local', tab.porPavimento);
     html += graficoDesvioHoras('Desvio de horas por Tarefa', 'previsto &minus; realizado, por atividade do Cadastro', tab.porTarefa);
 
     html += '</div><div class="desemp-col-conteudo">';
@@ -1103,7 +1121,7 @@ function renderizarDesempenhoProjeto(d) {
     html += '<div class="desemp-filtro-linha"><label for="desemp-filtro-dimensao">Agrupar por:</label>' +
         '<select id="desemp-filtro-dimensao" onchange="trocarDimensaoDesempenho()">' +
         '<option value="porEtapa">Etapa</option>' +
-        '<option value="porPavimento">Pavimento</option>' +
+        '<option value="porPavimento">Local</option>' +
         '<option value="porTarefa" selected>Tarefa</option>' +
         '<option value="porExecutor">Executor</option>' +
         '</select></div>';
