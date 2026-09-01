@@ -144,6 +144,28 @@ function _syncMostrarBannerEnvioBloqueado(motivos) {
     document.body.appendChild(div);
 }
 
+// Bug real encontrado (2026-09-01): falha de rede/permissão no envio pro
+// Firebase só aparecia no Console — invisível pra quem não tem o DevTools
+// aberto, então uma edição podia nunca chegar no servidor sem ninguém
+// perceber (ver _syncEnviarAgora, seção 5). Diferente dos outros 2
+// banners: aqui recarregar NÃO ajuda (traria de volta o estado antigo do
+// servidor, perdendo justamente a edição que falhou) — o clique tenta
+// reenviar de novo, em vez de recarregar.
+function _syncMostrarBannerFalhaEnvio(err) {
+    const existente = document.getElementById('sync-provisorio-banner-falha');
+    if (existente) return; // já mostrando — não empilha um por tentativa
+    const div = document.createElement('div');
+    div.id = 'sync-provisorio-banner-falha';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;z-index:99999;cursor:pointer;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;';
+    div.textContent = '⚠️ Não consegui enviar sua última edição pro servidor (' + ((err && err.message) || 'erro de rede') + '). Clique aqui pra tentar de novo.';
+    div.onclick = function () { _syncRemoverBannerFalhaEnvio(); _syncEnviarAgora(); };
+    document.body.appendChild(div);
+}
+function _syncRemoverBannerFalhaEnvio() {
+    const el = document.getElementById('sync-provisorio-banner-falha');
+    if (el) el.remove();
+}
+
 // ======= 4) SNAPSHOT DE localStorage =======
 
 // Caracteres proibidos em chave/nó do Firebase Realtime Database — ver
@@ -249,8 +271,17 @@ function _syncEnviarAgora() {
     const assinatura = Object.keys(snapshot).length + ':' + JSON.stringify(snapshot).length;
     if (assinatura === _syncUltimoEnvioAssinatura) return;
     _syncUltimoEnvioAssinatura = assinatura;
-    _syncFirebaseRef.set(snapshot).catch(function (err) {
+    _syncFirebaseRef.set(snapshot).then(function () {
+        _syncRemoverBannerFalhaEnvio(); // uma tentativa seguinte deu certo — some com o aviso da falha anterior
+    }).catch(function (err) {
         console.warn('[sync-provisorio] falha ao enviar dados', err);
+        // Bug real encontrado (2026-09-01): até aqui, uma falha de envio
+        // (permissão negada, rede caiu, etc.) só aparecia no Console —
+        // completamente invisível pra quem não tem o DevTools aberto.
+        // Resultado: uma edição podia nunca sair do navegador e ninguém
+        // saber por quê. Agora mostra um aviso na tela, igual já existe
+        // pros outros 2 casos (envio bloqueado / dado novo no servidor).
+        _syncMostrarBannerFalhaEnvio(err);
     });
 }
 

@@ -4707,3 +4707,29 @@ outros botões de Salvar do sistema já têm (nenhum é 100% à prova de um
 F5 imediato — a rede ainda pode levar mais que 1-2s pra confirmar —
 mas sair na hora em vez de só depois do debounce reduz bastante a
 janela de risco). `node --check` limpo.
+
+**Atualização — ainda sem solução confirmada, mas ganhou visibilidade**:
+usuário testou de novo depois das 2 correções acima e continuou vendo
+5%. Sem conseguir reproduzir o problema eu mesmo (minha leitura direto
+do servidor mostra o valor certo até eu tentar simular o cenário), e
+sem uma falha de rede visível pra apontar uma causa nova, a suspeita
+virou: um envio real pro Firebase pode estar falhando (permissão, rede)
+de um jeito **invisível** — `_syncEnviarAgora()` só logava a falha no
+Console (`console.warn`), nunca na tela. Ninguém sem o DevTools aberto
+saberia que um envio falhou.
+
+Corrigido em `js/sync-provisorio.js`: nova
+`_syncMostrarBannerFalhaEnvio(err)` — mesmo padrão visual dos outros 2
+banners já existentes (envio bloqueado / dado novo no servidor), mas
+diferente deles o clique **tenta reenviar** em vez de recarregar
+(recarregar aqui perderia a edição que falhou, trazendo de volta o
+estado antigo do servidor). `_syncEnviarAgora()` agora tem `.then()`
+que remove esse banner se uma tentativa seguinte der certo. Testado
+isoladamente (função chamada direto, fora do boot completo do app, que
+reavaliar o arquivo inteiro re-dispara — achado de metodologia, não
+bug): renderiza e mostra a mensagem certa.
+
+**Próximo passo real**: depois desta correção subir, se o problema
+persistir, a pessoa agora vai ver um aviso vermelho na tela (bloqueio
+OU falha de envio) que aponta a causa de verdade — antes disso ficava
+tudo invisível. Ainda em aberto até o usuário confirmar.
