@@ -1136,6 +1136,17 @@ function salvarFundoLucrosPavimento(botaoEl) {
     etapasSalvas[nomeEtapa] = { pct: input.value };
     salvos[nomeProjeto] = Object.assign({}, projetoSalvo, { etapas: etapasSalvas });
     localStorage.setItem('banco_fundo_lucros_pavimento', JSON.stringify(salvos));
+
+    // Bug real encontrado (2026-09-01): o `localStorage.setItem` acima só
+    // AGENDA o envio pro Firebase (debounce de alguns segundos, ver
+    // sync-provisorio.js) — um usuário que recarrega a página logo depois
+    // de "Salvar" (1-2s, tempo real de teste) interrompe esse envio no
+    // meio do caminho, e a edição nunca chega no servidor (na próxima
+    // visita, volta o valor antigo). "Salvar" é um clique EXPLÍCITO e
+    // único — diferente de digitar, que justifica esperar — então força
+    // o envio na hora, sem esperar o debounce, em vez de só confiar nele.
+    if (typeof _syncEnviarAgora === 'function') _syncEnviarAgora();
+
     alert('% Fundo Distribuição de Lucros de "' + nomeEtapa + '" salvo para "' + nomeProjeto + '".');
 }
 

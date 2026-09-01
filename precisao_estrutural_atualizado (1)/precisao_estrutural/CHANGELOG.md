@@ -4681,3 +4681,29 @@ de tempo) e a leitura do código confirma que está certa.
 **Ainda pendente**: confirmar com o usuário, depois desta correção subir,
 que a edição de 0% na Análise Global agora persiste de verdade depois de
 salvar e recarregar.
+
+**Atualização — 2ª causa encontrada**: a trava resolvida acima não bastou
+sozinha. Usuário testou de novo (0% na Análise Global, "Salvar %",
+F5) e o valor continuou voltando pra 5% — inclusive confirmado direto no
+servidor (puxei os dados frescos, sem mexer em nada: `pct: "5.00"`,
+sem faixa vermelha nem laranja na tela, ou seja, a trava desta vez NÃO
+era o problema). Perguntei quanto tempo esperou entre "Salvar" e F5:
+"quase na hora (1-2 segundos)" — MENOS que o debounce de 3s
+(`SYNC_PROVISORIO_DEBOUNCE_MS`) que `localStorage.setItem()` agenda
+antes de enviar pro Firebase. O F5 interrompe esse envio ainda agendado,
+no meio do caminho — a edição nunca sai do navegador.
+
+Corrigido em `js/distribuicao-custos.js::salvarFundoLucrosPavimento()`:
+depois do `localStorage.setItem`, chama `_syncEnviarAgora()` direto (se
+existir), sem esperar o debounce — "Salvar" é um clique explícito e
+único (diferente de digitar, onde esperar faz sentido pra não mandar a
+cada tecla). Testado: clique no botão real (via UI, projeto "HOME
+GARDEN - SETOR C") confirma que `_syncEnviarAgora` é chamado na hora e
+o valor "0.00" fica salvo em `banco_fundo_lucros_pavimento` local. Não
+dá pra confirmar o envio de verdade pro Firebase sem habilitar push
+numa sessão de teste (proibido pela política de segurança desta
+sessão) — a garantia é a mesma que "Salvar Distribuição por Etapa" e os
+outros botões de Salvar do sistema já têm (nenhum é 100% à prova de um
+F5 imediato — a rede ainda pode levar mais que 1-2s pra confirmar —
+mas sair na hora em vez de só depois do debounce reduz bastante a
+janela de risco). `node --check` limpo.
