@@ -648,6 +648,49 @@ function coletarNosFolhaDaArvore(etapas) {
         } catch (e) { /* nada salvo ainda, sem problema */ }
         localStorage.setItem(marcadorV13, '1');
     }
+
+    // Migração v14 (revisão 2026-09-01, item 12): pedido do usuário — "as
+    // únicas etapas cadastradas deverão ser Análise Global e
+    // Detalhamento; as demais serão sub-etapas e devem estar no
+    // cadastro de sub-etapas". Feito só a metade ADITIVA aqui —
+    // qualquer nome do catálogo de Etapa que não seja "Detalhamento"
+    // nem "Análise Global" entra no catálogo de Sub-etapa (se ainda não
+    // estiver lá). NÃO remove nada de banco_etapas_lego automaticamente
+    // (ver por quê abaixo) — a remoção final é 1 clique manual no
+    // 🗑️ de cada linha, em Cadastro → Gestão de Etapas (já existe,
+    // não precisou de UI nova).
+    //
+    // Por que não remove sozinho: a trava de sanidade do sync
+    // (_syncSnapshotPareceIncompleto, sync-provisorio.js, criada depois
+    // do incidente real de 2026-08-31 documentado no CHANGELOG) bloqueia
+    // qualquer ENVIO que encolha uma lista "de verdade" (>=5 itens) pra
+    // menos da metade — banco_etapas_lego tem 8 itens hoje, a lista
+    // final teria 2 (75% de encolhimento), então cairia direto nesse
+    // bloqueio pra QUALQUER cliente que tentasse migrar sozinho: a
+    // mudança ficaria só local, nunca sincronizaria, e a cada
+    // recarregamento um PULL traria de volta os 8 itens do servidor —
+    // um loop sem saída automática. Descoberto testando contra o app
+    // real antes de considerar isso pronto (não é hipotético). A
+    // exclusão manual, um item de cada vez, fica bem abaixo desse
+    // limite e sincroniza normalmente.
+    const marcadorV14 = 'banco_etapas_lego_migrado_v14_so_detalhamento_analise_global';
+    if (!localStorage.getItem(marcadorV14)) {
+        try {
+            const NOMES_ETAPA_PERMITIDOS_NORMALIZADOS = ['detalhamento', 'análise global'];
+            const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
+            const subetapasLego = JSON.parse(localStorage.getItem('banco_subetapas_lego')) || [];
+
+            let alterouSubetapas = false;
+            etapasLego.forEach(function (e) {
+                const nomeNormalizado = (e.nome || '').toLowerCase();
+                if (NOMES_ETAPA_PERMITIDOS_NORMALIZADOS.indexOf(nomeNormalizado) !== -1) return;
+                const jaExiste = subetapasLego.some(function (s) { return (s.nome || '').toLowerCase() === nomeNormalizado; });
+                if (!jaExiste) { subetapasLego.push(e); alterouSubetapas = true; }
+            });
+            if (alterouSubetapas) localStorage.setItem('banco_subetapas_lego', JSON.stringify(subetapasLego));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV14, '1');
+    }
 })();
 
 // --- SEEDS INICIAIS (idênticos ao index.html original, exceto o
@@ -750,7 +793,7 @@ function abrirAbaCadastro(modulo) {
         projetos: 'LISTA DE PROJETOS',
         etapas: 'Gestão de ETAPAS',
         subetapas: 'Gestão de SUB-ETAPAS',
-        pavimentos: 'Gestão de PAVIMENTOS',
+        pavimentos: 'Gestão de LOCAIS',
         tarefas: 'Gestão de TAREFAS',
         feriados: 'Feriados'
     };

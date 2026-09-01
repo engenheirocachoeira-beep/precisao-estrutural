@@ -125,7 +125,7 @@
                         <button type="button" id="cad-aba-projetos" class="aprov-aba" onclick="alternarModulo('projetos')">📁 Projetos</button>
                         <button type="button" id="cad-aba-etapas" class="aprov-aba" onclick="alternarModulo('etapas')">🧱 Etapas</button>
                         <button type="button" id="cad-aba-subetapas" class="aprov-aba" onclick="alternarModulo('subetapas')">📐 Sub-etapas</button>
-                        <button type="button" id="cad-aba-pavimentos" class="aprov-aba" onclick="alternarModulo('pavimentos')">🧮 Pavimentos</button>
+                        <button type="button" id="cad-aba-pavimentos" class="aprov-aba" onclick="alternarModulo('pavimentos')">🧮 Locais</button>
                         <button type="button" id="cad-aba-tarefas" class="aprov-aba" onclick="alternarModulo('tarefas')">⚙️ Tarefas</button>
                         <button type="button" id="cad-aba-feriados" class="aprov-aba" onclick="alternarModulo('feriados')">📅 Feriados</button>
                     </div>
@@ -278,8 +278,8 @@
                     <div class="footer-actions"><input type="text" id="add-subetapas-nome" placeholder="Nova Sub-etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('subetapas')">Fabricar</button></div>
                 </div>
                 <div id="panel-pavimentos-lista" class="sub-panel-cadastro">
-                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Pavimento</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
-                    <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Nova Pavimento..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
+                    <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome do Local</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
+                    <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Novo Local..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
                 </div>
                 <div id="panel-tarefas-lista" class="sub-panel-cadastro">
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Tarefa</th><th style="width:90px;">Pontos</th><th style="width:150px;">Unidade Física</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-tarefas-body"></tbody></table></div>
@@ -362,7 +362,7 @@
                 <div id="panel-distribuicao-lucro" class="content-panel">
                     <div style="background: white; border-radius: 6px; border: 1px solid #cbd5e1; padding:20px; margin-bottom:15px;">
                         <h3>🎓 Distribuição de Lucro entre Estagiários</h3>
-                        <p style="font-size:13px; color:#64748b; margin-top:4px;">Verba de Distribuição de Lucros (aba 3 da Distribuição de Custos) rateada por Pavimento/Tarefa, somada de toda tarefa finalizada no período escolhido, dividida entre os Estagiários — parte igualitária, parte proporcional aos Pontos conquistados no período. Comissionados não participam.</p>
+                        <p style="font-size:13px; color:#64748b; margin-top:4px;">Verba de Distribuição de Lucros (aba 3 da Distribuição de Custos) rateada por Local/Tarefa, somada de toda tarefa finalizada no período escolhido, dividida entre os Estagiários — parte igualitária, parte proporcional aos Pontos conquistados no período. Comissionados não participam.</p>
                     </div>
                     <div class="search-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end; margin-bottom:15px;">
                         <div>
@@ -527,8 +527,12 @@
 
                     <div id="conteudo-verba-por-tarefa" class="tab-content" style="display:none;">
                         <div class="tab-projeto-header">Projeto: <b id="vt-projeto-ref">—</b></div>
+                        <!-- Itens 10-11 (revisão 2026-09-01): árvore expansível Etapa
+                             → Sub-etapa/Pavimento → Tarefa (antes: grid de cartões só
+                             de Pavimento) — montada inteira via JS em
+                             carregarAbaVerbaPorTarefa() (js/distribuicao-custos.js). -->
                         <div style="max-height:600px; overflow-y:auto;">
-                            <div id="vt-grid-pavimentos" class="vt-grid"></div>
+                            <div id="vt-arvore-wrapper"></div>
                         </div>
                     </div>
                     </div>
@@ -648,7 +652,15 @@
                             </div>
                         </div>
                         <div id="kb-aviso-finalizacoes-pendentes" style="display:none; margin-top:12px; padding:10px 14px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; color:#92400e; font-size:13px; cursor:pointer;" onclick="alternarModulo('aprovacoes_calendario')"></div>
-                        <div id="kb-quadro" style="display:flex; gap:12px; margin-top:16px; overflow-x:auto; flex:1;"></div>
+                        <!-- Item 14 (revisão 2026-09-01): alternar visão Cartão/Lista, a
+                             critério do usuário — escolha persiste entre sessões
+                             (localStorage, ver alternarVisualizacaoKanban() em kanban.js). -->
+                        <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:12px;">
+                            <button type="button" id="kb-btn-vis-cartao" class="aprov-aba aprov-aba-ativa" style="padding:6px 14px; font-size:12px;" onclick="alternarVisualizacaoKanban('cartao')">🗂️ Cartão</button>
+                            <button type="button" id="kb-btn-vis-lista" class="aprov-aba" style="padding:6px 14px; font-size:12px;" onclick="alternarVisualizacaoKanban('lista')">📋 Lista</button>
+                        </div>
+                        <div id="kb-quadro" style="display:flex; gap:12px; margin-top:12px; overflow-x:auto; flex:1;"></div>
+                        <div id="kb-lista-wrapper" style="display:none; margin-top:12px; flex:1; overflow-y:auto;"></div>
                     </div>
                     <div id="kb-ranking-area" style="display:none;">
                         <div style="display:flex; gap:8px; margin:14px 0 6px;">
@@ -847,7 +859,7 @@
                                     <div class="campo"><label>Projeto</label><select id="rel-custos-filtro-projeto"></select></div>
                                     <div class="campo"><label>Etapa</label><select id="rel-custos-filtro-etapa"></select></div>
                                     <div class="campo"><label>Sub-etapa</label><select id="rel-custos-filtro-subetapa"></select></div>
-                                    <div class="campo"><label>Pavimento</label><select id="rel-custos-filtro-pavimento"></select></div>
+                                    <div class="campo"><label>Local</label><select id="rel-custos-filtro-pavimento"></select></div>
                                     <div class="campo"><label>Tarefa</label><select id="rel-custos-filtro-tarefa"></select></div>
                                     <div class="campo"><label>Cliente</label><select id="rel-custos-filtro-cliente"></select></div>
                                     <div class="campo"><label>Executor</label><select id="rel-custos-filtro-executor"></select></div>

@@ -373,7 +373,7 @@ const NIVEIS_RELATORIO = {
             { id: 'cliente', rotulo: 'Cliente', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'etapa', rotulo: 'Etapa', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'subetapa', rotulo: 'Sub-etapa', padrao: false, somavel: false, tipo: 'texto' },
-            { id: 'pavimento', rotulo: 'Pavimento', padrao: false, somavel: false, tipo: 'texto' },
+            { id: 'pavimento', rotulo: 'Local', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'tarefa', rotulo: 'Tarefa', padrao: false, somavel: false, tipo: 'texto' },
             { id: 'executor', rotulo: 'Executor', padrao: true, somavel: false, tipo: 'texto' },
             { id: 'data', rotulo: 'Data da Sessão', padrao: true, somavel: false, tipo: 'data' },
@@ -1103,7 +1103,7 @@ function formatarHorasHHMM(horasDecimal) {
 // pulado"; uma Tarefa com um só executor mostra 1 filho só (correto,
 // não é bug — é só menos interessante de expandir).
 const NIVEIS_ARVORE_CUSTO = ['projeto', 'etapa', 'subetapa', 'pavimento', 'tarefa', 'executor'];
-const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', subetapa: 'Sub-etapa', pavimento: 'Pavimento', tarefa: 'Tarefa', executor: 'Executor' };
+const ROTULOS_NIVEL_ARVORE_CUSTO = { projeto: 'Projeto', etapa: 'Etapa', subetapa: 'Sub-etapa', pavimento: 'Local', tarefa: 'Tarefa', executor: 'Executor' };
 
 function agruparArvoreCustoRelatorio(linhas) {
     const porProjeto = {};
@@ -1185,7 +1185,7 @@ function renderizarArvoreRelatorioCustos(linhasFiltradas) {
 
     area.innerHTML =
         '<div class="table-wrapper"><table class="tabela-compacta tabela-arvore-custos">' +
-        '<thead><tr><th rowspan="2">Projeto / Etapa / Sub-etapa / Pavimento / Tarefa</th>' + cabecalhoNiveis + '</tr>' +
+        '<thead><tr><th rowspan="2">Projeto / Etapa / Sub-etapa / Local / Tarefa</th>' + cabecalhoNiveis + '</tr>' +
         '<tr>' + cabecalhoSub + '</tr></thead>' +
         '<tbody>' + corpo + '</tbody>' +
         '<tfoot><tr class="linha-total"><td>Total</td>' + totalCelulas + '</tr></tfoot>' +

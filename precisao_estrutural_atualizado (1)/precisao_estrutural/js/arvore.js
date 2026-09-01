@@ -215,7 +215,15 @@
         const NIVEIS_ORDEM = ['etapa', 'subetapa', 'pavimento', 'tarefa'];
         const ICONE_POR_NIVEL = { etapa: '📁', subetapa: '📐', pavimento: '🧮', tarefa: '⚙️' };
         const COR_BOTAO_POR_NIVEL = { subetapa: '#10b981', pavimento: '#64748b', tarefa: '#475569' };
-        const ROTULO_BOTAO_POR_NIVEL = { subetapa: 'Sub', pavimento: 'Pav', tarefa: 'Tar' };
+        // Item 13 (revisão 2026-09-01): rótulo do botão "+ Pav" virou
+        // "+ Loc" — "Pavimento" nem sempre é um pavimento de verdade (o
+        // usuário achou o nome "Local" mais adequado pra esse nível,
+        // já que ele pode representar qualquer subdivisão física, não
+        // só andar de prédio). Só o RÓTULO mudou aqui — o `nivel`
+        // interno continua 'pavimento' (mesma string em toda a
+        // aplicação, banco de dados, etc.), pra não precisar de uma
+        // reforma do tamanho da Setor→Sub-etapa só por causa de um nome.
+        const ROTULO_BOTAO_POR_NIVEL = { subetapa: 'Sub', pavimento: 'Loc', tarefa: 'Tar' };
 
         function niveisFilhoDisponiveis(nivelAtual) {
             const idx = NIVEIS_ORDEM.indexOf(nivelAtual);
@@ -353,7 +361,7 @@
                 // criação — é sobre o dado FÍSICO do pavimento (mestre
                 // ou repetido, área real), não faz parte da
                 // generalização de nível.
-                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Tipo de Pavimento:</label><select id="l-tipo-pav" style="background:white;" onchange="document.getElementById(\'box-area-mestre\').style.display = this.value===\'mestre\'?\'block\':\'none\'"><option value="mestre">Mestre (Detalhável Original)</option><option value="repetido">Repetido (Ocultado na Árvore)</option></select></div>' +
+                html += '<div class="form-group col-12" style="margin-top:12px;"><label>Tipo de Local:</label><select id="l-tipo-pav" style="background:white;" onchange="document.getElementById(\'box-area-mestre\').style.display = this.value===\'mestre\'?\'block\':\'none\'"><option value="mestre">Mestre (Detalhável Original)</option><option value="repetido">Repetido (Ocultado na Árvore)</option></select></div>' +
                         '<div id="box-area-mestre" style="display:block; margin-top:10px;">' +
                         '<div class="form-group col-12"><label>Área Física Real (m²):</label><input type="number" id="l-pav-area" value="500"></div>' +
                         '<div class="form-group col-12" style="margin-top:8px;"><label>Peso de Esforço:</label><input type="number" id="l-pav-peso" value="1.0" step="0.1"></div>' +
@@ -593,7 +601,7 @@
                 let pct_verba = ((a_eq / total_a_eq) * 100).toFixed(1);
 
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física Real (m²):</label><input type="number" id="edit-pav-area" value="' + no.area_fisica + '"></div>' +
-                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Pavimento:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
+                        '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Local:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
                         '<span>📐 <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
                         '<span>💰 <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +

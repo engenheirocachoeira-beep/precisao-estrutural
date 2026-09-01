@@ -4393,3 +4393,150 @@ passou nos 2 arquivos JS tocados.
 pelo nome antigo — só prosa, sem efeito funcional. As 2 cópias de
 `distribuicao-custos.js` em `modulos_isolados/` (mesmo precedente de
 sempre — já estavam defasadas desde a parte 65).
+
+## Retomada em 2026-09-01 (parte 68) — Campo % sem seta, "Verba por Tarefa" vira árvore, catálogo de Etapas, "Pavimento"→"Local", Kanban em lista
+
+Segundo lote de revisões acumuladas (mesmo pedido "acumular revisões,
+implementar só depois" da parte 67) — 6 itens numerados, do 9 ao 14:
+
+**Item 9 — campo "% Fundo Distrib. Lucros" cortava o número**:
+`renderizarTabelasVerbaPavimento()` (`js/distribuicao-custos.js`)
+alargou o campo de 72px pra 92px e ganhou a classe
+`campo-percentual-sem-seta`; `estilos.css` ganhou a regra que remove as
+setas de incremento do `type="number"` (Chrome/Safari via
+`::-webkit-*-spin-button`, Firefox via `appearance:textfield`) — só
+digitação manual agora.
+
+**Itens 10-11 — aba "Verba por Tarefa" virou árvore expansível**: pedido
+do usuário, refinado depois de uma prévia (Artifact) — "usar o critério
+de expandir os quadros, colocando as Etapas (mãe) e expandindo os
+quadros para os filhos até chegar ao nível das tarefas". Antes só
+listava Pavimentos (lista achatada, vinda de
+`calcularListaPavimentosComVerba().pavimentos`) — qualquer Etapa sem
+Pavimento (ex: "Análise Global", só Sub-etapa) nunca aparecia.
+Reescrito em `js/distribuicao-custos.js`:
+- `carregarAbaVerbaPorTarefa()`: agora chama
+  `calcularVerbaCascataCompleta()` direto (mesma cascata que "Verba por
+  Sub-etapa" já roda) e percorre a árvore INTEIRA — todo nó já sai com
+  `_verbaCalc` preenchido (inclusive Tarefa, já dividida por Pontos
+  dentro do grupo, via `distribuirVerbaRecursiva`).
+- Novas `construirQuadroEtapaVerbaPorTarefa()` (nível 1, um quadro por
+  Etapa) → `construirNoVerbaPorTarefa()` (despacha cada filho) →
+  `construirGrupoTarefaVerbaPorTarefa()` (nó cujos filhos são Tarefa —
+  Pontos editáveis, rateio ao vivo, Horas Máximas, Subtotal,
+  conferência: **comportamento 100% preservado**, só deixou de ser
+  exclusivo de "Pavimento") ou `construirLinhaLeafMaeVerbaPorTarefa()`
+  (item 11: nó SEM filhos vira, ele mesmo, a "tarefa" final, com a
+  verba TOTAL que já coube a ele — sem campo de Pontos, editá-lo não
+  mudaria nada nesse caso, já que não tem irmão de Tarefa pra dividir
+  com; Executor e Horas Máximas continuam funcionando, usando os mesmos
+  campos que o nó já tem).
+- 3 níveis de recolhimento independentes, mesmo glifo ►/▼ de sempre:
+  `vtEtapasRecolhidas` (Etapa, novo), `vtGruposRecolhidos` (Sub-etapa/
+  Pavimento com Tarefa, já existia — reaproveitado sem mudança de
+  comportamento).
+- `#vt-grid-pavimentos` (`.vt-grid`, grade de até 3 colunas) virou
+  `#vt-arvore-wrapper` (coluna única, `index.html`) — não faz mais
+  sentido grade quando o conteúdo é uma árvore hierárquica.
+
+**Item 12 — catálogo de Etapas só com "Detalhamento"/"Análise Global"**:
+pedido do usuário, retomando o que tinha ficado em aberto no início da
+sessão. Migração v14 nova em `js/core.js` (mesmo padrão v1-v13) —
+**mas só a metade ADITIVA**: qualquer nome do catálogo de Etapa
+(`banco_etapas_lego`) que não seja "Detalhamento" nem "Análise Global"
+entra no catálogo de Sub-etapa (`banco_subetapas_lego`), se ainda não
+estiver lá. **Não remove nada de `banco_etapas_lego` automaticamente**
+— achado real testando contra o app antes de considerar pronto: a
+trava de sanidade do sync (`_syncSnapshotPareceIncompleto`,
+`sync-provisorio.js`, criada depois do incidente real de 2026-08-31)
+bloqueia qualquer ENVIO que encolha uma lista "de verdade" (≥5 itens)
+pra menos da metade. `banco_etapas_lego` tinha 8 itens reais em
+produção; a lista final teria 2 (75% de encolhimento) — bloquearia o
+envio pra QUALQUER cliente que tentasse migrar isso automaticamente, a
+mudança nunca sincronizaria, e cada recarregamento traria os 8 itens
+de volta via pull (loop sem saída sozinho — reproduzi isso de verdade,
+não é hipotético: `[sync-provisorio] ENVIO BLOQUEADO — banco_etapas_lego:
+8 → 2` no console). A remoção final dos 6 nomes de
+`banco_etapas_lego` ficou como 1 clique manual no 🗑️ de cada linha
+em Cadastro → Gestão de Etapas (UI que já existia) — bem abaixo do
+limite de 50%, sincroniza normal.
+
+**Item 13 — "Pavimento" virou "Local" nos rótulos visíveis** (pedido do
+usuário: "achei um nome melhor... um pavimento é um local", inspirado
+no Location-Based Management System / LBMS, que generaliza exatamente
+esse nível pra "Location"). Escopo deliberadamente restrito a
+RÓTULOS — o `nivel` interno continua `'pavimento'` em toda a aplicação
+(funções, `NIVEIS_ORDEM`, `banco_pavimentos_lego`), evitando uma
+reforma do tamanho da Setor→Sub-etapa só por causa de um nome:
+- `js/arvore.js`: `ROTULO_BOTAO_POR_NIVEL.pavimento` ("+Pav"→"+Loc"),
+  "Tipo de Pavimento:"→"Tipo de Local:", "Peso do Pavimento:"→"Peso do
+  Local:".
+- `js/relatorios.js`: coluna de filtro do construtor de relatórios
+  ("Pavimento"→"Local"), `ROTULOS_NIVEL_ARVORE_CUSTO.pavimento`, título
+  da árvore de custos.
+- `js/core.js`: `titulosPorAba.pavimentos` ("Gestão de PAVIMENTOS"→
+  "Gestão de LOCAIS").
+- `index.html`: aba do Cadastro ("🧮 Pavimentos"→"🧮 Locais"), tabela do
+  catálogo ("Nome da Pavimento"→"Nome do Local", "Nova Pavimento..."→
+  "Novo Local..."), descrição da Distribuição de Lucro, filtro do
+  Relatório de Custos.
+- Deliberadamente NÃO tocado: "Número de Pavimentos"/"Pavimentos:" no
+  Cadastro de Projetos — é a contagem FÍSICA de andares do prédio (um
+  dado real do projeto), conceito diferente do nível genérico da
+  árvore, mesmo que o nome coincida.
+
+**Item 14 — Kanban ganhou visão Lista**: pedido do usuário —
+"alternar a visão em cartão ou em lista, a critério do usuário".
+`js/kanban.js`:
+- `alternarVisualizacaoKanban(modo)`: troca `kbModoVisualizacao`
+  ('cartao'/'lista'), persiste em `localStorage['kb_modo_visualizacao']`
+  (preferência de tela, fora de qualquer `banco_*` sincronizado) — a
+  escolha sobrevive entre sessões.
+- `renderizarListaKanban()`: uma tabela por Status (mesma ordem de
+  `KB_COLUNAS`), 1 linha por tarefa (bolinha de prioridade, Tarefa +
+  breadcrumb, Executor, Pontos, Previsto) — reaproveita os MESMOS
+  campos que já chegavam prontos pro Cartão, sem cálculo próprio.
+  Escopo consciente: é só CONSULTA — arrastar-e-soltar, cronômetro e
+  aprovação de finalização continuam exclusivos da visão Cartão (aviso
+  fixo no topo da lista avisa isso).
+- `renderizarQuadroKanban()`: o cálculo de datas previstas (que só
+  rodava dentro do laço por coluna) saiu pra um passo único sobre TODAS
+  as tarefas, já que as duas visões precisam do mesmo dado.
+- `index.html`: 2 botões nível `.aprov-aba` (mesmo estilo das abas
+  "Meu Kanban"/"Tarefas a supervisionar" já existentes) acima do
+  quadro, `#kb-lista-wrapper` novo ao lado de `#kb-quadro`.
+
+**Achado de metodologia de teste** (vale registrar — não é bug do
+código): o servidor local (`python -m http.server`) reiniciado entre
+rodadas de teste não é o suficiente pra garantir JS fresco no
+navegador de teste — o navegador cacheia `<script src>` por URL,
+sobrevive a reinício de servidor E a `navigate(..., force:true)` com
+query-string nova na URL principal (cache-busting da página HTML não
+alcança os `<script>` filhos). Confundiu bastante a investigação do
+item 12 (cheguei a suspeitar de um bug real na migração v14). Solução
+que funcionou: `fetch('/js/arquivo.js', {cache:'no-store'})` +
+`(0, eval)(texto)` pra forçar o JS mais novo a substituir as funções
+globais já carregadas, sem precisar reabrir a aba.
+
+Testado ao vivo contra "HOME GARDEN - SETOR C" (mesma técnica de
+leitura segura de sempre — sync desligado, `localStorage.clear()` +
+recarregar pra simular pull limpo do Firebase antes de cada bateria de
+teste). Confirmado: campo sem seta e mais largo (92px,
+`appearance:textfield`); árvore "Verba por Tarefa" com "Análise
+Global"/"DETALHAMENTO" recolhidas por padrão, PRÉ-LANÇAMENTO/
+LANÇAMENTO/ANÁLISE/CARGAS abrindo como folha com verba própria e
+Executor "Igor" pré-preenchido (dado real), TÉRREO abrindo em 5 Tarefas
+com rateio por Pontos batendo com o valor calculado à mão antes de
+implementar, selo de conferência ✅; catálogo de Sub-etapas com os 10
+itens (4 originais + 6 migrados), catálogo de Etapas intocado (8
+itens, prontos pra exclusão manual); Cadastro → Locais com os rótulos
+novos; Kanban alternando Cartão↔Lista, escolha persistindo em
+`localStorage`, abas "Meu Kanban"/"Ranking" sem regressão. `node
+--check` passou em todos os 5 arquivos JS tocados (`core.js`,
+`distribuicao-custos.js`, `arvore.js`, `relatorios.js`, `kanban.js`).
+Zero erro novo no console em nenhuma das rodadas.
+
+**Não tocado**: as cópias em `modulos_isolados/` (mesmo precedente de
+sempre) — `arvore/`, `catalogo/`, `distribuicao-custos/` (2 cópias),
+`atribuicao-tarefas/` (cópia própria de `distribuicao-custos.js`),
+`kanban/`, `relatorios/`, `cadastros/`.

@@ -930,6 +930,26 @@ function renderizarQuadroKanban() {
         }
     }
 
+    // Item 14 (revisão 2026-09-01): datas previstas anexadas a CADA
+    // tarefa uma vez só, antes de decidir entre Cartão (por coluna) ou
+    // Lista (uma tabela só) — as duas visões precisam do mesmo dado,
+    // então saiu do laço por coluna que só a visão Cartão usa.
+    tarefas.forEach(t => {
+        const datas = datasCombinadas[t.caminho];
+        t.dataInicioExibicao = datas ? formatarDataPrevistaExibicao(datas.inicio) : null;
+        t.dataInicioPrevista = datas ? datas.inicio : null; // ISO cru — item 13, semáforo de prioridade precisa comparar datas, não a string já formatada
+        t.dataFimExibicao = datas ? formatarDataPrevistaExibicao(datas.fim) : null;
+        t.dataFimPrevista = datas ? datas.fim : null;
+    });
+
+    document.getElementById('kb-quadro').style.display = kbModoVisualizacao === 'lista' ? 'none' : 'flex';
+    document.getElementById('kb-lista-wrapper').style.display = kbModoVisualizacao === 'lista' ? 'block' : 'none';
+
+    if (kbModoVisualizacao === 'lista') {
+        renderizarListaKanban(tarefas, hojeISO);
+        return;
+    }
+
     kbColunasAtuais.forEach((col, idx) => {
         // Ordem cronológica por Data de Início — pedido explícito do
         // usuário. Tarefas sem data calculável (ex: "Finalizada", que não
@@ -943,16 +963,80 @@ function renderizarQuadroKanban() {
                 return dataA.localeCompare(dataB);
             });
         document.getElementById('kb-contador-' + idx).innerText = tarefasDaColuna.length;
-
-        document.getElementById('kb-cartoes-' + idx).innerHTML = tarefasDaColuna.map(t => {
-            const datas = datasCombinadas[t.caminho];
-            t.dataInicioExibicao = datas ? formatarDataPrevistaExibicao(datas.inicio) : null;
-            t.dataInicioPrevista = datas ? datas.inicio : null; // ISO cru — item 13, semáforo de prioridade precisa comparar datas, não a string já formatada
-            t.dataFimExibicao = datas ? formatarDataPrevistaExibicao(datas.fim) : null;
-            t.dataFimPrevista = datas ? datas.fim : null;
-            return construirCartaoKanbanHtml(t, hojeISO, nomeParaBadgeCartao);
-        }).join('');
+        document.getElementById('kb-cartoes-' + idx).innerHTML = tarefasDaColuna.map(t => construirCartaoKanbanHtml(t, hojeISO, nomeParaBadgeCartao)).join('');
     });
+}
+
+// Item 14 (revisão 2026-09-01): "a critério do usuário, poderá
+// escolher/alternar a visão em cartão ou em lista" — persiste em
+// localStorage (chave própria, fora de qualquer banco_* sincronizado —
+// é preferência de tela, não dado de projeto) pra manter a escolha
+// entre sessões, mesmo padrão de outras preferências puramente visuais
+// já usadas no sistema.
+let kbModoVisualizacao = localStorage.getItem('kb_modo_visualizacao') || 'cartao';
+
+function alternarVisualizacaoKanban(modo) {
+    kbModoVisualizacao = modo;
+    localStorage.setItem('kb_modo_visualizacao', modo);
+    const btnCartao = document.getElementById('kb-btn-vis-cartao');
+    const btnLista = document.getElementById('kb-btn-vis-lista');
+    if (btnCartao) btnCartao.classList.toggle('aprov-aba-ativa', modo === 'cartao');
+    if (btnLista) btnLista.classList.toggle('aprov-aba-ativa', modo === 'lista');
+    renderizarQuadroKanban();
+}
+
+// Visão Lista (item 14): uma linha por tarefa, agrupada por Status na
+// mesma ordem de KB_COLUNAS — mais densa que o Cartão, pensada pra
+// escanear muitas tarefas de uma vez (sem cronômetro, sem botão de
+// aprovação, sem arrastar-e-soltar; essas ações continuam exclusivas
+// da visão Cartão — ver aviso fixo no topo da lista). Reaproveita os
+// MESMOS campos que já chegam prontos em `t` pro Cartão (projeto,
+// localização, executor, pontos, datas previstas), sem cálculo
+// próprio nenhum.
+function renderizarListaKanban(tarefas, hojeISO) {
+    const wrapper = document.getElementById('kb-lista-wrapper');
+    if (tarefas.length === 0) {
+        wrapper.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:30px;">Nenhuma tarefa encontrada com os filtros atuais.</div>';
+        return;
+    }
+
+    const linhas = KB_COLUNAS.map(col => {
+        const tarefasDoStatus = tarefas
+            .filter(t => t.status === col.status)
+            .sort((a, b) => (a.dataInicioPrevista || '9999-99-99').localeCompare(b.dataInicioPrevista || '9999-99-99'));
+        if (tarefasDoStatus.length === 0) return '';
+
+        const linhasTarefas = tarefasDoStatus.map(t => {
+            const bolinhaSemaforo = typeof renderizarBolinhaSemaforoPrioridade === 'function' ? renderizarBolinhaSemaforoPrioridade(t.dataInicioPrevista, hojeISO) : '';
+            const partesLocalizacao = t.localizacao.split(' › ');
+            const localizacaoSemTarefa = partesLocalizacao.length > 1 ? partesLocalizacao.slice(0, -1).join(' › ') : '';
+            const periodo = (t.dataInicioExibicao && t.dataFimExibicao) ? (t.dataInicioExibicao + ' → ' + t.dataFimExibicao) : '—';
+            return '<tr>' +
+                '<td style="white-space:nowrap;">' + bolinhaSemaforo + '</td>' +
+                '<td>' +
+                    '<div style="font-size:10px; color:#94a3b8;">' + escapeHtml(t.projeto) + (localizacaoSemTarefa ? ' › ' + escapeHtml(localizacaoSemTarefa) : '') + '</div>' +
+                    '<div style="font-weight:600;">' + escapeHtml(t.tarefa) + '</div>' +
+                '</td>' +
+                '<td>' + escapeHtml(nomeParaExibicao(t.executor)) + '</td>' +
+                '<td class="col-centralizada">' + (t.pontos || '—') + '</td>' +
+                '<td style="white-space:nowrap;">' + periodo + '</td>' +
+                '</tr>';
+        }).join('');
+
+        return '<div style="margin-bottom:14px;">' +
+            '<div style="font-weight:bold; font-size:12px; padding:6px 10px; border-left:4px solid ' + col.cor + '; background:#f8fafc; display:flex; justify-content:space-between;">' +
+                '<span>' + escapeHtml(col.status) + '</span><span style="color:#64748b;">' + tarefasDoStatus.length + '</span>' +
+            '</div>' +
+            '<div class="table-wrapper" style="max-height:none;"><table class="tabela-compacta">' +
+                '<thead><tr><th style="width:20px;"></th><th>Tarefa</th><th style="width:140px;">Executor</th><th class="col-centralizada" style="width:60px;">Pontos</th><th style="width:150px;">Previsto</th></tr></thead>' +
+                '<tbody>' + linhasTarefas + '</tbody>' +
+            '</table></div>' +
+        '</div>';
+    }).join('');
+
+    wrapper.innerHTML =
+        '<div style="font-size:11px; color:#94a3b8; margin-bottom:10px;">Visão Lista é só consulta — pra mover status (arrastar), usar cronômetro ou aprovar finalização, use a visão Cartão.</div>' +
+        (linhas || '<div style="text-align:center; color:#94a3b8; padding:30px;">Nenhuma tarefa encontrada com os filtros atuais.</div>');
 }
 
 function iniciarArrastoCartaoKanban(event, caminho) {

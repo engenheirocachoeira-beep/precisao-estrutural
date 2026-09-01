@@ -533,6 +533,17 @@
         .campo-percentual input { padding-right: 22px !important; width: 100%; box-sizing: border-box; text-align: center; }
         .campo-percentual .sufixo-pct { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #64748b; pointer-events: none; }
 
+        /* Item 9 (revisão 2026-09-01): campo "% Fundo Distribuição de
+           Lucros" (aba "Verba por Sub-etapa") ficava estreito demais pro
+           número aparecer inteiro, e as setas de incremento do
+           type="number" roubavam o pouco espaço que sobrava. Remove as
+           setas (Chrome/Safari + Firefox) — só digitação manual mesmo,
+           a largura maior (92px, ver renderizarTabelasVerbaPavimento())
+           já resolve o corte de texto sozinha. */
+        .campo-percentual-sem-seta input::-webkit-outer-spin-button,
+        .campo-percentual-sem-seta input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .campo-percentual-sem-seta input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
         /* Pedido do usuário: borda visível só nos campos de % (não nos
            de Verba/valor) do Fundo Garantidor e das linhas de Total —
            mesmo tipo/tamanho de borda que o <input> das Etapas usa
