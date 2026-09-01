@@ -4263,3 +4263,133 @@ valores das linhas mesmo expandidas.
 cópias de `distribuicao-custos.js` em `modulos_isolados/` — já estavam
 com o mesmo tipo de defasagem desde a parte 65 (Setor→Sub-etapa), essa
 UI de sub-menu se soma à mesma pendência de sincronia.
+
+## Retomada em 2026-09-01 (parte 67) — "Verba por Pavimento" vira "Verba por Sub-etapa": um quadro por Etapa, % Fundo de Lucros por Etapa
+
+Lote de revisões acumuladas pelo usuário (pedido explícito: "vamos
+acumular revisões, implemente apenas depois que eu disser") sobre a
+antiga aba "Verba por Pavimento" (Aba 4 da Distribuição de Custos):
+
+1. Aba renomeada "Verba por Pavimento" → "Verba por Sub-etapa".
+2. Layout do "% Fundo Distribuição de Lucros" redistribuído (valor em
+   R$ sempre visível, botão "Salvar %" menor) + limite 0–100%.
+3. "Verba Líquida (Etapa Detalhamento)" → "Verba Líquida Total",
+   passou a ser a Verba Global para Produção (antes de repartir por
+   Etapa), não mais a soma do que tinha Pavimento cadastrado.
+4. Total por Etapa (soma das Sub-etapas/Pavimentos dela) + Total Geral
+   (soma de todas as Etapas).
+5. A aba sempre abre com a rolagem no topo.
+6. "% Fundo Distribuição de Lucro" deixou de ser um único valor do
+   projeto e virou um campo por Etapa, calculado sobre a verba bruta
+   DAQUELA Etapa — confirmado pelo usuário: "o Fundo de distribuição de
+   Lucro deve ser calculado sobre a verba de cada etapa
+   individualmente. O Fundo de distribuição de lucros total deve ser a
+   soma do fundo individual de cada etapa".
+7. Título "Pavimento" trocado por "Sub-etapa" nas tabelas desta aba.
+8. Cada quadro (cartão) leva o nome da Etapa como título.
+
+Antes de implementar, montei uma **prévia estática** (Artifact, sem
+mexer no app) com o layout proposto, incluindo uma rodada usando dados
+REAIS do projeto "HOME GARDEN - SETOR C" (lidos ao vivo do app com
+sync desligado) pra validar os números com o usuário antes de escrever
+código — só depois do "pode implementar" a mudança entrou no código de
+verdade.
+
+**`js/distribuicao-custos.js`** (motor de cálculo — maior parte da
+mudança):
+- `obterPctFundoLucrosPavimento(nomeProjeto, etapa)`: assinatura mudou
+  de `(nomeProjeto)` pra `(nomeProjeto, etapa)` — o 2º argumento agora
+  é o NÓ da Etapa (não mais nada), porque a decisão de qual % usar por
+  padrão depende da estrutura dela. Armazenamento novo:
+  `banco_fundo_lucros_pavimento[projeto].etapas[nomeEtapa].pct`
+  (sucessor do antigo `banco_fundo_lucros_pavimento[projeto].pct`,
+  único e global). Regra de compatibilidade decidida com cuidado pra
+  NÃO mudar retroativamente os números de projetos já em produção: se a
+  Etapa já tem seu próprio % salvo (formato novo), usa esse; senão, se
+  a Etapa tem Pavimento na subárvore (`subarvoreTemPavimento` — a
+  ÚNICA que tinha esse conceito até esta revisão), usa o % antigo
+  salvo (ou 5% se nunca configurado — mesmo default de sempre); senão
+  (Etapa só-de-Sub-etapa, ex: "Análise Global", que NUNCA teve esse
+  conceito), começa do **zero**, não herda o "5% padrão" antigo — só
+  passa a descontar fundo se o administrador ligar isso explicitamente
+  pra ela. Validado ao vivo: "DETALHAMENTO" (que já tinha 5% salvo)
+  continuou em 5% sem o usuário precisar refazer nada; "Análise Global"
+  (nunca configurada) nasceu em 0%.
+- `calcularVerbaCascataCompleta()`: 3º argumento virou um mapa
+  `{ nomeEtapa: pct }` (era um número único). Removido o gate
+  `subarvoreTemPavimento(etapa) ? ... : 0` que existia pra evitar
+  "dinheiro sem destino" — não precisa mais, porque o default de 0%
+  pra Etapas sem Pavimento (acima) já resolve isso sem gate especial.
+  Guarda `_pctFundoLucros`/`_valorFundoLucros`/`_verbaBrutaEtapa` no
+  próprio nó da Etapa (mesmo padrão de `_verbaCalc`) pra
+  `listarPavimentosDoProjeto`/`listarSubEtapasDoProjeto` reaproveitarem
+  sem recalcular.
+- `listarSubEtapasDoProjeto()`: ganhou `valorFundoLucros` (rateio por
+  Área Equivalente, mesmo mecanismo que `listarPavimentosDoProjeto` já
+  usava) e `etapa` (nome da Etapa de topo) em cada item — antes só
+  `listarPavimentosDoProjeto` tinha isso.
+- `calcularListaPavimentosComVerba()` (versão "ao vivo"): agora também
+  devolve `subetapas`, `fundoPorEtapa` (um item por Etapa: %, valor,
+  verba bruta) e `verbaGlobalProducao` (a nova "Verba Líquida Total").
+  `calcularListaPavimentosComVerbaSalva()` (usada por Atribuição de
+  Tarefas/Painel de Progresso/Distribuição de Lucro) **não mudou** —
+  continua só com `.pavimentos`, que era tudo que esses 3 consumidores
+  já liam.
+- `renderizarTabelasVerbaPavimento()`: reescrita — monta um
+  `.vt-card` (mesma cara dos cartões de Pavimento da aba "Verba por
+  Tarefa") por Etapa, com seu próprio campo de %, sua tabela de
+  Sub-etapas/Pavimentos e seu "Total da Etapa". Os campos de % Fundo
+  usam só `onblur` (não `oninput`) de propósito: eles agora vivem
+  DENTRO da área que a função reconstrói a cada chamada — recalcular a
+  cada tecla apagaria o próprio campo que a pessoa está digitando.
+- `carregarAbaVerbaPavimento()`: limpa `#vp-etapas-wrapper` antes de
+  renderizar (ver bug abaixo) e força `#dc-conteudo-principal.scrollTop
+  = 0` (item 5).
+- Novas: `construirLinhaVerbaSubEtapa(item, tipo)`,
+  `limitarPctFundoLucros(inputEl)` (clampa 0–100%, item 2).
+  `salvarFundoLucrosPavimento()` mudou de assinatura: recebe o
+  `<button>` clicado (lê a Etapa de `data-etapa`) em vez de nada — evita
+  embutir o nome da Etapa numa string de `onclick`.
+
+**`index.html`**: aba renomeada; bloco estático da Aba 4 trocado por
+`#vp-etapas-wrapper` (vazio, montado 100% via JS) + linhas de "Fundo de
+Distribuição de Lucros Total" e "Total Geral".
+
+**`estilos.css`**: seletor `#conteudo-verba-pavimento > .table-wrapper
+> table` (exigia filho DIRETO) virou `#conteudo-verba-pavimento
+.table-wrapper > table`, porque as tabelas agora vivem dentro de um
+`.vt-card` por Etapa, não mais soltas direto na aba.
+
+**Bug real encontrado e corrigido durante o teste ao vivo** (antes de
+considerar pronto): `renderizarTabelasVerbaPavimento()` lê os %'s "ao
+vivo" direto dos campos `.vp-input-pct-fundo` já presentes na tela
+antes de reconstruir (pra não perder o que o usuário está digitando).
+Isso vazava o % de uma Etapa do projeto ANTERIOR pra uma Etapa de MESMO
+NOME no projeto novo ao trocar de projeto — reproduzido de verdade:
+salvei 5% pra "Análise Global" do projeto "HOME GARDEN - SETOR C", troquei
+pra "AP PRAIA (SAVOIA) - SETOR B" (que também tem uma Etapa "Análise
+Global", mas nunca configurada) e ela nasceu com 5% em vez de 0%.
+Corrigido limpando `#vp-etapas-wrapper` no início de
+`carregarAbaVerbaPavimento()`, antes do primeiro `renderizarTabelasVerbaPavimento()`
+de cada troca de projeto — reproduzi o cenário de novo depois da
+correção e confirmei 0% correto.
+
+Testado ao vivo contra os 2 projetos reais desta sessão ("HOME GARDEN -
+SETOR C" e "AP PRAIA (SAVOIA) - SETOR B", mesma técnica de leitura seg
+ura de sempre — sync desligado logo após o pull inicial). Conferido:
+números batem com os calculados à mão antes de implementar (Verba
+Líquida Total R$ 27.369,87 pra HOME GARDEN, quadros com % e Total da
+Etapa corretos), edição de Área/Peso recalcula só o quadro da própria
+Etapa, `limitarPctFundoLucros` clampa 150% pra 100%, botão "Salvar %"
+grava em `banco_fundo_lucros_pavimento[projeto].etapas[nome]` mantendo
+o `.pct` antigo (formato legado) intocado ao lado, troca de aba e volta
+zera a rolagem, selo de conferência (Total Geral + Fundo de Lucros ==
+Soma das Verbas Brutas das Etapas) fecha ✅, e as abas "Verba por
+Etapa"/"Verba por Tarefa" continuam sem erro no console. `node --check`
+passou nos 2 arquivos JS tocados.
+
+**Não tocado**: comentários em `desempenho-projeto.js`/
+`distribuicao-lucro.js` que ainda mencionam "Aba 4/Verba por Pavimento"
+pelo nome antigo — só prosa, sem efeito funcional. As 2 cópias de
+`distribuicao-custos.js` em `modulos_isolados/` (mesmo precedente de
+sempre — já estavam defasadas desde a parte 65).

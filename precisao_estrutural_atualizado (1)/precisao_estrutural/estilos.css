@@ -465,10 +465,14 @@
            proporcionalmente pra preencher o container — inclusive as
            colunas que deveriam ficar do mesmo tamanho. `width:auto`
            aqui faz a tabela ficar exatamente do tamanho da soma das
-           colunas declaradas, sem esticar. Mesma lógica pra
-           "Pavimento" na Aba "Verba por Pavimento" logo abaixo. */
+           colunas declaradas, sem esticar. Mesma lógica pras tabelas de
+           Sub-etapa na aba "Verba por Sub-etapa" logo abaixo — revisão
+           de 2026-09-01: cada tabela agora vive dentro de um quadro por
+           Etapa (.vt-card), não mais direto dentro de "Verba por
+           Sub-etapa" — por isso o seletor deixou de exigir filho DIRETO
+           (`>`) de #conteudo-verba-pavimento. */
         #conteudo-distribuicao-analista table.tabela-compacta,
-        #conteudo-verba-pavimento > .table-wrapper > table {
+        #conteudo-verba-pavimento .table-wrapper > table {
             table-layout: fixed;
             width: auto;
         }
