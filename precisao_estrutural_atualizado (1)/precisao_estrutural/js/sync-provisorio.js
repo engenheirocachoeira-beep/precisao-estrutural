@@ -91,6 +91,17 @@ let _syncUltimoEnvioAssinatura = null;
 let _syncAplicandoRemoto = false;      // trava reentrância enquanto grava dados vindos do servidor
 let _syncPullInicialConcluido = false; // trava envios antes da primeira leitura do servidor terminar
 let _syncUltimoSnapshotServidor = null; // último estado conhecido do servidor — baseline pra detectar envio de dado incompleto (ver seção 5)
+// Bug real encontrado (2026-09-01): a trava de sanidade (seção 5) não
+// tinha limite de tempo — uma vez que UM envio fosse bloqueado (ex:
+// apagar várias entradas de um catálogo de propósito, de verdade, na
+// MESMA sessão — coisa que o próprio app sugere fazer, ver Cadastro →
+// Gestão de Etapas), TODO envio seguinte da mesma aba continuava
+// bloqueado pra sempre (o "último estado conhecido do servidor" só
+// avança quando um PUSH consegue passar, e ele nunca mais passava —
+// nem 2+ minutos depois). Único jeito de sair era recarregar, o que
+// justamente DESCARTA a edição que travou tudo. Marcado aqui pra
+// destravar sozinho depois de um tempo — ver _syncSnapshotPareceIncompleto.
+let _syncMomentoPullConcluidoMs = null;
 
 // ======= 3) OVERLAY E AVISO VISUAL (criados via JS, sem tocar no HTML) =======
 function _syncCriarOverlay() {
@@ -169,6 +180,19 @@ function _syncAplicarSnapshotRemoto(dados) {
 
 // ======= 5) PUSH (local -> servidor) =======
 
+// Janela de proteção da trava abaixo: só faz sentido bloquear um
+// encolhimento suspeito logo depois do pull inicial (aba nova ainda sem
+// puxar tudo, storage corrompido nessa hora) — depois que a pessoa já
+// está usando a aba normalmente por um tempo, um encolhimento grande é
+// muito mais provável ser uma edição de verdade (ex: apagar várias
+// entradas de um catálogo, de propósito, uma atrás da outra) do que
+// corrupção. Bug real encontrado (2026-09-01): sem esse limite, a trava
+// nunca soltava sozinha — todo envio seguinte da mesma aba ficava
+// bloqueado pra sempre (o baseline só avança quando um envio passa, e
+// ele nunca mais passava), até a pessoa recarregar — o que descartava
+// justamente a edição que causou o bloqueio.
+const SYNC_PROVISORIO_JANELA_PROTECAO_MS = 90000; // 90s depois do pull inicial
+
 // Trava de sanidade contra o incidente de 2026-08-31 (ver prompt_gemini.md,
 // parte 59): compara o snapshot que ESTAMOS PRESTES A ENVIAR contra o
 // último estado conhecido do servidor. Se alguma lista que era "de
@@ -179,9 +203,11 @@ function _syncAplicarSnapshotRemoto(dados) {
 // dispara). Sem baseline ainda (`_syncUltimoSnapshotServidor` null —
 // primeira sincronização, servidor genuinamente vazio) não bloqueia nada,
 // senão a configuração inicial da equipe nunca conseguiria subir dado
-// nenhum.
+// nenhum. Só vale dentro da janela de proteção acima do momento em que o
+// pull inicial terminou — depois disso, a trava já cumpriu seu papel.
 function _syncSnapshotPareceIncompleto(novoSnapshot) {
     if (!_syncUltimoSnapshotServidor) return null;
+    if (_syncMomentoPullConcluidoMs && (Date.now() - _syncMomentoPullConcluidoMs) > SYNC_PROVISORIO_JANELA_PROTECAO_MS) return null;
     const motivos = [];
     Object.keys(_syncUltimoSnapshotServidor).forEach(function (chave) {
         let antigo;
@@ -304,6 +330,7 @@ function _syncInicializar() {
             console.warn('[sync-provisorio] configuração do Firebase incompleta ou SDK não carregou — rodando 100% local, sem sincronizar. Ver LEIA-ME_SYNC_PROVISORIO.md.');
         }
         _syncPullInicialConcluido = true; // não há servidor: nada bloqueia envios (que também não vão a lugar nenhum, _syncFirebaseRef fica null)
+        _syncMomentoPullConcluidoMs = Date.now();
         _syncCarregarScriptsApp(0);
         return;
     }
@@ -326,6 +353,7 @@ function _syncInicializar() {
         _syncFirebaseRef.once('value').then(function (snap) {
             const dados = snap.val();
             _syncPullInicialConcluido = true;
+            _syncMomentoPullConcluidoMs = Date.now();
             // Baseline pra trava de sanidade (seção 5) já sai preenchido
             // aqui, sem depender do timing assíncrono de
             // _syncEscutarMudancasRemotas (que também o mantém
@@ -356,6 +384,7 @@ function _syncInicializar() {
             // depois de acontecer (ver prompt_gemini.md).
             _syncFirebaseRef = null;
             _syncPullInicialConcluido = true;
+            _syncMomentoPullConcluidoMs = Date.now();
             _syncRemoverOverlay();
             _syncCarregarScriptsApp(0);
         });
@@ -367,6 +396,7 @@ function _syncInicializar() {
         // servidor — mesmo risco de sobrescrever o banco real da equipe.
         _syncFirebaseRef = null;
         _syncPullInicialConcluido = true;
+        _syncMomentoPullConcluidoMs = Date.now();
         _syncRemoverOverlay();
         _syncCarregarScriptsApp(0);
     });

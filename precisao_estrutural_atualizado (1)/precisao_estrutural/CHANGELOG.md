@@ -4616,3 +4616,68 @@ por: ... Local" na tela; aba Financeira com "Distribuição p/ Locais" e
 `desempenho-projeto.js`. Zero erro novo no console.
 
 **Não tocado**: `modulos_isolados/` (mesmo precedente de sempre).
+
+## Retomada em 2026-09-01 (parte 70) — Bug crítico: trava de sanidade do sync bloqueava envio pra sempre
+
+Usuário relatou: mudou o % Fundo Distribuição de Lucros da Etapa "Análise
+Global" (projeto "HOME GARDEN - SETOR C") pra 0%, clicou "Salvar %", e o
+valor voltava sozinho pra 5% mesmo depois de recarregar a página —
+confirmado no PRÓPRIO navegador do usuário, não só na minha leitura.
+
+**Diagnóstico**: perguntei se algum aviso apareceu na tela — usuário
+confirmou que viu tanto a faixa laranja ("A equipe atualizou dados...")
+quanto a **faixa vermelha** ("Envio bloqueado por segurança..."). Isso
+apontou direto pra `_syncSnapshotPareceIncompleto()`
+(`js/sync-provisorio.js`, trava criada depois do incidente real de
+2026-08-31) — ela compara o que a aba está prestes a ENVIAR contra o
+último estado conhecido do servidor, e bloqueia se alguma lista "de
+verdade" (≥5 itens) encolheu à metade ou mais.
+
+**Causa raiz confirmada por leitura de código**: a trava não tinha
+limite de tempo. Uma vez que UM envio fosse bloqueado — o que acontece
+de verdade ao apagar várias entradas de um catálogo de propósito, uma
+atrás da outra, na MESMA sessão (o próprio app SUGERE fazer isso: "1
+clique no 🗑️ de cada linha em Cadastro → Gestão de Etapas", ver parte
+68/item 12) — TODO envio seguinte da mesma aba ficava bloqueado PRA
+SEMPRE. O motivo: `_syncUltimoSnapshotServidor` (o "último estado
+conhecido do servidor", baseline da comparação) só avança quando um
+envio CONSEGUE passar — e ele nunca mais passava, porque a lista
+continuava "pequena" pros olhos da trava. Único jeito de sair: recarregar
+a página — o que busca o estado ANTIGO do servidor e **descarta
+justamente a edição que causou o bloqueio** (exatamente o que o usuário
+via: o 0% "sumia" a cada F5). Um deadlock real, não hipotético — o
+usuário ficou preso nele.
+
+**Correção** (`js/sync-provisorio.js`): nova variável
+`_syncMomentoPullConcluidoMs`, marcada nos 4 pontos onde
+`_syncPullInicialConcluido` vira `true` (sucesso, servidor vazio, falha
+de leitura, falha de autenticação). `_syncSnapshotPareceIncompleto()`
+agora só bloqueia dentro de uma janela de proteção
+(`SYNC_PROVISORIO_JANELA_PROTECAO_MS`, 90 segundos) depois desse
+momento — o cenário real que a trava foi criada pra pegar ("aba nova
+ainda sem puxar tudo") só existe logo no início da sessão. Passada essa
+janela, um encolhimento grande é muito mais provável ser uma edição de
+verdade do usuário do que corrupção de dado, e a trava se solta
+sozinha — sem precisar recarregar, sem perder edição nenhuma.
+
+Também considerei (e descartei) a hipótese de que `alert()` logo depois
+de `localStorage.setItem()` em `salvarFundoLucrosPavimento()`
+(`js/distribuicao-custos.js`) pudesse atrasar o envio (diálogo bloqueia
+o JS) — reanalisando, um `setTimeout` já agendado dispara normalmente
+assim que o diálogo fecha (só atrasa pelo tempo que o usuário leva pra
+clicar "OK", não impede o envio de acontecer). Não é a causa raiz, não
+mexi nisso.
+
+Testado: `node --check` limpo em `js/sync-provisorio.js`. Testei a
+lógica da janela de proteção diretamente (chamando
+`_syncSnapshotPareceIncompleto()` com um snapshot sintético encolhido,
+dentro e fora da janela de 90s) — confirmei por leitura de código que a
+condição está correta; o teste ao vivo no navegador de desenvolvimento
+ficou ruidoso demais pra confirmar isoladamente (a própria sincronização
+real da sessão de teste interferia nas variáveis globais que eu estava
+manipulando manualmente), mas a lógica em si é simples (uma comparação
+de tempo) e a leitura do código confirma que está certa.
+
+**Ainda pendente**: confirmar com o usuário, depois desta correção subir,
+que a edição de 0% na Análise Global agora persiste de verdade depois de
+salvar e recarregar.
