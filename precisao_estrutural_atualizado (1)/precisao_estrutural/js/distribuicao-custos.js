@@ -316,15 +316,36 @@ function carregarAbaDistribuicaoAnalista() {
 // Analista). Valores recalculados ao vivo em
 // recalcularTabelaDistribuicaoAnalista(). `fIdx` garante ids únicos
 // quando mais de uma Etapa está flagada ao mesmo tempo.
+// Pedido do usuário (2026-08-31): virou sub-menu expansível — as 2
+// linhas ficam ESCONDIDAS por padrão (`display:none`) e só aparecem ao
+// clicar na seta ao lado do nome da Etapa (ver `alternarLinhasCoparticipacao`,
+// abaixo, e o `toggleCoparticipacao` em construirLinhaDistribuicaoAnalista).
+// `data-copart-rows="fIdx"` é o que o toggle usa pra achar as 2 linhas
+// de uma Etapa específica sem mexer nas de outra Etapa flagada.
 function construirLinhasCoparticipacao(fIdx) {
     const linha = (idBase, rotulo) =>
-        '<tr style="background:#f8fafc;">' +
+        '<tr data-copart-rows="' + fIdx + '" style="background:#f8fafc; display:none;">' +
         '<td style="padding-left:22px; color:#64748b;">↳ ' + rotulo + '</td>' +
         '<td class="col-centralizada"><span id="' + idBase + '-pct" class="campo-somente-leitura-borda">0.00%</span></td>' +
         '<td id="' + idBase + '-verba" class="dca-verba" style="font-weight:bold; color:#166534;">' + formatarMoeda(0) + '</td>' +
         '<td></td>' +
         '</tr>';
     return linha('dca-copart-supervisor-' + fIdx, 'Coparticipação Supervisor') + linha('dca-copart-escritorio-' + fIdx, 'Coparticipação Escritório');
+}
+
+// Alterna (mostra/esconde) as 2 linhas de coparticipação de uma Etapa —
+// mesmo padrão visual de seta ►/▼ já usado em alternarGrupoVerbaPorTarefa()
+// (Aba "Verba por Tarefa") e na Árvore de Projeto (`.tree-toggle-icon`).
+// Estado fica só no próprio DOM (`style.display`) — não precisa de
+// variável de estado nem re-renderiza a tabela, então não perde o que o
+// usuário estiver digitando nos campos de % de outras Etapas.
+function alternarLinhasCoparticipacao(fIdx) {
+    const linhas = document.querySelectorAll('#dca-tabela-body tr[data-copart-rows="' + fIdx + '"]');
+    if (linhas.length === 0) return;
+    const estaEscondido = linhas[0].style.display === 'none';
+    linhas.forEach(tr => { tr.style.display = estaEscondido ? 'table-row' : 'none'; });
+    const icone = document.getElementById('dca-copart-toggle-' + fIdx);
+    if (icone) icone.innerText = estaEscondido ? '▼' : '►';
 }
 
 // Reforma de 2026-08-17 (parte 6 — o usuário reconsiderou a parte 1):
@@ -354,7 +375,15 @@ function construirLinhaDistribuicaoAnalista(nomeLinha, dadosSalvos, ehFundoGaran
     // — só o texto exibido muda. `data-tem-coparticipacao` marca a linha
     // pra recalcularTabelaDistribuicaoAnalista() achar todas as Etapas
     // flagadas sem depender de nome nenhum.
-    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (temCoparticipacao ? 'Verba ' + escapeHtml(nomeLinha) + ' - Analista' : escapeHtml(nomeLinha));
+    // Pedido do usuário (2026-08-31): seta de sub-menu expansível antes
+    // do rótulo, só quando a Etapa tem Coparticipação — clique chama
+    // alternarLinhasCoparticipacao() (acima), que mostra/esconde as 2
+    // linhas de Coparticipação Supervisor/Escritório logo abaixo. Mesmo
+    // glifo ►/▼ usado no resto do sistema (Árvore, Verba por Tarefa).
+    const toggleCoparticipacao = temCoparticipacao
+        ? '<span onclick="alternarLinhasCoparticipacao(' + fIdx + ')" class="tree-toggle-icon" id="dca-copart-toggle-' + fIdx + '" title="Mostrar/ocultar coparticipação">►</span> '
+        : '';
+    const rotulo = ehFundoGarantidor ? '💰 <i>Fundo Garantidor</i>' : (temCoparticipacao ? toggleCoparticipacao + 'Verba ' + escapeHtml(nomeLinha) + ' - Analista' : escapeHtml(nomeLinha));
     const marcadorCoparticipacao = temCoparticipacao ? ' data-tem-coparticipacao="1" data-fidx="' + fIdx + '"' : '';
 
     let celulaPct;

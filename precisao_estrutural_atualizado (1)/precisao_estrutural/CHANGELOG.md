@@ -4221,3 +4221,45 @@ seguindo a sequência de pouso do plano):
   `kanban.js`, `apontamento.js` ainda mencionam "Setor" — cosmético,
   confirmado sem nenhum `nivel==='setor'` funcional restante em
   nenhum desses arquivos.
+
+## Retomada em 2026-08-31 (parte 66) — Coparticipação vira sub-menu expansível na "Verba por Etapa"
+
+Pedido do usuário: as 2 linhas de Coparticipação Supervisor/Escritório
+que aparecem abaixo de qualquer Etapa flagada com `tem_coparticipacao`
+(item 4 da parte 65, acima) ficavam sempre visíveis, ocupando espaço na
+tabela mesmo quando o usuário não quer olhar esse detalhe agora. Pedido:
+"abrir em sub-menus expansíveis quando houver coparticipação em alguma
+etapa".
+
+- **`js/distribuicao-custos.js`**:
+  - `construirLinhasCoparticipacao(fIdx)`: as 2 `<tr>` ganharam
+    `data-copart-rows="fIdx"` e `display:none` por padrão (escondidas
+    até o usuário clicar pra expandir).
+  - `construirLinhaDistribuicaoAnalista()`: a linha da própria Etapa
+    (quando `temCoparticipacao`) ganhou uma seta `►`/`▼`
+    (`.tree-toggle-icon`, mesma classe/glifos já usados na Árvore de
+    Projeto e na aba "Verba por Tarefa") antes do rótulo, com
+    `onclick="alternarLinhasCoparticipacao(fIdx)"`.
+  - Nova `alternarLinhasCoparticipacao(fIdx)`: mostra/esconde as 2
+    linhas daquela Etapa e alterna o glifo da seta. Não usa variável de
+    estado nem re-renderiza a tabela (só `style.display` direto no
+    DOM) — evita perder o que o usuário estiver digitando em outros
+    campos de % enquanto abre/fecha o sub-menu.
+
+Testado ao vivo contra 2 projetos reais de produção ("AP PRAIA (SAVOIA)
+- SETOR B" e "HOME GARDEN - SETOR C", ambos com a Etapa "DETALHAMENTO"
+flagada `tem_coparticipacao=true` pela migração v13) usando a mesma
+técnica de leitura segura desta sessão (`index.html` normal +
+desarmar `_syncFirebaseRef`/`_syncTimeoutEnvio` logo após o pull
+inicial, antes do debounce de 3s). Confirmado no HTML renderizado: seta
+`►` presente só nas Etapas flagadas, as 2 linhas nascem com
+`display:none`, `alternarLinhasCoparticipacao(1)` alterna
+corretamente pra `table-row`/`none` e o glifo pra `▼`/`►`, e o
+recálculo ao vivo (`recalcularTabelaDistribuicaoAnalista`, ao mudar os
+%'s de coparticipação em "Orçamento Global") continua atualizando os
+valores das linhas mesmo expandidas.
+
+**Não tocado** (mesmo precedente já registrado várias vezes): as 2
+cópias de `distribuicao-custos.js` em `modulos_isolados/` — já estavam
+com o mesmo tipo de defasagem desde a parte 65 (Setor→Sub-etapa), essa
+UI de sub-menu se soma à mesma pendência de sincronia.
