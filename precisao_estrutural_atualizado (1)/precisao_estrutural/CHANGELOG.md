@@ -4785,3 +4785,48 @@ todos os fatos: regras OK, dado OK, escrita isolada OK, só falha depois
 de uso prolongado da mesma aba. Próximo passo real: usuário confirmar,
 depois desta correção subir, se o 0% da Análise Global finalmente
 persiste depois de salvar e recarregar.
+
+**Atualização — 4ª causa encontrada, esta sim bate 100% com o relato**:
+usuário testou de novo (0% na Análise Global, "Salvar %", espera, F5) —
+voltou pra 5% e **nenhum aviso apareceu na tela** (nem o de bloqueio,
+nem o de falha de envio). Isso descarta as 2 causas anteriores (ambas
+SEMPRE mostram um banner quando acontecem) e aponta pra um buraco que
+nenhuma das 3 correções anteriores cobria.
+
+Reli `_syncInicializar()` com essa pista em mente: existem exatamente 2
+pontos, na CONEXÃO INICIAL da aba (autenticar anonimamente, e ler os
+dados de partida do servidor) — diferente do ENVIO de uma edição — que,
+ao falhar, sempre caíram silenciosos: só `console.warn`, zeram
+`_syncFirebaseRef` pra `null` (proteção correta contra sobrescrever o
+servidor, já existia desde o incidente de 2026-08-31), e seguem
+carregando o app normalmente — **sem avisar nada na tela**. Explica o
+relato à risca: numa sessão anterior essa conexão inicial deve ter
+falhado (rede instável no momento exato do carregamento) sem nenhum
+aviso; a pessoa editou 0% normalmente (salva local, `_syncEnviarAgora`
+só retorna cedo com `_syncFirebaseRef` null — sem banner, porque
+tecnicamente nada foi "tentado enviar e falhou", só nunca tentou);
+depois, um recarregamento SEGUINTE, já com a conexão normalizada, puxou
+o 5% antigo do servidor (que nunca soube do 0%) e sobrescreveu o valor
+local — de novo sem nenhum aviso, porque essa parte (aplicar dado
+puxado do servidor) sempre funcionou normalmente, não é uma falha.
+
+**Correção** (`js/sync-provisorio.js`): nova
+`_syncMostrarBannerSemConexaoInicial()` — mesmo padrão visual dos
+outros 3 banners, chamada nos 2 pontos que ficavam silenciosos. Texto
+deixa claro que a edição fica só naquele navegador até recarregar com a
+conexão OK. Diferente do banner de falha de ENVIO (onde recarregar
+perderia a edição pendente), aqui recarregar é a ação certa — ainda não
+existe edição em risco nesse momento, é a PRÓPRIA conexão que nunca se
+estabeleceu.
+
+Testado: `node --check` limpo. Renderização confirmada isoladamente no
+navegador (função chamada direto, mesma técnica das vezes anteriores) —
+aparece corretamente no topo da tela.
+
+Com essa correção, as 4 causas encontradas nesta investigação (trava
+permanente, debounce cortado por F5 rápido, token vencido sem retry, e
+agora conexão inicial silenciosa) cobrem juntas os 3 jeitos de uma
+edição nunca chegar no servidor sem a pessoa saber. Próximo passo real:
+usuário confirmar que, depois desta correção, OU o 0% persiste de
+verdade, OU aparece um aviso claro na tela explicando por quê não — o
+que quer que aconteça agora, não deve mais ficar invisível.

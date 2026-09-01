@@ -166,6 +166,27 @@ function _syncRemoverBannerFalhaEnvio() {
     if (el) el.remove();
 }
 
+// Bug real encontrado (2026-09-01): as 2 falhas de CONEXÃO INICIAL abaixo
+// (autenticar, ou ler os dados de partida) sempre caíram silenciosas —
+// só console.warn, nenhum aviso na tela — mesmo já existindo banner pros
+// outros 3 casos de falha do sync. Resultado real: a aba caía em modo
+// 100% local sem a pessoa saber, uma edição ficava salva só ali, e um
+// recarregamento SEGUINTE (com a conexão já normalizada) puxava o estado
+// antigo do servidor e sobrescrevia a edição — sem nunca ter mostrado
+// nada de errado. Diferente do banner de falha de ENVIO, aqui recarregar
+// FAZ sentido (tenta a conexão de novo do zero) — não há edição em
+// andamento presa nesta aba ainda, é a conexão que nunca chegou a existir.
+function _syncMostrarBannerSemConexaoInicial() {
+    const existente = document.getElementById('sync-provisorio-banner-sem-conexao');
+    if (existente) return;
+    const div = document.createElement('div');
+    div.id = 'sync-provisorio-banner-sem-conexao';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;z-index:99999;cursor:pointer;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;';
+    div.textContent = '⚠️ Não consegui conectar com o servidor da equipe agora — o que você editar aqui fica só neste navegador até recarregar com a conexão normalizada. Clique aqui pra tentar de novo.';
+    div.onclick = function () { location.reload(); };
+    document.body.appendChild(div);
+}
+
 // ======= 4) SNAPSHOT DE localStorage =======
 
 // Caracteres proibidos em chave/nó do Firebase Realtime Database — ver
@@ -446,6 +467,7 @@ function _syncInicializar() {
             _syncPullInicialConcluido = true;
             _syncMomentoPullConcluidoMs = Date.now();
             _syncRemoverOverlay();
+            _syncMostrarBannerSemConexaoInicial();
             _syncCarregarScriptsApp(0);
         });
     }).catch(function (err) {
@@ -458,6 +480,7 @@ function _syncInicializar() {
         _syncPullInicialConcluido = true;
         _syncMomentoPullConcluidoMs = Date.now();
         _syncRemoverOverlay();
+        _syncMostrarBannerSemConexaoInicial();
         _syncCarregarScriptsApp(0);
     });
 }
