@@ -806,15 +806,16 @@ if (!localStorage.getItem('banco_fator_coparticipacao')) localStorage.setItem('b
 const relacaoIndicesDesempenho = ["m2 (Área de Laje)", "un (Nº de Elementos/Vigas)", "kg (Peso de Aço)", "m3 (Volume de Concreto)"];
 let nosRecolhidosEstado = {};
 let projetoSelecionadoAtivo = "";
-// Reforma da orelha "Desempenho" (2026-09-01, pedido do usuário —
-// Detalhamento vira uma Etapa "filha" dela, entre outras): qual Etapa
-// está selecionada dentro da orelha Desempenho — compartilhada entre
-// os 2 painéis que a orelha alimenta (panel-desempenho-projeto/
-// Produtividade e panel-distribuicoes-projeto/Financeira, ver
+// Reforma da orelha "Desempenho" (2026-09-01/02, pedido do usuário —
+// Detalhamento vira uma Etapa "filha" dela, entre outras, navegadas
+// por uma fileira de orelhas de Etapa): qual Etapa está selecionada
+// dentro da orelha Desempenho — compartilhada entre os 2 painéis que a
+// orelha alimenta (panel-desempenho-projeto/Produtividade e
+// panel-distribuicoes-projeto/Financeira, ver
 // irParaDesempenhoDoProjetoAtivo()/irParaDistribuicoesDoProjetoAtivo()
 // abaixo), já que são 2 content-panels de topo separados, não uma
-// sub-tela dentro da mesma. null = nenhuma Etapa escolhida ainda
-// (mostra o seletor).
+// sub-tela dentro da mesma. null = "🌐 Projeto Inteiro" (agregado de
+// todas as Etapas — estado padrão, não "nada escolhido ainda").
 let desempEtapaAtiva = null;
 
 // --- NAVEGAÇÃO ---
@@ -1042,53 +1043,63 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
 // Estrutura de Projeto, mas quem abriu o projeto direto pelo portal da
 // Distribuição de Custos nunca passou por ali — nesse caso o nome só
 // existe no select `#dc-projeto`.
-// Abre a orelha "Desempenho" no seletor de Etapas (não direto na
-// Produtividade) — Detalhamento vira uma das opções, não mais o único
-// caminho. Chamada pelo botão da orelha e pelo "🔁 Trocar Etapa" no
-// breadcrumb.
-function abrirSelecaoEtapaDesempenho() {
-    const elProjeto = document.getElementById('dc-projeto');
-    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
-    if (!nome) return;
-    desempEtapaAtiva = null;
-    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
-    document.getElementById('panel-desempenho-projeto').style.display = 'flex';
-    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
-    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
-    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    if (typeof atualizarBreadcrumbDesempenho === 'function') atualizarBreadcrumbDesempenho(null, null);
-    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome, null);
+// Reforma da orelha "Desempenho" (2026-09-02, pedido do usuário —
+// trocou o cartão + botão "🔁 Trocar Etapa" por uma fileira de
+// "orelhas" de Etapa sempre visível, com "🌐 Projeto Inteiro" como
+// opção nova): `desempEtapaAtiva` null = Projeto Inteiro (agregado de
+// todas as Etapas — é o comportamento ORIGINAL de antes de toda essa
+// reforma: calcularDesempenhoProjeto()/calcularDistribuicoesProjeto()
+// sem argumento de Etapa já somavam o projeto inteiro, nunca deixou de
+// existir); string = nome da Etapa escolhida.
+//
+// Monta a fileira de orelhas de Etapa nos 2 painéis (Produtividade e
+// Financeira têm cada um a sua cópia, mesmo padrão do breadcrumb/pills
+// — ver index.html) a partir da Árvore do projeto.
+function renderizarEtapaTabsDesempenho(nomeProjeto) {
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    const etapas = (arv && Array.isArray(arv.etapas)) ? arv.etapas : [];
+    let html = '<div class="etapa-tab-desempenho global" data-etapa="" onclick="trocarEtapaAtivaDesempenho(this)">🌐 Projeto Inteiro</div>';
+    etapas.forEach(function (e) {
+        html += '<div class="etapa-tab-desempenho" data-etapa="' + escapeHtml(e.nome) + '" onclick="trocarEtapaAtivaDesempenho(this)">' + escapeHtml(e.nome) + '</div>';
+    });
+    document.querySelectorAll('.etapa-tabs-desempenho').forEach(function (el) { el.innerHTML = html; });
+    document.querySelectorAll('.etapa-tabs-desempenho .etapa-tab-desempenho').forEach(function (t) {
+        t.classList.toggle('active', t.dataset.etapa === (desempEtapaAtiva || ''));
+    });
 }
 
-// Atualiza os 2 breadcrumbs estáticos (Produtividade/Financeira, ver
-// index.html) e mostra/esconde as pills — sem Etapa escolhida
-// (etapaNome null) some com o nome/separador/"Trocar Etapa" e esconde
-// as pills (não fazem sentido antes de escolher).
-function atualizarBreadcrumbDesempenho(etapaNome, pillAtiva) {
-    document.querySelectorAll('.subaba-breadcrumb-etapa-txt').forEach(el => { el.innerText = etapaNome || ''; });
-    document.querySelectorAll('.subaba-breadcrumb-etapa-sep, .subaba-trocar-etapa').forEach(el => { el.style.display = etapaNome ? 'inline-block' : 'none'; });
-    document.querySelectorAll('.subaba-pill-track').forEach(track => { track.style.display = etapaNome ? 'inline-flex' : 'none'; });
-    if (etapaNome) {
-        document.querySelectorAll('.subaba-pill').forEach(p => p.classList.toggle('active', p.dataset.pill === pillAtiva));
-    }
+function atualizarPillAtivaDesempenho(pillAtiva) {
+    document.querySelectorAll('.subaba-pill').forEach(function (p) { p.classList.toggle('active', p.dataset.pill === pillAtiva); });
 }
 
-// `etapaNome` opcional: passado pelos cartões do seletor (1ª entrada
-// numa Etapa); omitido quando vem da pill "📈 Produtividade" ou de um
-// reload — nesse caso usa a Etapa já ativa (desempEtapaAtiva). Sem
-// nenhuma das duas, volta pro seletor.
+// Clique numa orelha de Etapa: mantém qual sub-aba (Produtividade/
+// Financeira) já estava aberta, só troca a Etapa.
+function trocarEtapaAtivaDesempenho(el) {
+    const etapaNome = el.dataset.etapa || '';
+    const pillAtiva = document.querySelector('.subaba-pill.active');
+    const sub = pillAtiva ? pillAtiva.dataset.pill : 'produtividade';
+    if (sub === 'financeira') irParaDistribuicoesDoProjetoAtivo(etapaNome);
+    else irParaDesempenhoDoProjetoAtivo(etapaNome);
+}
+
+// `etapaNome` opcional: `undefined` (nenhum argumento — clique nas
+// pills 📈/📰, ou chamadas internas) mantém a Etapa já ativa; `''`
+// explícito (orelha "🌐 Projeto Inteiro", ou o botão da orelha-mãe
+// "Desempenho", que sempre volta pro Projeto Inteiro) muda pra Projeto
+// Inteiro; um nome muda pra aquela Etapa.
 function irParaDesempenhoDoProjetoAtivo(etapaNome) {
     const elProjeto = document.getElementById('dc-projeto');
     const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
     if (!nome) return;
-    if (etapaNome) desempEtapaAtiva = etapaNome;
-    if (!desempEtapaAtiva) { abrirSelecaoEtapaDesempenho(); return; }
+    if (etapaNome !== undefined) desempEtapaAtiva = etapaNome || null;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-desempenho-projeto').style.display = 'flex';
     if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    if (typeof atualizarBreadcrumbDesempenho === 'function') atualizarBreadcrumbDesempenho(desempEtapaAtiva, 'produtividade');
+    renderizarEtapaTabsDesempenho(nome);
+    atualizarPillAtivaDesempenho('produtividade');
     if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome, desempEtapaAtiva);
 }
 
@@ -1134,14 +1145,14 @@ function irParaDistribuicoesDoProjetoAtivo(etapaNome) {
     const elProjeto = document.getElementById('dc-projeto');
     const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
     if (!nome) return;
-    if (etapaNome) desempEtapaAtiva = etapaNome;
-    if (!desempEtapaAtiva) { abrirSelecaoEtapaDesempenho(); return; }
+    if (etapaNome !== undefined) desempEtapaAtiva = etapaNome || null;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-distribuicoes-projeto').style.display = 'flex';
     if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'distribuicoes');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    if (typeof atualizarBreadcrumbDesempenho === 'function') atualizarBreadcrumbDesempenho(desempEtapaAtiva, 'financeira');
+    renderizarEtapaTabsDesempenho(nome);
+    atualizarPillAtivaDesempenho('financeira');
     if (typeof carregarPainelDistribuicoes === 'function') carregarPainelDistribuicoes(nome, desempEtapaAtiva);
 }
 

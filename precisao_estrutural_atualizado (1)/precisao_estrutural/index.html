@@ -65,7 +65,7 @@
                         <img src="assets/icones-orelhas/orcamento.png" alt="Orçamento">
                         <span class="orelha-btn-legenda">Orçamento</span>
                     </div>
-                    <div id="orelha-detalhamento-projeto" class="orelha-btn" onclick="abrirSelecaoEtapaDesempenho()">
+                    <div id="orelha-detalhamento-projeto" class="orelha-btn" onclick="irParaDesempenhoDoProjetoAtivo('')">
                         <img src="assets/icones-orelhas/desempenho.png" alt="Desempenho">
                         <span class="orelha-btn-legenda">Desempenho</span>
                     </div>
@@ -542,11 +542,9 @@
                     <div class="subaba-breadcrumb">
                         <img src="assets/icones-orelhas/desempenho.png" alt="Desempenho">
                         <b>Desempenho</b>
-                        <span class="subaba-breadcrumb-etapa-sep" style="display:none;">&rsaquo;</span>
-                        <b class="subaba-breadcrumb-etapa-txt"></b>
-                        <button type="button" class="subaba-trocar-etapa" style="display:none;" onclick="abrirSelecaoEtapaDesempenho()" title="Trocar de Etapa">🔁 Trocar Etapa</button>
                     </div>
-                    <div class="subaba-pill-track" style="display:none;">
+                    <div class="etapa-tabs-desempenho"></div>
+                    <div class="subaba-pill-track">
                         <div class="subaba-pill" data-pill="produtividade" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Produtividade</div>
                         <div class="subaba-pill" data-pill="financeira" onclick="irParaDistribuicoesDoProjetoAtivo()">📰 Financeira</div>
                     </div>
@@ -567,11 +565,9 @@
                     <div class="subaba-breadcrumb">
                         <img src="assets/icones-orelhas/desempenho.png" alt="Desempenho">
                         <b>Desempenho</b>
-                        <span class="subaba-breadcrumb-etapa-sep" style="display:none;">&rsaquo;</span>
-                        <b class="subaba-breadcrumb-etapa-txt"></b>
-                        <button type="button" class="subaba-trocar-etapa" style="display:none;" onclick="abrirSelecaoEtapaDesempenho()" title="Trocar de Etapa">🔁 Trocar Etapa</button>
                     </div>
-                    <div class="subaba-pill-track" style="display:none;">
+                    <div class="etapa-tabs-desempenho"></div>
+                    <div class="subaba-pill-track">
                         <div class="subaba-pill" data-pill="produtividade" onclick="irParaDesempenhoDoProjetoAtivo()">📈 Produtividade</div>
                         <div class="subaba-pill" data-pill="financeira" onclick="irParaDistribuicoesDoProjetoAtivo()">📰 Financeira</div>
                     </div>

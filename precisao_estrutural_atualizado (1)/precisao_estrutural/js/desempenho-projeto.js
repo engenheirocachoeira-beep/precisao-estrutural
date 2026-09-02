@@ -641,11 +641,14 @@ function trocarDimensaoDesempenho() {
     area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag);
 }
 
-// `etapaNome` opcional (reforma "Desempenho" com seletor de Etapa,
-// 2026-09-01): sem ele, mostra o seletor; com ele, mostra a
-// Produtividade daquela Etapa — ou um estado vazio explicando o
-// motivo, se ela não tiver execução granular (sem Pavimento/Tarefa,
-// não há hora apontada pra medir aqui, ver decisão do usuário).
+// `etapaNome` opcional (reforma "Desempenho" com fileira de orelhas de
+// Etapa, 2026-09-02): sem ele (null/undefined — orelha "🌐 Projeto
+// Inteiro"), mostra a Produtividade agregada de todas as Etapas juntas
+// (comportamento ORIGINAL, `calcularDesempenhoProjeto` sem filtro);
+// com ele, mostra a Produtividade daquela Etapa sozinha — ou um estado
+// vazio explicando o motivo, se ela não tiver execução granular (sem
+// Pavimento/Tarefa, não há hora apontada pra medir aqui, ver decisão
+// do usuário).
 function carregarPainelDesempenho(nomeProjeto, etapaNome) {
     const area = document.getElementById('desemp-conteudo');
     if (!area) return;
@@ -658,49 +661,17 @@ function carregarPainelDesempenho(nomeProjeto, etapaNome) {
         return;
     }
 
-    if (!etapaNome) {
-        renderizarSeletorEtapaDesempenho(nomeProjeto);
-        return;
+    if (etapaNome) {
+        const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
+        const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
+        if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
+            area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">A Etapa "' + escapeHtml(etapaNome) + '" n&atilde;o tem Pavimento/Tarefa cadastrado — sem essa granularidade, n&atilde;o h&aacute; apontamento de horas pra medir Produtividade aqui. Veja a aba <b>Financeira</b> pra ver a Verba dela.</div>';
+            return;
+        }
     }
 
-    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-    const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
-    if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
-        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">A Etapa "' + escapeHtml(etapaNome) + '" n&atilde;o tem Pavimento/Tarefa cadastrado — sem essa granularidade, n&atilde;o h&aacute; apontamento de horas pra medir Produtividade aqui. Veja a aba <b>Financeira</b> pra ver a Verba dela.</div>';
-        return;
-    }
-
-    const dados = calcularDesempenhoProjeto(nomeProjeto, etapaNome);
+    const dados = calcularDesempenhoProjeto(nomeProjeto, etapaNome || undefined);
     area.innerHTML = renderizarDesempenhoProjeto(dados);
-}
-
-// Seletor de Etapa da orelha "Desempenho" — 1ª tela ao clicar na
-// orelha (ou em "🔁 Trocar Etapa"). Um cartão por Etapa de topo do
-// projeto; a etiqueta avisa se ela tem as 2 sub-abas disponíveis
-// (execução granular) ou só Financeira (sem Pavimento/Tarefa, ex:
-// "Análise Global").
-function renderizarSeletorEtapaDesempenho(nomeProjeto) {
-    const area = document.getElementById('desemp-conteudo');
-    if (!area) return;
-    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-    const arv = todas[nomeProjeto];
-    if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) {
-        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Este projeto ainda não tem Etapas cadastradas.</div>';
-        return;
-    }
-    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-    let html = '<p class="desemp-painel-legenda" style="margin-bottom:14px;">Escolha uma Etapa pra ver o desempenho dela.</p>';
-    html += '<div class="desemp-selecao-etapas-grid">';
-    arv.etapas.forEach(etapa => {
-        const info = verbasPorEtapa.find(v => v.nome === etapa.nome);
-        const granular = info ? info.temExecucaoGranular : false;
-        html += '<div class="desemp-selecao-etapa-card" data-etapa="' + escapeHtml(etapa.nome) + '" onclick="irParaDesempenhoDoProjetoAtivo(this.dataset.etapa)">' +
-            '<div class="desemp-selecao-etapa-nome">' + escapeHtml(etapa.nome) + '</div>' +
-            '<div class="desemp-selecao-etapa-tag">' + (granular ? '📈 Produtividade + 📰 Financeira' : '📰 Só Financeira') + '</div>' +
-            '</div>';
-    });
-    html += '</div>';
-    area.innerHTML = html;
 }
 
 function carregarPainelDiagnostico(nomeProjeto) {
@@ -794,14 +765,15 @@ function obterFormatoPct(v) {
 // 6ª ORELHA "DISTRIBUIÇÕES" — relatório editorial (ver calcularDistribuicoesProjeto)
 // =========================================================================
 
-// `etapaNome` opcional (reforma "Desempenho" com seletor de Etapa,
-// 2026-09-01) — decisão do usuário: quem tem execução granular (ex:
-// Detalhamento) mantém o relatório rico de sempre (KPIs, "Como a Verba
-// é dividida", Resultado por técnico, Diagnóstico por atividade —
-// já é essencialmente sobre ESSA Etapa, nada muda); quem não tem (ex:
-// Análise Global) mostra só o livro-caixa isolado dela, já que o
-// resto do relatório (Pool de Horas, Custo Real por técnico) não se
-// aplica.
+// `etapaNome` opcional (reforma "Desempenho" com fileira de orelhas de
+// Etapa, 2026-09-02) — decisão do usuário: "🌐 Projeto Inteiro"
+// (null/undefined) e quem tem execução granular (ex: Detalhamento)
+// mostram o MESMO relatório rico de sempre (KPIs, "Como a Verba é
+// dividida", Resultado por técnico, Diagnóstico por atividade — sem
+// filtro de Etapa nenhum dos dois, já era assim antes desta reforma
+// toda); quem não tem execução granular (ex: Análise Estrutural)
+// mostra só o livro-caixa isolado dela, já que o resto do relatório
+// (Pool de Horas, Custo Real por técnico) não se aplica.
 function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
     const area = document.getElementById('distribuicoes-conteudo');
     if (!area) return;
@@ -814,20 +786,22 @@ function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
         return;
     }
 
-    // Defensivo: normalmente esta função só é chamada já com uma Etapa
-    // escolhida (irParaDistribuicoesDoProjetoAtivo() barra antes, ver
-    // js/core.js) — sem uma, o seletor precisa aparecer no OUTRO painel
-    // (#desemp-conteudo, panel-desempenho-projeto), não aqui.
-    if (!etapaNome) {
-        if (typeof abrirSelecaoEtapaDesempenho === 'function') abrirSelecaoEtapaDesempenho();
-        return;
-    }
-
-    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-    const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
-    if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
-        area.innerHTML = htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome);
-        return;
+    // "🌐 Projeto Inteiro" (etapaNome null/undefined) e uma Etapa
+    // granular caem no MESMO relatório completo, sem filtro de Etapa —
+    // calcularBonificacaoProjeto() já pool­a todas as Etapas granulares
+    // juntas de qualquer forma (limitação conhecida, ver
+    // [[project_precisao_estrutural_desempenho_seletor_etapa]]), então
+    // hoje os dois são idênticos; só uma Etapa SEM execução granular
+    // foge dessa regra (mostra só o livro isolado dela, decisão do
+    // usuário — o resto do relatório, Pool de Horas/Resultado por
+    // técnico, não se aplica a ela).
+    if (etapaNome) {
+        const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
+        const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
+        if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
+            area.innerHTML = htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome);
+            return;
+        }
     }
 
     const dados = calcularDistribuicoesProjeto(nomeProjeto);
@@ -1241,12 +1215,15 @@ function renderizarDesempenhoProjeto(d) {
     const tab = d.tabelas;
 
     // Pedido do usuário: os 4 cartões do topo falam especificamente da
-    // Etapa escolhida no seletor (não do projeto inteiro). Reforma
-    // "Desempenho" com seletor de Etapa (2026-09-01): `tab.porEtapa` já
-    // vem filtrado pra 1 única Etapa (`d.etapaFiltro`, ver
-    // calcularTabelasDesempenho()) — não precisa mais achar "a" Etapa
-    // Detalhamento por nome, sobra no máximo 1 linha aqui.
-    const etapaDet = tab.porEtapa[0];
+    // Etapa escolhida na fileira de orelhas (não do projeto inteiro,
+    // exceto na orelha "🌐 Projeto Inteiro" — `d.etapaFiltro` null, ver
+    // calcularDesempenhoProjeto()). Com uma Etapa escolhida,
+    // `tab.porEtapa` já vem filtrado pra ela sozinha (no máximo 1
+    // linha, ver calcularTabelasDesempenho()) — só usa isso quando tem
+    // exatamente 1 linha; no "Projeto Inteiro" (pode ter várias, uma
+    // por Etapa granular) cai no fallback de `hc` (calcularHorasCustoProjeto
+    // sem filtro, soma o projeto inteiro de verdade).
+    const etapaDet = tab.porEtapa.length === 1 ? tab.porEtapa[0] : null;
     const horasPrevistoDet = etapaDet ? etapaDet.previsto : hc.horasPrevistas;
     const horasRealizadoDet = etapaDet ? etapaDet.realizado : hc.horasRealizadas;
     const custoDetalhamento = etapaDet ? etapaDet.custo : hc.custoRealTotal;

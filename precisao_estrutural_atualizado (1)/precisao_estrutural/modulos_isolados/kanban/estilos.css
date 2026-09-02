@@ -168,6 +168,18 @@
         .subaba-pill:not(.active):hover { background: #eef2f6; }
         .subaba-pill.active { background: #0a192f; color: #fff; box-shadow: 0 3px 8px -3px rgba(10,25,47,.5); }
 
+        /* Reforma da orelha "Desempenho" (2026-09-02, pedido do
+           usuário): fileira de "orelhas" de Etapa, sempre visível,
+           substituindo o cartão + botão "Trocar Etapa" da rodada
+           anterior — mesma linguagem visual de .subaba-pill-track, um
+           degrau acima em destaque (border mais grosso) por ficar
+           LOGO ABAIXO do breadcrumb, antes das pills Produtividade/
+           Financeira. */
+        .etapa-tabs-desempenho { display: flex; gap: 8px; padding: 5px; border: 2px solid #e2e8f0; border-radius: 14px; background: #f8fafc; margin-bottom: 12px; flex-wrap: wrap; }
+        .etapa-tab-desempenho { padding: 8px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; white-space: nowrap; }
+        .etapa-tab-desempenho:not(.active):hover { background: #ffffff; }
+        .etapa-tab-desempenho.active { background: #0a192f; color: #fff; box-shadow: 0 3px 10px -4px rgba(10,25,47,.5); }
+
         /* Crédito dos ícones das orelhas (Flaticon, plano gratuito —
            decisão do usuário: manter atribuição em vez de comprar
            licença Premium) — reservado no fim da barra lateral,

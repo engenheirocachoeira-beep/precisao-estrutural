@@ -5183,3 +5183,115 @@ resolve certo pelo nome novo), a Verba Líquida bate
 (R$ 13.684,93, igual antes), e o seletor de Etapa da orelha Desempenho
 já mostra o nome novo. `core.js` re-sincronizado nas 9 cópias de
 `modulos_isolados/` (mesma rotina da parte 72).
+
+**Incidente real descoberto testando a parte 75 (navegação nova, ver
+abaixo), corrigido nesta mesma parte**: o teste desta migração (feito
+com `_syncFirebaseRef = null` logo após o boot, técnica de sempre pra
+não escrever em produção) ainda assim GRAVOU no Firebase real — o
+debounce de envio (`SYNC_PROVISORIO_DEBOUNCE_MS`, 3s) já tinha dado
+tempo de disparar antes do comando de desligar a sincronização chegar
+(latência normal de rede entre os comandos de teste). O resultado
+ficou consistente (marcador da migração + nome renomeado, os dois
+juntos) — mas ENTRE esse teste e o teste da parte 75, alguma
+sincronização anterior (de antes da parte 74 existir) sobrescreveu o
+servidor de volta pro nome antigo, deixando o servidor real com uma
+combinação inconsistente: marcador "já migrado" = sim, mas nome ainda
+"Análise Global" — nenhum usuário real conseguiria mais disparar a
+migração de novo (o marcador impede), então ficaria preso nesse estado
+pra sempre sem intervenção manual.
+
+Confirmado com uma sonda HTML própria, só leitura (`firebase.database().ref(...).once('value')`,
+sem carregar nada do app — só o SDK do Firebase puro), fora do boot
+normal, pra não arriscar disparar mais nenhuma escrita sem querer.
+Usuário autorizou explicitamente uma correção direta no servidor
+(confirmado via pergunta antes de agir). Escrita própria, também numa
+página HTML isolada (não o app), replicando a MESMA lógica da migração
+v15 mas contra os dados reais direto do Firebase — só as 4 chaves
+afetadas, via `.update()` na raiz (nunca um `.set()` do banco inteiro,
+pra não arriscar sobrescrever mudança concorrente de ninguém). Achado
+real: **8 projetos reais** tinham a Etapa "Análise Global" configurada
+(`AP PRAIA (SAVOIA) - SETOR B`, `D`, `E`, `F`, `G`,
+`HOME GARDEN - SETOR C`, `LÚMEN`, `R`) — todos corrigidos na mesma
+escrita. Confirmado depois com uma 2ª leitura só-leitura: nome e
+marcador batendo.
+
+**Lição pro futuro**: a técnica "desligar `_syncFirebaseRef` logo após
+o boot" não é 100% à prova de corrida contra o debounce de 3s — pra
+testar uma MIGRAÇÃO que escreve em `localStorage` (não só uma leitura),
+mais seguro seria desligar `SYNC_PROVISORIO_ATIVO` (ou usar um projeto
+Firebase de teste à parte) em vez de confiar em desligar a referência
+rápido o bastante depois do boot.
+
+## Retomada em 2026-09-02 (parte 75) — Fileira de orelhas de Etapa no lugar do seletor de cartões, com "🌐 Projeto Inteiro" novo
+
+Pedido do usuário depois de ver a prévia (Artifact interativo,
+aprovado com "Isso mesmo" antes de implementar): o cartão + botão "🔁
+Trocar Etapa" da parte 73 "não ficou muito boa" — trocado por uma
+fileira de "orelhas" de Etapa, sempre visível, e uma aba nova "🌐
+Projeto Inteiro" (agregado de todas as Etapas juntas) que não existia
+antes.
+
+**Achado ao planejar**: "🌐 Projeto Inteiro" não precisou de cálculo
+novo nenhum — `calcularDesempenhoProjeto`/`calcularDistribuicoesProjeto`
+sem argumento de Etapa já SEMPRE somaram o projeto inteiro (é o
+comportamento ORIGINAL, de antes de qualquer reforma de seletor
+existir). A reforma toda é só de NAVEGAÇÃO: dar um lugar de verdade
+pra esse agregado, em vez dele só "acontecer" implicitamente quando
+nenhuma Etapa estava escolhida.
+
+**`js/core.js`**: `desempEtapaAtiva` null passa a significar
+explicitamente "🌐 Projeto Inteiro" (não mais "nada escolhido ainda,
+mostra seletor"). Removida `abrirSelecaoEtapaDesempenho()` (não existe
+mais "seletor", as orelhas de Etapa ficam sempre visíveis) e
+`atualizarBreadcrumbDesempenho()` (o breadcrumb voltou a ser só
+ícone+"Desempenho" estático, sem nome de Etapa/botão — essa informação
+agora mora nas próprias orelhas de Etapa). Novo
+`renderizarEtapaTabsDesempenho(nomeProjeto)` monta a fileira nos 2
+painéis (mesmo padrão de duplicação do breadcrumb/pills, um por
+painel); `trocarEtapaAtivaDesempenho(el)` decide se chama
+`irParaDesempenhoDoProjetoAtivo`/`irParaDistribuicoesDoProjetoAtivo`
+conforme qual pill (Produtividade/Financeira) já estava ativa — trocar
+de Etapa preserva qual sub-aba você estava vendo, não te joga de volta
+pra Produtividade toda vez. As 2 funções `irPara*DoProjetoAtivo`
+ganharam semântica nova pro parâmetro `etapaNome`: `undefined` (sem
+argumento — clique nas pills) mantém a Etapa já ativa; `''` explícito
+(clique na orelha "🌐 Projeto Inteiro", ou no botão da orelha-mãe
+"Desempenho", que sempre reseta pro Projeto Inteiro) muda pra Projeto
+Inteiro; um nome muda pra aquela Etapa.
+
+**`js/desempenho-projeto.js`**: `carregarPainelDesempenho()`/
+`carregarPainelDistribuicoes()` — `etapaNome` falso agora cai no
+cálculo SEM filtro (Projeto Inteiro) em vez de mostrar o seletor
+removido. `renderizarSeletorEtapaDesempenho()` (cartões) apagada,
+sem uso. `renderizarDesempenhoProjeto()`: a linha que pegava
+`tab.porEtapa[0]` (assumia sempre no máximo 1 linha, válido só com
+Etapa filtrada) passou a checar `tab.porEtapa.length === 1` antes —
+no "Projeto Inteiro" com mais de 1 Etapa granular, cai no fallback de
+`calcularHorasCustoProjeto()` sem filtro (soma de verdade), em vez de
+mostrar só a 1ª Etapa da lista por engano.
+
+**`index.html`**: botão da orelha "Desempenho" chama
+`irParaDesempenhoDoProjetoAtivo('')` direto (sem a função
+`abrirSelecaoEtapaDesempenho()` removida). Os 2 breadcrumbs voltaram a
+ser só ícone+rótulo estático; `<div class="etapa-tabs-desempenho">`
+vazia (montada por JS) logo abaixo de cada um, antes das pills.
+
+**`estilos.css`**: `.etapa-tabs-desempenho`/`.etapa-tab-desempenho`
+novas (mesma linguagem visual de `.subaba-pill-track`/`.subaba-pill`,
+um degrau de destaque a mais por vir antes delas). CSS morto da parte
+73 removido (`.subaba-breadcrumb-etapa-*`, `.subaba-trocar-etapa`,
+`.desemp-selecao-etapa*`).
+
+Testado: `node --check` limpo em `core.js`/`desempenho-projeto.js`.
+Testado ao vivo contra dados reais (HOME GARDEN - SETOR C, já com o
+nome corrigido pra "Análise Estrutural" da parte 74): "🌐 Projeto
+Inteiro" abre ativo por padrão com os KPIs agregados corretos (mesmos
+números de sempre — 400,00h/294,60h, 100%, &minus;105,40h); clicar em
+"DETALHAMENTO"/"Análise Estrutural" troca certo (Produtividade normal
+vs. estado vazio); trocar pra Financeira e clicar nas orelhas de Etapa
+de lá preserva a sub-aba Financeira (Análise Estrutural mostra o livro
+isolado, Projeto Inteiro mostra o relatório rico completo com
+masthead); clicar no botão real da orelha "Desempenho" sempre volta
+pro Projeto Inteiro, mesmo vindo de outra Etapa/sub-aba. Zero erros no
+Console. `core.js`/`estilos.css` re-sincronizados nas 9 cópias de
+`modulos_isolados/`.
