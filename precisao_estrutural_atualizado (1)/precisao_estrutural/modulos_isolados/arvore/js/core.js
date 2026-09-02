@@ -558,15 +558,17 @@ function coletarNosFolhaDaArvore(etapas) {
     // Migração v13 — Reforma Setor→Sub-etapa (parte 2): empacota as 4
     // etapas legadas "achatadas" (Pré-Lançamento/Lançamento/Análise/
     // Cargas — Etapas de topo sem `nivel`) dentro de uma nova Etapa
-    // "Análise Global", como Sub-etapas. Casamento por nome SEM
-    // diferenciar maiúsculas/minúsculas (dado real de produção tem
-    // esses nomes em CAIXA ALTA — "PRÉ-LANÇAMENTO" etc. — enquanto o
-    // catálogo seed usa Title Case; confirmado testando contra os
-    // dados reais antes de subir, ver CHANGELOG.md) e PARCIAL (empacota
-    // só as que existirem — projeto sem nenhuma das 4 é no-op; projeto
-    // que já tem uma Etapa "Análise Global" é pulado, defensivo, pra
-    // nunca duplicar/colidir). O nome ORIGINAL do nó nunca é alterado —
-    // só a detecção ignora caixa.
+    // "Análise Estrutural" (renomeada de "Análise Global" na v15, ver
+    // abaixo — o nome aqui já sai certo pra quem só passar por esta
+    // migração de agora em diante), como Sub-etapas. Casamento por
+    // nome SEM diferenciar maiúsculas/minúsculas (dado real de
+    // produção tem esses nomes em CAIXA ALTA — "PRÉ-LANÇAMENTO" etc. —
+    // enquanto o catálogo seed usa Title Case; confirmado testando
+    // contra os dados reais antes de subir, ver CHANGELOG.md) e
+    // PARCIAL (empacota só as que existirem — projeto sem nenhuma das
+    // 4 é no-op; projeto que já tem essa Etapa é pulado, defensivo,
+    // pra nunca duplicar/colidir). O nome ORIGINAL do nó nunca é
+    // alterado — só a detecção ignora caixa.
     // `peso_esforco="1"` em todas + `area_fisica` = o % que a etapa já
     // tinha salvo (Distribuição de Custos) faz a Área Equivalente entre
     // elas reproduzir EXATAMENTE a proporção de % que já existia — os
@@ -584,7 +586,7 @@ function coletarNosFolhaDaArvore(etapas) {
             Object.keys(arvores).forEach(nomeProjeto => {
                 const arv = arvores[nomeProjeto];
                 if (!arv || !Array.isArray(arv.etapas)) return;
-                if (arv.etapas.some(e => e.nome.toLowerCase() === 'análise global')) return; // já existe, não mexe
+                if (arv.etapas.some(e => e.nome.toLowerCase() === 'análise global' || e.nome.toLowerCase() === 'análise estrutural')) return; // já existe, não mexe
 
                 const encontrados = [];
                 arv.etapas.forEach((e, idx) => {
@@ -613,7 +615,7 @@ function coletarNosFolhaDaArvore(etapas) {
                 arv.etapas = arv.etapas.filter(function (e, idx) { return !idxsRemover[idx]; });
 
                 const analiseGlobal = {
-                    nome: "Análise Global", status: "Apontada", executor: "", responsavel: "",
+                    nome: "Análise Estrutural", status: "Apontada", executor: "", responsavel: "",
                     custo_max: "0", qtd_fisica: "0", unidade_fisica: "-", pontos: "0",
                     horas_reais: "0.0", is_outlier: false, verba: "0", filhos: subetapas
                 };
@@ -623,7 +625,7 @@ function coletarNosFolhaDaArvore(etapas) {
                 if (somaPct > 0) {
                     if (!salvosAnalista[nomeProjeto]) salvosAnalista[nomeProjeto] = { etapas: {} };
                     if (!salvosAnalista[nomeProjeto].etapas) salvosAnalista[nomeProjeto].etapas = salvoEtapas;
-                    salvosAnalista[nomeProjeto].etapas['Análise Global'] = { pct: String(somaPct) };
+                    salvosAnalista[nomeProjeto].etapas['Análise Estrutural'] = { pct: String(somaPct) };
                     alterouAnalista = true;
                 }
 
@@ -641,8 +643,8 @@ function coletarNosFolhaDaArvore(etapas) {
             if (alterouAnalista) localStorage.setItem('banco_distribuicao_custos_analista', JSON.stringify(salvosAnalista));
 
             const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
-            if (!etapasLego.some(function (e) { return e.nome === 'Análise Global'; })) {
-                etapasLego.push({ nome: 'Análise Global', base_h: '2.0' });
+            if (!etapasLego.some(function (e) { return e.nome === 'Análise Estrutural' || e.nome === 'Análise Global'; })) {
+                etapasLego.push({ nome: 'Análise Estrutural', base_h: '2.0' });
                 localStorage.setItem('banco_etapas_lego', JSON.stringify(etapasLego));
             }
         } catch (e) { /* nada salvo ainda, sem problema */ }
@@ -676,7 +678,7 @@ function coletarNosFolhaDaArvore(etapas) {
     const marcadorV14 = 'banco_etapas_lego_migrado_v14_so_detalhamento_analise_global';
     if (!localStorage.getItem(marcadorV14)) {
         try {
-            const NOMES_ETAPA_PERMITIDOS_NORMALIZADOS = ['detalhamento', 'análise global'];
+            const NOMES_ETAPA_PERMITIDOS_NORMALIZADOS = ['detalhamento', 'análise global', 'análise estrutural'];
             const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
             const subetapasLego = JSON.parse(localStorage.getItem('banco_subetapas_lego')) || [];
 
@@ -690,6 +692,74 @@ function coletarNosFolhaDaArvore(etapas) {
             if (alterouSubetapas) localStorage.setItem('banco_subetapas_lego', JSON.stringify(subetapasLego));
         } catch (e) { /* nada salvo ainda, sem problema */ }
         localStorage.setItem(marcadorV14, '1');
+    }
+
+    // Migração v15 (2026-09-01, pedido do usuário): renomeia a Etapa
+    // "Análise Global" pra "Análise Estrutural" — o nome antigo
+    // confundia com o conceito novo de "Projeto Inteiro" da orelha
+    // Desempenho (ver reforma do seletor de Etapa). Só o RÓTULO muda —
+    // nenhum cálculo depende do nome (a reforma Setor→Sub-etapa já
+    // eliminou os name-matches, ver `temExecucaoGranular` estrutural em
+    // vez de achar "Detalhamento"/"Análise Global" por nome — exceção:
+    // a migração v13 acima, que já rodou e não roda de novo).
+    // Casamento por nome SEM diferenciar maiúsculas/minúsculas, mesmo
+    // padrão de detecção da v13 — renomeia em 4 lugares: o nó da
+    // Árvore (`.nome`), o catálogo de Etapas, e as 2 estruturas que
+    // guardam % indexado pelo NOME da Etapa como chave (não pelo nó em
+    // si — sem isso, a % configurada "sumiria" depois do rótulo mudar,
+    // porque a chave antiga nunca mais bateria com o nome novo).
+    const marcadorV15 = 'banco_arvores_projetos_migrado_v15_analise_global_para_estrutural';
+    if (!localStorage.getItem(marcadorV15)) {
+        try {
+            const NOME_ANTIGO_NORMALIZADO = 'análise global';
+            const NOME_NOVO = 'Análise Estrutural';
+
+            const arvores = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+            let alterouArvores = false;
+            Object.keys(arvores).forEach(function (nomeProjeto) {
+                const arv = arvores[nomeProjeto];
+                if (!arv || !Array.isArray(arv.etapas)) return;
+                arv.etapas.forEach(function (e) {
+                    if ((e.nome || '').toLowerCase() === NOME_ANTIGO_NORMALIZADO) {
+                        e.nome = NOME_NOVO;
+                        alterouArvores = true;
+                    }
+                });
+            });
+            if (alterouArvores) localStorage.setItem('banco_arvores_projetos', JSON.stringify(arvores));
+
+            // Renomeia a CHAVE (não só o valor) nas 2 estruturas
+            // indexadas por nome de Etapa — `banco_distribuicao_custos_analista`
+            // (% Verba por Etapa) e `banco_fundo_lucros_pavimento` (%
+            // Fundo Distribuição de Lucros, ver distribuicao-custos.js).
+            function renomearChaveEtapaEmTodosOsProjetos(chaveStorage) {
+                const salvos = JSON.parse(localStorage.getItem(chaveStorage)) || {};
+                let alterou = false;
+                Object.keys(salvos).forEach(function (nomeProjeto) {
+                    const salvoProjeto = salvos[nomeProjeto];
+                    const etapasSalvas = salvoProjeto && (salvoProjeto.etapas || salvoProjeto);
+                    if (!etapasSalvas) return;
+                    Object.keys(etapasSalvas).forEach(function (chaveEtapa) {
+                        if (chaveEtapa.toLowerCase() === NOME_ANTIGO_NORMALIZADO && !etapasSalvas[NOME_NOVO]) {
+                            etapasSalvas[NOME_NOVO] = etapasSalvas[chaveEtapa];
+                            delete etapasSalvas[chaveEtapa];
+                            alterou = true;
+                        }
+                    });
+                });
+                if (alterou) localStorage.setItem(chaveStorage, JSON.stringify(salvos));
+            }
+            renomearChaveEtapaEmTodosOsProjetos('banco_distribuicao_custos_analista');
+            renomearChaveEtapaEmTodosOsProjetos('banco_fundo_lucros_pavimento');
+
+            const etapasLego = JSON.parse(localStorage.getItem('banco_etapas_lego')) || [];
+            let alterouCatalogo = false;
+            etapasLego.forEach(function (e) {
+                if ((e.nome || '').toLowerCase() === NOME_ANTIGO_NORMALIZADO) { e.nome = NOME_NOVO; alterouCatalogo = true; }
+            });
+            if (alterouCatalogo) localStorage.setItem('banco_etapas_lego', JSON.stringify(etapasLego));
+        } catch (e) { /* nada salvo ainda, sem problema */ }
+        localStorage.setItem(marcadorV15, '1');
     }
 })();
 
@@ -736,6 +806,16 @@ if (!localStorage.getItem('banco_fator_coparticipacao')) localStorage.setItem('b
 const relacaoIndicesDesempenho = ["m2 (Área de Laje)", "un (Nº de Elementos/Vigas)", "kg (Peso de Aço)", "m3 (Volume de Concreto)"];
 let nosRecolhidosEstado = {};
 let projetoSelecionadoAtivo = "";
+// Reforma da orelha "Desempenho" (2026-09-01, pedido do usuário —
+// Detalhamento vira uma Etapa "filha" dela, entre outras): qual Etapa
+// está selecionada dentro da orelha Desempenho — compartilhada entre
+// os 2 painéis que a orelha alimenta (panel-desempenho-projeto/
+// Produtividade e panel-distribuicoes-projeto/Financeira, ver
+// irParaDesempenhoDoProjetoAtivo()/irParaDistribuicoesDoProjetoAtivo()
+// abaixo), já que são 2 content-panels de topo separados, não uma
+// sub-tela dentro da mesma. null = nenhuma Etapa escolhida ainda
+// (mostra o seletor).
+let desempEtapaAtiva = null;
 
 // --- NAVEGAÇÃO ---
 // toggleArvoreCadastro() e escolherOpcaoCadastro() (do antigo submenu
@@ -962,16 +1042,54 @@ function irParaDistribuicaoCustosDoProjetoAtivo() {
 // Estrutura de Projeto, mas quem abriu o projeto direto pelo portal da
 // Distribuição de Custos nunca passou por ali — nesse caso o nome só
 // existe no select `#dc-projeto`.
-function irParaDesempenhoDoProjetoAtivo() {
+// Abre a orelha "Desempenho" no seletor de Etapas (não direto na
+// Produtividade) — Detalhamento vira uma das opções, não mais o único
+// caminho. Chamada pelo botão da orelha e pelo "🔁 Trocar Etapa" no
+// breadcrumb.
+function abrirSelecaoEtapaDesempenho() {
     const elProjeto = document.getElementById('dc-projeto');
     const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
     if (!nome) return;
+    desempEtapaAtiva = null;
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-desempenho-projeto').style.display = 'flex';
     if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome);
+    if (typeof atualizarBreadcrumbDesempenho === 'function') atualizarBreadcrumbDesempenho(null, null);
+    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome, null);
+}
+
+// Atualiza os 2 breadcrumbs estáticos (Produtividade/Financeira, ver
+// index.html) e mostra/esconde as pills — sem Etapa escolhida
+// (etapaNome null) some com o nome/separador/"Trocar Etapa" e esconde
+// as pills (não fazem sentido antes de escolher).
+function atualizarBreadcrumbDesempenho(etapaNome, pillAtiva) {
+    document.querySelectorAll('.subaba-breadcrumb-etapa-txt').forEach(el => { el.innerText = etapaNome || ''; });
+    document.querySelectorAll('.subaba-breadcrumb-etapa-sep, .subaba-trocar-etapa').forEach(el => { el.style.display = etapaNome ? 'inline-block' : 'none'; });
+    document.querySelectorAll('.subaba-pill-track').forEach(track => { track.style.display = etapaNome ? 'inline-flex' : 'none'; });
+    if (etapaNome) {
+        document.querySelectorAll('.subaba-pill').forEach(p => p.classList.toggle('active', p.dataset.pill === pillAtiva));
+    }
+}
+
+// `etapaNome` opcional: passado pelos cartões do seletor (1ª entrada
+// numa Etapa); omitido quando vem da pill "📈 Produtividade" ou de um
+// reload — nesse caso usa a Etapa já ativa (desempEtapaAtiva). Sem
+// nenhuma das duas, volta pro seletor.
+function irParaDesempenhoDoProjetoAtivo(etapaNome) {
+    const elProjeto = document.getElementById('dc-projeto');
+    const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
+    if (!nome) return;
+    if (etapaNome) desempEtapaAtiva = etapaNome;
+    if (!desempEtapaAtiva) { abrirSelecaoEtapaDesempenho(); return; }
+    document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
+    document.getElementById('panel-desempenho-projeto').style.display = 'flex';
+    if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'desempenho');
+    document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
+    if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
+    if (typeof atualizarBreadcrumbDesempenho === 'function') atualizarBreadcrumbDesempenho(desempEtapaAtiva, 'produtividade');
+    if (typeof carregarPainelDesempenho === 'function') carregarPainelDesempenho(nome, desempEtapaAtiva);
 }
 
 // 4ª orelha do Hub "📁 Projetos" — leituras automáticas (Diagnóstico)
@@ -1010,16 +1128,21 @@ function irParaBonificacaoDoProjetoAtivo() {
 // de bonificação, formato trazido pelo usuário de um Artifact de
 // referência), ver js/desempenho-projeto.js::calcularDistribuicoesProjeto().
 // Mesmo padrão de origem do nome do projeto das outras orelhas.
-function irParaDistribuicoesDoProjetoAtivo() {
+// `etapaNome` opcional, mesma lógica de irParaDesempenhoDoProjetoAtivo()
+// acima — as 2 funções compartilham desempEtapaAtiva.
+function irParaDistribuicoesDoProjetoAtivo(etapaNome) {
     const elProjeto = document.getElementById('dc-projeto');
     const nome = projetoSelecionadoAtivo || (elProjeto ? elProjeto.value : '');
     if (!nome) return;
+    if (etapaNome) desempEtapaAtiva = etapaNome;
+    if (!desempEtapaAtiva) { abrirSelecaoEtapaDesempenho(); return; }
     document.querySelectorAll('.content-panel').forEach(panel => panel.style.display = 'none');
     document.getElementById('panel-distribuicoes-projeto').style.display = 'flex';
     if (typeof atualizarOrelhasProjetoAtivo === 'function') atualizarOrelhasProjetoAtivo(nome, 'distribuicoes');
     document.querySelectorAll('.submenu .menu-item, .sidebar .menu-item').forEach(item => item.classList.remove('active'));
     if (document.getElementById('nav-arvore')) document.getElementById('nav-arvore').classList.add('active');
-    if (typeof carregarPainelDistribuicoes === 'function') carregarPainelDistribuicoes(nome);
+    if (typeof atualizarBreadcrumbDesempenho === 'function') atualizarBreadcrumbDesempenho(desempEtapaAtiva, 'financeira');
+    if (typeof carregarPainelDistribuicoes === 'function') carregarPainelDistribuicoes(nome, desempEtapaAtiva);
 }
 
 function irParaEstruturaProjetoDoProjetoAtivo() {

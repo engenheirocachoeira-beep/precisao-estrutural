@@ -5144,3 +5144,42 @@ dela (R$ 13.684,93, Fundo 0%) sem masthead nem os outros 5 livros;
 "🔁 Trocar Etapa" volta pro seletor corretamente (confirmado clicando
 no botão de verdade, não só chamando a função). Zero erros no Console
 em qualquer ponto do fluxo.
+
+## Retomada em 2026-09-02 (parte 74) — Renomeia Etapa "Análise Global" para "Análise Estrutural"
+
+Pedido do usuário: o nome "Análise Global" confundia com o conceito
+novo de "🌐 Projeto Inteiro" discutido pra próxima reforma da orelha
+Desempenho (seletor em fileira de orelhas, mostrado como prévia em
+Artifact, ainda não implementado).
+
+Não é só um rótulo — "Análise Global" é o nome de uma Etapa de verdade,
+usado tanto no nó da Árvore quanto como CHAVE em 2 estruturas
+indexadas por nome (`banco_distribuicao_custos_analista`, % Verba por
+Etapa; `banco_fundo_lucros_pavimento`, % Fundo Distribuição de Lucros)
+— um rename ingênuo do rótulo, sem migrar as chaves, faria essas 2
+configurações "sumirem" (a leitura por nome nunca mais bateria).
+
+**Migração v15** (`js/core.js`, mesmo padrão `_migrado_v*` de sempre):
+renomeia "Análise Global"→"Análise Estrutural" em 4 lugares — o nó da
+Árvore (`arv.etapas[].nome`, todos os projetos), as 2 estruturas
+indexadas por nome acima (renomeia a CHAVE, preserva o valor), e o
+catálogo de Etapas (`banco_etapas_lego`). Casamento por nome sem
+diferenciar maiúsculas/minúsculas, mesmo padrão da v13 (que foi quem
+originalmente criou essa Etapa, empacotando as 4 etapas legadas
+Pré-Lançamento/Lançamento/Análise/Cargas). A v13 também teve as 3
+ocorrências do nome literal atualizadas pra já criar "Análise
+Estrutural" direto (pro raro caso de alguém restaurar um backup antigo
+com as etapas legadas e passar pela v13 pela primeira vez só agora) —
+e a v14 (filtro do catálogo de Etapas) ganhou "análise estrutural" na
+lista de nomes permitidos, pro mesmo cenário não jogar a Etapa nova
+pro catálogo de Sub-etapa por engano.
+
+Testado: `node --check` limpo. Testado ao vivo contra os dados reais
+de "HOME GARDEN - SETOR C" (sync desligado, mesma técnica seguros de
+sempre): depois da migração, o nó da Árvore mostra "Análise
+Estrutural", a chave de `banco_fundo_lucros_pavimento` foi renomeada
+preservando o 0% já configurado (`obterPctFundoLucrosPavimento`
+resolve certo pelo nome novo), a Verba Líquida bate
+(R$ 13.684,93, igual antes), e o seletor de Etapa da orelha Desempenho
+já mostra o nome novo. `core.js` re-sincronizado nas 9 cópias de
+`modulos_isolados/` (mesma rotina da parte 72).
