@@ -168,6 +168,20 @@
         .subaba-pill:not(.active):hover { background: #eef2f6; }
         .subaba-pill.active { background: #0a192f; color: #fff; box-shadow: 0 3px 8px -3px rgba(10,25,47,.5); }
 
+        /* Reforma "Desempenho" com seletor de Etapa (2026-09-01):
+           separador + botão "Trocar Etapa" dentro do breadcrumb, e os
+           cartões do seletor em si (1ª tela da orelha, antes de
+           escolher uma Etapa). */
+        .subaba-breadcrumb-etapa-sep { color: #94a3b8; font-size: 13px; }
+        .subaba-breadcrumb-etapa-txt { font-size: 13px; color: #0f223f; }
+        .subaba-trocar-etapa { margin-left: auto; background: none; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-size: 11.5px; color: #475569; cursor: pointer; }
+        .subaba-trocar-etapa:hover { background: #eef2f6; }
+        .desemp-selecao-etapas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .desemp-selecao-etapa-card { background: #ffffff; border: 2px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; cursor: pointer; }
+        .desemp-selecao-etapa-card:hover { border-color: #0a192f; box-shadow: 0 3px 10px -4px rgba(10,25,47,.35); }
+        .desemp-selecao-etapa-nome { font-size: 14px; font-weight: 700; color: #0f223f; margin-bottom: 6px; }
+        .desemp-selecao-etapa-tag { font-size: 11.5px; color: #64748b; }
+
         /* Crédito dos ícones das orelhas (Flaticon, plano gratuito —
            decisão do usuário: manter atribuição em vez de comprar
            licença Premium) — reservado no fim da barra lateral,

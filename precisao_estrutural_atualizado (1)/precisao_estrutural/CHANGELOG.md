@@ -5046,3 +5046,101 @@ entre os 9 módulos). Cada uma das 9 páginas isoladas aberta de verdade
 num servidor local, Console conferido sem erro, e o painel principal
 de cada uma confirmado como visível (`getComputedStyle(...).display`)
 já no carregamento — não só clicando depois.
+
+## Retomada em 2026-09-01 (parte 73) — Orelha "Detalhamento" vira "Desempenho", com seletor de Etapa
+
+Pedido retomado da parte 71/pausa anterior: "Detalhamento" (3ª orelha)
+virou "Desempenho" — Detalhamento passa a ser uma Etapa "filha" dela
+(uma opção entre outras, não mais o único caminho), confirmando a
+visão do usuário: "Imagino que detalhamento seria uma filha da orelha
+Desempenho. Haverão outras". Decisões confirmadas via AskUserQuestion
+antes de implementar:
+
+1. Clicar na orelha abre um **seletor de Etapas** do projeto — não vai
+   mais direto pra Produtividade.
+2. **Produtividade** de uma Etapa sem execução granular (sem Pavimento/
+   Tarefa, ex: "Análise Global"): mostra um estado vazio explicando o
+   motivo, não esconde a sub-aba nem inventa número.
+3. **Financeira** de uma Etapa: perguntei errado da 1ª vez (descrevi
+   "Financeira" como sendo só o livro-caixa — na real é um relatório
+   bem mais rico: masthead, KPIs, "Como a Verba é dividida", Resultado
+   por técnico, Diagnóstico por atividade, com o livro-caixa por
+   último) — corrigido com uma 2ª pergunta: quem TEM execução granular
+   mantém esse relatório rico inteiro (já é essencialmente sobre essa
+   Etapa, nada muda); quem NÃO tem mostra só o livro isolado dela
+   ("Dentro da Etapa X" + Caixa por Executor se tiver — o resto do
+   relatório, Pool de Horas/Custo Real por técnico, não se aplica).
+
+**Ícone**: velocímetro colorido (6 faixas vermelho→verde, marcadores
+com a mesma espessura da faixa, ponteiro+pivô), gerado direto com PIL
+(`ImageDraw.arc(..., width=)` pra faixa + `ImageDraw.line` pros
+marcadores — não SVG), aprovado pelo usuário numa 1ª versão, salvo em
+`assets/icones-orelhas/desempenho.png` (512&times;512 RGBA, mesmo
+padrão dos outros).
+
+**Cálculo (`js/desempenho-projeto.js`)** — `etapaFiltro` opcional
+adicionado a 4 funções que antes só somavam o projeto inteiro (sem
+esse parâmetro continuam retrocompatíveis, ainda usadas por
+Diagnóstico/Bonificação, que ficaram de fora desta reforma de
+propósito):
+- `calcularHorasCustoProjeto`/`calcularDesempenhoExecutoresProjeto`:
+  restringem `coletarNosFolhaDaArvore` à subárvore da Etapa escolhida
+  em vez do projeto inteiro.
+- `calcularTabelasDesempenho`: acrescenta `&& l.etapaNome === etapaFiltro`
+  ao filtro existente.
+- `calcularConclusaoProjeto`: filtra qual Etapa entra no laço de soma
+  ponderada — sobrando só 1 termo, o resultado já sai sendo a % de
+  conclusão daquela Etapa sozinha, sem precisar de lógica nova.
+- `calcularDesempenhoProjeto` (orquestrador) repassa `etapaFiltro` pras
+  4 acima; `renderizarDesempenhoProjeto` trocou o antigo
+  `tab.porEtapa.find(nome.includes('detalhamento'))` por
+  `tab.porEtapa[0]` (já vem filtrado pra no máximo 1 linha).
+
+**Financeira isolada por Etapa**: o corpo do laço "um livro por Etapa"
+de `htmlLivroCaixaFinanceiro()` (parte 71) foi extraído pra
+`htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, etapa)` — devolve
+`{html, poolLucro}`, reaproveitado tanto pelo livro-caixa do projeto
+inteiro (soma `poolLucro` de todas as Etapas granulares pro Fundo
+Garantidor restante, sem mudança de comportamento) quanto pela nova
+`htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome)` (chama o helper
+1 vez só, pra 1 Etapa).
+
+**Navegação (`js/core.js`)**: novo estado `desempEtapaAtiva`
+(compartilhado entre os 2 painéis de topo que a orelha alimenta —
+`panel-desempenho-projeto`/Produtividade e
+`panel-distribuicoes-projeto`/Financeira, painéis SEPARADOS desde a
+reforma de 2026-08-25). Nova `abrirSelecaoEtapaDesempenho()` (botão da
+orelha + "🔁 Trocar Etapa" no breadcrumb) zera esse estado e mostra o
+seletor. `irParaDesempenhoDoProjetoAtivo(etapaNome)`/
+`irParaDistribuicoesDoProjetoAtivo(etapaNome)` ganharam um parâmetro
+opcional — com Etapa, define `desempEtapaAtiva`; sem Etapa (clique nas
+pills), usa a que já estava ativa; sem nenhuma das duas (edge case
+defensivo), volta pro seletor. Nova `atualizarBreadcrumbDesempenho()`
+atualiza os 2 breadcrumbs (nome da Etapa, separador, botão "Trocar
+Etapa", pill ativa) via querySelectorAll de classes/`data-pill`, sem
+precisar de ids únicos por painel.
+
+**HTML/CSS**: `index.html` — ícone/rótulo da orelha trocados,
+breadcrumbs dos 2 painéis ganharam `<span class="subaba-breadcrumb-etapa-sep">`
++ `<b class="subaba-breadcrumb-etapa-txt">` + botão "🔁 Trocar Etapa"
+(escondidos por padrão até uma Etapa ser escolhida), pills ganharam
+`data-pill="produtividade"/"financeira"` (a classe `active` virou
+100% dinâmica, não mais fixa no HTML). `estilos.css` — novo bloco pro
+breadcrumb/botão + `.desemp-selecao-etapas-grid`/`.desemp-selecao-etapa-card`
+(cartões do seletor, grid responsivo). Nenhuma cópia em
+`modulos_isolados/` tem essa barra de orelhas (confirmado por grep, já
+registrado desde a redesign de 2026-08-25), nada a sincronizar lá.
+
+Testado: `node --check` limpo em `js/core.js`/`js/desempenho-projeto.js`.
+Testado ao vivo no navegador com dados reais (HOME GARDEN - SETOR C,
+"DETALHAMENTO" granular + "Análise Global" não-granular): seletor
+mostra as 2 Etapas com a etiqueta certa; "DETALHAMENTO" → Produtividade
+mostra os KPIs reais (400,0h realizadas, 294,6h previstas, +36%, 100%
+concluída, &minus;105,40h de saldo — batendo com os números já
+auditados nesta sessão) e Financeira mantém o relatório rico completo
+(masthead + 6 livros); "Análise Global" → Produtividade mostra o
+estado vazio explicando o motivo, Financeira mostra só o livro isolado
+dela (R$ 13.684,93, Fundo 0%) sem masthead nem os outros 5 livros;
+"🔁 Trocar Etapa" volta pro seletor corretamente (confirmado clicando
+no botão de verdade, não só chamando a função). Zero erros no Console
+em qualquer ponto do fluxo.

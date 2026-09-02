@@ -35,12 +35,16 @@
 // =========================================================================
 
 // --- 1) HORAS / CUSTO REAL DO PROJETO INTEIRO (KPIs do topo) ---
-function calcularHorasCustoProjeto(nomeProjeto) {
+// `etapaFiltro` opcional (reforma "Desempenho" com seletor de Etapa,
+// 2026-09-01): quando informado, restringe às folhas da Etapa
+// escolhida, em vez do projeto inteiro.
+function calcularHorasCustoProjeto(nomeProjeto, etapaFiltro) {
     const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = todas[nomeProjeto];
     if (!arv || !Array.isArray(arv.etapas)) return { horasPrevistas: 0, horasRealizadas: 0, custoRealTotal: 0 };
 
-    const folhas = coletarNosFolhaDaArvore(arv.etapas);
+    const etapasConsideradas = etapaFiltro ? arv.etapas.filter(e => e.nome === etapaFiltro) : arv.etapas;
+    const folhas = coletarNosFolhaDaArvore(etapasConsideradas);
     let horasPrevistas = 0, horasRealizadas = 0, custoRealTotal = 0;
     folhas.forEach(f => {
         horasPrevistas += parseFloat(f.no.pontos) || 0;
@@ -57,7 +61,11 @@ function calcularHorasCustoProjeto(nomeProjeto) {
 // (verbaLiquida de calcularVerbaPorEtapaSalvo) — não pelo campo manual
 // `.verba` do nó (que fica "0" em Etapas Única criadas sem preencher
 // esse campo à mão, o que zeraria o peso delas na média sem motivo).
-function calcularConclusaoProjeto(nomeProjeto) {
+// `etapaFiltro` opcional (reforma "Desempenho" com seletor de Etapa,
+// 2026-09-01): restringe a soma ponderada a uma única Etapa — como só
+// sobra 1 termo na soma, o resultado vira simplesmente a % de
+// conclusão daquela Etapa sozinha, sem precisar de uma função à parte.
+function calcularConclusaoProjeto(nomeProjeto, etapaFiltro) {
     const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = todas[nomeProjeto];
     if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) return 0;
@@ -89,6 +97,7 @@ function calcularConclusaoProjeto(nomeProjeto) {
 
     let pesoTotal = 0, pesoConcluido = 0;
     arv.etapas.forEach((etapa, fIdx) => {
+        if (etapaFiltro && etapa.nome !== etapaFiltro) return;
         const infoVerba = verbasPorEtapa.find(v => v.nome === etapa.nome);
         const pesoEtapa = infoVerba ? infoVerba.verbaLiquida : 0;
         if (pesoEtapa <= 0) return; // sem peso financeiro, não entra na média (evita divisão por lixo)
@@ -198,9 +207,14 @@ function agruparLinhasDesempenho(linhas, chaveFn) {
 // linhas ~313/432/521/829, já fazem esse filtro). Sem o filtro, "por
 // Tarefa"/"por Executor" também vazavam tarefas de outras etapas pra
 // dentro desta tela, que é (desde a reforma "DETALHAMENTO - ANÁLISE
-// PRODUTIVIDADE") inteiramente sobre a Etapa Detalhamento.
-function calcularTabelasDesempenho(nomeProjeto) {
-    const linhas = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome);
+// PRODUTIVIDADE") inteiramente sobre uma única Etapa por vez.
+// `etapaFiltro` (reforma "Desempenho" com seletor de Etapa, 2026-09-01):
+// qual Etapa foi escolhida no seletor — sem ele, soma todas as Etapas
+// com execução granular juntas (comportamento antigo, ainda usado
+// pelo Diagnóstico e pela Bonificação, que continuam de projeto
+// inteiro).
+function calcularTabelasDesempenho(nomeProjeto, etapaFiltro) {
+    const linhas = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome && (!etapaFiltro || l.etapaNome === etapaFiltro));
     const totais = linhas.reduce((t, l) => ({
         previsto: t.previsto + l.pontos, realizado: t.realizado + l.horas,
         verba: t.verba + l.verba, custo: t.custo + l.custo
@@ -220,12 +234,14 @@ function calcularTabelasDesempenho(nomeProjeto) {
 
 // --- 5) DESEMPENHO POR EXECUTOR (produtividade — Pontos/Horas/Ponto,
 // tabela separada da de cima; pedido em rodada anterior, mantida) ---
-function calcularDesempenhoExecutoresProjeto(nomeProjeto) {
+// `etapaFiltro` opcional, mesmo padrão de calcularHorasCustoProjeto().
+function calcularDesempenhoExecutoresProjeto(nomeProjeto, etapaFiltro) {
     const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
     const arv = todas[nomeProjeto];
     if (!arv || !Array.isArray(arv.etapas)) return [];
 
-    const folhas = coletarNosFolhaDaArvore(arv.etapas);
+    const etapasConsideradas = etapaFiltro ? arv.etapas.filter(e => e.nome === etapaFiltro) : arv.etapas;
+    const folhas = coletarNosFolhaDaArvore(etapasConsideradas);
     const porExecutor = {};
     folhas.forEach(f => {
         const sessoes = Array.isArray(f.no.sessoes_trabalho) ? f.no.sessoes_trabalho : [];
@@ -478,14 +494,19 @@ function calcularDistribuicoesProjeto(nomeProjeto) {
     return { meta, bonif, tab, pctConcluido, horasCusto, poolExecutores, fixoExecutores, diagExecutorNome, diagPorAtividade, financeiro };
 }
 
-// --- ORQUESTRADOR ---
-function calcularDesempenhoProjeto(nomeProjeto) {
+// --- ORQUESTRADOR --- `etapaFiltro` opcional (reforma "Desempenho"
+// com seletor de Etapa, 2026-09-01) — repassado pras 4 funções que
+// aceitam; `financeiro` continua de projeto inteiro (usada só pra
+// `verbaDetalhamentoBruta`/`areaTotalEquivalente` dos Índices Globais,
+// que ficaram fora desta reforma).
+function calcularDesempenhoProjeto(nomeProjeto, etapaFiltro) {
     return {
         nomeProjeto: nomeProjeto,
-        horasCusto: calcularHorasCustoProjeto(nomeProjeto),
-        pctConcluido: calcularConclusaoProjeto(nomeProjeto),
-        tabelas: calcularTabelasDesempenho(nomeProjeto),
-        executores: calcularDesempenhoExecutoresProjeto(nomeProjeto),
+        etapaFiltro: etapaFiltro || null,
+        horasCusto: calcularHorasCustoProjeto(nomeProjeto, etapaFiltro),
+        pctConcluido: calcularConclusaoProjeto(nomeProjeto, etapaFiltro),
+        tabelas: calcularTabelasDesempenho(nomeProjeto, etapaFiltro),
+        executores: calcularDesempenhoExecutoresProjeto(nomeProjeto, etapaFiltro),
         financeiro: calcularResumoFinanceiroProjeto(nomeProjeto)
     };
 }
@@ -620,7 +641,12 @@ function trocarDimensaoDesempenho() {
     area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag);
 }
 
-function carregarPainelDesempenho(nomeProjeto) {
+// `etapaNome` opcional (reforma "Desempenho" com seletor de Etapa,
+// 2026-09-01): sem ele, mostra o seletor; com ele, mostra a
+// Produtividade daquela Etapa — ou um estado vazio explicando o
+// motivo, se ela não tiver execução granular (sem Pavimento/Tarefa,
+// não há hora apontada pra medir aqui, ver decisão do usuário).
+function carregarPainelDesempenho(nomeProjeto, etapaNome) {
     const area = document.getElementById('desemp-conteudo');
     if (!area) return;
     if (!nomeProjeto) { area.innerHTML = ''; return; }
@@ -632,8 +658,49 @@ function carregarPainelDesempenho(nomeProjeto) {
         return;
     }
 
-    const dados = calcularDesempenhoProjeto(nomeProjeto);
+    if (!etapaNome) {
+        renderizarSeletorEtapaDesempenho(nomeProjeto);
+        return;
+    }
+
+    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
+    const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
+    if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
+        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">A Etapa "' + escapeHtml(etapaNome) + '" n&atilde;o tem Pavimento/Tarefa cadastrado — sem essa granularidade, n&atilde;o h&aacute; apontamento de horas pra medir Produtividade aqui. Veja a aba <b>Financeira</b> pra ver a Verba dela.</div>';
+        return;
+    }
+
+    const dados = calcularDesempenhoProjeto(nomeProjeto, etapaNome);
     area.innerHTML = renderizarDesempenhoProjeto(dados);
+}
+
+// Seletor de Etapa da orelha "Desempenho" — 1ª tela ao clicar na
+// orelha (ou em "🔁 Trocar Etapa"). Um cartão por Etapa de topo do
+// projeto; a etiqueta avisa se ela tem as 2 sub-abas disponíveis
+// (execução granular) ou só Financeira (sem Pavimento/Tarefa, ex:
+// "Análise Global").
+function renderizarSeletorEtapaDesempenho(nomeProjeto) {
+    const area = document.getElementById('desemp-conteudo');
+    if (!area) return;
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) {
+        area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Este projeto ainda não tem Etapas cadastradas.</div>';
+        return;
+    }
+    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
+    let html = '<p class="desemp-painel-legenda" style="margin-bottom:14px;">Escolha uma Etapa pra ver o desempenho dela.</p>';
+    html += '<div class="desemp-selecao-etapas-grid">';
+    arv.etapas.forEach(etapa => {
+        const info = verbasPorEtapa.find(v => v.nome === etapa.nome);
+        const granular = info ? info.temExecucaoGranular : false;
+        html += '<div class="desemp-selecao-etapa-card" data-etapa="' + escapeHtml(etapa.nome) + '" onclick="irParaDesempenhoDoProjetoAtivo(this.dataset.etapa)">' +
+            '<div class="desemp-selecao-etapa-nome">' + escapeHtml(etapa.nome) + '</div>' +
+            '<div class="desemp-selecao-etapa-tag">' + (granular ? '📈 Produtividade + 📰 Financeira' : '📰 Só Financeira') + '</div>' +
+            '</div>';
+    });
+    html += '</div>';
+    area.innerHTML = html;
 }
 
 function carregarPainelDiagnostico(nomeProjeto) {
@@ -727,7 +794,15 @@ function obterFormatoPct(v) {
 // 6ª ORELHA "DISTRIBUIÇÕES" — relatório editorial (ver calcularDistribuicoesProjeto)
 // =========================================================================
 
-function carregarPainelDistribuicoes(nomeProjeto) {
+// `etapaNome` opcional (reforma "Desempenho" com seletor de Etapa,
+// 2026-09-01) — decisão do usuário: quem tem execução granular (ex:
+// Detalhamento) mantém o relatório rico de sempre (KPIs, "Como a Verba
+// é dividida", Resultado por técnico, Diagnóstico por atividade —
+// já é essencialmente sobre ESSA Etapa, nada muda); quem não tem (ex:
+// Análise Global) mostra só o livro-caixa isolado dela, já que o
+// resto do relatório (Pool de Horas, Custo Real por técnico) não se
+// aplica.
+function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
     const area = document.getElementById('distribuicoes-conteudo');
     if (!area) return;
     if (!nomeProjeto) { area.innerHTML = ''; return; }
@@ -736,6 +811,22 @@ function carregarPainelDistribuicoes(nomeProjeto) {
     const arv = todas[nomeProjeto];
     if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) {
         area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Este projeto ainda não tem Etapas cadastradas na Árvore — sem estrutura, não há distribuição pra mostrar.</div>';
+        return;
+    }
+
+    // Defensivo: normalmente esta função só é chamada já com uma Etapa
+    // escolhida (irParaDistribuicoesDoProjetoAtivo() barra antes, ver
+    // js/core.js) — sem uma, o seletor precisa aparecer no OUTRO painel
+    // (#desemp-conteudo, panel-desempenho-projeto), não aqui.
+    if (!etapaNome) {
+        if (typeof abrirSelecaoEtapaDesempenho === 'function') abrirSelecaoEtapaDesempenho();
+        return;
+    }
+
+    const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
+    const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
+    if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
+        area.innerHTML = htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome);
         return;
     }
 
@@ -835,6 +926,82 @@ function distLivroBook(titulo, linhasHtml, memo) {
         '</div>';
 }
 
+// Livro "Dentro da Etapa X" (+ "Caixa por Executor" se tiver execução
+// granular) de UMA Etapa — extraído do laço de htmlLivroCaixaFinanceiro()
+// (reforma "Desempenho" com seletor de Etapa, 2026-09-01) pra ser
+// reaproveitado também pela Financeira isolada de uma Etapa só (ver
+// htmlLivroCaixaEtapaIsolada() logo abaixo). Devolve `{html, poolLucro}`
+// — `poolLucro` só é != 0 pra quem tem execução granular, usado pelo
+// chamador pra somar no "Fundo Garantidor restante" do livro-caixa do
+// projeto inteiro.
+function htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e) {
+    let saldoEtapa = e.verbaLiquida;
+    let linhasEtapa = distLivroLinha('Verba recebida da Etapa', e.verbaLiquida, null, saldoEtapa);
+    const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, e.no) : 0;
+    const valorFundo = pctFundo / 100 * e.verbaLiquida;
+    saldoEtapa -= valorFundo;
+    linhasEtapa += distLivroLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + pctFundo.toFixed(0) + '%)', null, valorFundo, saldoEtapa);
+
+    let html = '';
+    let poolLucro = 0;
+
+    if (e.temExecucaoGranular) {
+        const linhasFolhaEtapa = todasLinhas.filter(l => l.etapaNome === e.nome && l.pavimentoNome);
+        const horasPrevistas = linhasFolhaEtapa.reduce((s, l) => s + l.pontos, 0);
+        const horasRealizadas = linhasFolhaEtapa.reduce((s, l) => s + l.horas, 0);
+        const custoReal = linhasFolhaEtapa.reduce((s, l) => s + l.custo, 0);
+        const verbaPosFundo = saldoEtapa;
+        saldoEtapa -= custoReal;
+        poolLucro = verbaPosFundo - custoReal;
+        linhasEtapa += distLivroLinha('Custo real do trabalho (' + formatarNumero(horasRealizadas) + 'h)', null, custoReal, saldoEtapa);
+
+        const desvio = custoReal - verbaPosFundo;
+        const memo = 'Or&ccedil;ado para as ' + formatarNumero(horasPrevistas) + 'h previstas: ' + formatarMoeda(verbaPosFundo) +
+            ' &mdash; as ' + formatarNumero(horasRealizadas) + 'h realmente apontadas custaram ' + formatarMoeda(Math.abs(desvio)) + (desvio >= 0 ? ' a mais.' : ' a menos.');
+        html += distLivroBook('Dentro da Etapa "' + escapeHtml(e.nome) + '"', linhasEtapa, memo);
+
+        // Caixa por executor — pedido do usuário: o estouro de um
+        // executor pode mascarar o superávit de outro se só olhar
+        // a soma do pool.
+        const porExecutor = {}, ordemExec = [];
+        linhasFolhaEtapa.forEach(l => {
+            const ex = l.executor || '(sem executor)';
+            if (!porExecutor[ex]) { porExecutor[ex] = { verba: 0, custo: 0 }; ordemExec.push(ex); }
+            porExecutor[ex].verba += l.verba;
+            porExecutor[ex].custo += l.custo;
+        });
+        if (ordemExec.length > 0) {
+            let linhasExec = '', totV = 0, totC = 0;
+            ordemExec.forEach(ex => {
+                const dEx = porExecutor[ex];
+                const saldoEx = dEx.verba - dEx.custo;
+                totV += dEx.verba; totC += dEx.custo;
+                linhasExec += '<tr><td class="lbl">' + escapeHtml(nomeExecutorExibicao(ex)) + '</td><td class="n">' + formatarMoeda(dEx.verba) + '</td><td class="n">' + formatarMoeda(dEx.custo) + '</td><td class="n ' + (saldoEx >= 0 ? 'pos' : 'neg') + '">' + (saldoEx >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoEx)) + '</td></tr>';
+            });
+            const saldoTotalExec = totV - totC;
+            linhasExec += '<tr class="total"><td class="lbl">= Total do Pool</td><td class="n">' + formatarMoeda(totV) + '</td><td class="n">' + formatarMoeda(totC) + '</td><td class="n ' + (saldoTotalExec >= 0 ? 'pos' : 'neg') + '">' + (saldoTotalExec >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoTotalExec)) + '</td></tr>';
+            html += '<div class="dist-livro-book"><div class="dist-livro-head">Caixa por Executor &mdash; Pool de "' + escapeHtml(e.nome) + '"</div>' +
+                '<table class="dist-livro-tab"><thead><tr><td>Executor</td><td>Or&ccedil;ado</td><td>Custo Real</td><td>Saldo</td></tr></thead><tbody>' + linhasExec + '</tbody></table></div>';
+        }
+    } else {
+        linhasEtapa += distLivroLinha('= Dispon&iacute;vel para as Sub-etapas', null, null, saldoEtapa, 'saldo');
+        html += distLivroBook('Dentro da Etapa "' + escapeHtml(e.nome) + '"', linhasEtapa);
+    }
+
+    return { html: html, poolLucro: poolLucro };
+}
+
+// Financeira isolada de UMA Etapa só (reforma "Desempenho" com
+// seletor de Etapa, 2026-09-01, decisão do usuário: mostrar só o
+// quadro daquela Etapa, não o livro-caixa do contrato inteiro).
+function htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome) {
+    const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
+    const e = fin.etapas.find(x => x.nome === etapaNome);
+    if (!e) return '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Etapa n&atilde;o encontrada.</div>';
+    const todasLinhas = (typeof calcularLinhasFolhaComVerba === 'function') ? calcularLinhasFolhaComVerba(nomeProjeto) : [];
+    return htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e).html;
+}
+
 function htmlLivroCaixaFinanceiro(nomeProjeto, fin) {
     const todasLinhas = (typeof calcularLinhasFolhaComVerba === 'function') ? calcularLinhasFolhaComVerba(nomeProjeto) : [];
     let html = '';
@@ -868,58 +1035,14 @@ function htmlLivroCaixaFinanceiro(nomeProjeto, fin) {
     html += distLivroBook('Do Contrato ao Fundo Garantidor', linhas);
 
     // --- Um livro por Etapa + "Caixa por Executor" pra quem tem
-    // execução granular (Pavimento na subárvore) ---
+    // execução granular (Pavimento na subárvore) — corpo do laço
+    // vive em htmlLivroCaixaBlocoEtapa(), reaproveitado também pela
+    // Financeira isolada de uma Etapa só (ver htmlLivroCaixaEtapaIsolada()). ---
     let poolLucroTotal = 0;
     fin.etapas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
-        let saldoEtapa = e.verbaLiquida;
-        let linhasEtapa = distLivroLinha('Verba recebida da Etapa', e.verbaLiquida, null, saldoEtapa);
-        const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, e.no) : 0;
-        const valorFundo = pctFundo / 100 * e.verbaLiquida;
-        saldoEtapa -= valorFundo;
-        linhasEtapa += distLivroLinha('Fundo Distribui&ccedil;&atilde;o de Lucros (' + pctFundo.toFixed(0) + '%)', null, valorFundo, saldoEtapa);
-
-        if (e.temExecucaoGranular) {
-            const linhasFolhaEtapa = todasLinhas.filter(l => l.etapaNome === e.nome && l.pavimentoNome);
-            const horasPrevistas = linhasFolhaEtapa.reduce((s, l) => s + l.pontos, 0);
-            const horasRealizadas = linhasFolhaEtapa.reduce((s, l) => s + l.horas, 0);
-            const custoReal = linhasFolhaEtapa.reduce((s, l) => s + l.custo, 0);
-            const verbaPosFundo = saldoEtapa;
-            saldoEtapa -= custoReal;
-            poolLucroTotal += (verbaPosFundo - custoReal);
-            linhasEtapa += distLivroLinha('Custo real do trabalho (' + formatarNumero(horasRealizadas) + 'h)', null, custoReal, saldoEtapa);
-
-            const desvio = custoReal - verbaPosFundo;
-            const memo = 'Or&ccedil;ado para as ' + formatarNumero(horasPrevistas) + 'h previstas: ' + formatarMoeda(verbaPosFundo) +
-                ' &mdash; as ' + formatarNumero(horasRealizadas) + 'h realmente apontadas custaram ' + formatarMoeda(Math.abs(desvio)) + (desvio >= 0 ? ' a mais.' : ' a menos.');
-            html += distLivroBook('Dentro da Etapa "' + escapeHtml(e.nome) + '"', linhasEtapa, memo);
-
-            // Caixa por executor — pedido do usuário: o estouro de um
-            // executor pode mascarar o superávit de outro se só olhar
-            // a soma do pool.
-            const porExecutor = {}, ordemExec = [];
-            linhasFolhaEtapa.forEach(l => {
-                const ex = l.executor || '(sem executor)';
-                if (!porExecutor[ex]) { porExecutor[ex] = { verba: 0, custo: 0 }; ordemExec.push(ex); }
-                porExecutor[ex].verba += l.verba;
-                porExecutor[ex].custo += l.custo;
-            });
-            if (ordemExec.length > 0) {
-                let linhasExec = '', totV = 0, totC = 0;
-                ordemExec.forEach(ex => {
-                    const dEx = porExecutor[ex];
-                    const saldoEx = dEx.verba - dEx.custo;
-                    totV += dEx.verba; totC += dEx.custo;
-                    linhasExec += '<tr><td class="lbl">' + escapeHtml(nomeExecutorExibicao(ex)) + '</td><td class="n">' + formatarMoeda(dEx.verba) + '</td><td class="n">' + formatarMoeda(dEx.custo) + '</td><td class="n ' + (saldoEx >= 0 ? 'pos' : 'neg') + '">' + (saldoEx >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoEx)) + '</td></tr>';
-                });
-                const saldoTotalExec = totV - totC;
-                linhasExec += '<tr class="total"><td class="lbl">= Total do Pool</td><td class="n">' + formatarMoeda(totV) + '</td><td class="n">' + formatarMoeda(totC) + '</td><td class="n ' + (saldoTotalExec >= 0 ? 'pos' : 'neg') + '">' + (saldoTotalExec >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoTotalExec)) + '</td></tr>';
-                html += '<div class="dist-livro-book"><div class="dist-livro-head">Caixa por Executor &mdash; Pool de "' + escapeHtml(e.nome) + '"</div>' +
-                    '<table class="dist-livro-tab"><thead><tr><td>Executor</td><td>Or&ccedil;ado</td><td>Custo Real</td><td>Saldo</td></tr></thead><tbody>' + linhasExec + '</tbody></table></div>';
-            }
-        } else {
-            linhasEtapa += distLivroLinha('= Dispon&iacute;vel para as Sub-etapas', null, null, saldoEtapa, 'saldo');
-            html += distLivroBook('Dentro da Etapa "' + escapeHtml(e.nome) + '"', linhasEtapa);
-        }
+        const r = htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e);
+        html += r.html;
+        poolLucroTotal += r.poolLucro;
     });
 
     // --- Fundo Garantidor restante (absorve o desempenho do pool de
@@ -1117,17 +1240,18 @@ function renderizarDesempenhoProjeto(d) {
     const fin = d.financeiro;
     const tab = d.tabelas;
 
-    // Pedido do usuário: os 4 cartões do topo passaram a falar
-    // especificamente da Etapa Detalhamento (não do projeto inteiro) —
-    // acha a linha dela em "Por Etapa" (já filtrada/agrupada) pra
-    // Horas Consumidas e Saldo de Horas; Verba/Custo do Detalhamento
-    // usam fin.verbaDetalhamentoBruta (a verba designada à Etapa,
-    // mesma fonte da tabela "Verba líquida por Etapa" mais abaixo).
-    const etapaDet = tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
+    // Pedido do usuário: os 4 cartões do topo falam especificamente da
+    // Etapa escolhida no seletor (não do projeto inteiro). Reforma
+    // "Desempenho" com seletor de Etapa (2026-09-01): `tab.porEtapa` já
+    // vem filtrado pra 1 única Etapa (`d.etapaFiltro`, ver
+    // calcularTabelasDesempenho()) — não precisa mais achar "a" Etapa
+    // Detalhamento por nome, sobra no máximo 1 linha aqui.
+    const etapaDet = tab.porEtapa[0];
     const horasPrevistoDet = etapaDet ? etapaDet.previsto : hc.horasPrevistas;
     const horasRealizadoDet = etapaDet ? etapaDet.realizado : hc.horasRealizadas;
     const custoDetalhamento = etapaDet ? etapaDet.custo : hc.custoRealTotal;
-    const verbaDetalhamento = fin.verbaDetalhamentoBruta;
+    const infoEtapaFin = d.etapaFiltro ? fin.etapas.find(e => e.nome === d.etapaFiltro) : null;
+    const verbaDetalhamento = infoEtapaFin ? infoEtapaFin.verbaLiquida : fin.verbaDetalhamentoBruta;
     const pctHoras = horasPrevistoDet > 0 ? (horasRealizadoDet / horasPrevistoDet * 100) : 0;
     const pctCustoVsVerbaDet = verbaDetalhamento > 0 ? ((custoDetalhamento - verbaDetalhamento) / verbaDetalhamento * 100) : 0;
     // "Saldo" = o que sobra do orçado (mesmo sentido de Saldo de
