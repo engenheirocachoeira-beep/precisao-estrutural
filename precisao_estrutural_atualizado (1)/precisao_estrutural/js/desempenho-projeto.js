@@ -1216,22 +1216,64 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     // (Resultado por técnico/pavimento, Diagnóstico por atividade). ---
     html += '<div class="dist-layout-2col"><div class="dist-col-orcamento">';
 
-    // --- Como a comissão é dividida ---
+    // --- Como a comissão é dividida --- Revisão 2026-09-03 (3 pontos
+    // reais que o usuário achou testando ao vivo, escopado a uma
+    // Etapa):
+    // 1) "Margem do escritório" — escopado, esse valor é LITERALMENTE
+    //    o Fundo de Distribuição de Lucros da Etapa (ver `margemEscritorio`
+    //    em calcularBonificacaoProjeto(): `infoEtapaEscopo ? valorFundoLucros
+    //    : ...`) — rótulo trocado pra refletir isso, em vez do nome
+    //    genérico "Margem" que só fazia sentido no Projeto Inteiro
+    //    (onde é Fundo Garantidor + Fundo de Lucros misturados).
+    // 2) "(fases sem apontamento)" aparecia SEM NOME NENHUM na frente
+    //    quando o Bloco Fixo é R$ 0,00 (`d.fixoExecutores` vazio, ex:
+    //    DETALHAMENTO — 100% granular, sem folha fora de Pavimento) —
+    //    a linha inteira só faz sentido quando existe alguém nesse
+    //    bloco; escondida quando `bonif.totalFixo` é 0.
+    // 3) O segmento da Margem/Fundo usava uma cor quase branca
+    //    (`--dist-surface-2`) que, numa fatia pequena (ex: 5%), fica
+    //    visualmente invisível — parecendo que a barra "não fecha em
+    //    100%" mesmo os números batendo certinho. Escopado a uma
+    //    Etapa, ganha uma cor de verdade (`--dist-cat-3`, roxo) — no
+    //    Projeto Inteiro mantém o cinza de sempre (não é uma categoria
+    //    específica lá, é os 2 fundos misturados).
     const pctFixo = bonif.valorGlobalProducao > 0 ? bonif.totalFixo / bonif.valorGlobalProducao * 100 : 0;
     const pctPool = bonif.valorGlobalProducao > 0 ? bonif.poolVerba / bonif.valorGlobalProducao * 100 : 0;
     const pctMargem = bonif.valorGlobalProducao > 0 ? bonif.margemEscritorio / bonif.valorGlobalProducao * 100 : 0;
+    const rotuloMargemCurto = d.etapaFiltro ? 'Fundo Lucros' : 'Margem';
+    const rotuloMargem = d.etapaFiltro ? 'Fundo de Distribui&ccedil;&atilde;o de Lucros' : 'Margem do escrit&oacute;rio';
+    const corMargem = d.etapaFiltro ? 'var(--dist-cat-3)' : 'var(--dist-surface-2)';
     html += '<div class="dist-section"><div class="dist-section-head"><h2>Como a Verba Global &eacute; dividida</h2><div class="dist-note">' + formatarMoeda(bonif.valorGlobalProducao) + ' em tr&ecirc;s blocos</div></div>';
     html += '<div class="dist-panel"><div class="dist-segbar">' +
-        '<div class="dist-seg" style="width:' + pctFixo.toFixed(1) + '%; background:var(--dist-cat-1);"><span>Bloco Fixo &middot; ' + pctFixo.toFixed(0) + '%</span></div>' +
+        (pctFixo > 0.05 ? '<div class="dist-seg" style="width:' + pctFixo.toFixed(1) + '%; background:var(--dist-cat-1);"><span>Bloco Fixo &middot; ' + pctFixo.toFixed(0) + '%</span></div>' : '') +
         '<div class="dist-seg" style="width:' + pctPool.toFixed(1) + '%; background:var(--dist-accent);"><span>' + (d.etapaFiltro ? escapeHtml(d.etapaFiltro) : 'Detalhamento') + ' &middot; ' + pctPool.toFixed(0) + '%</span></div>' +
-        '<div class="dist-seg dist-seg-margem" style="width:' + pctMargem.toFixed(1) + '%;"><span>Margem &middot; ' + pctMargem.toFixed(0) + '%</span></div>' +
+        '<div class="dist-seg' + (d.etapaFiltro ? '' : ' dist-seg-margem') + '" style="width:' + pctMargem.toFixed(1) + '%; background:' + corMargem + ';"><span' + (d.etapaFiltro ? '' : ' style="color:var(--dist-ink-2); text-shadow:none;"') + '>' + rotuloMargemCurto + ' &middot; ' + pctMargem.toFixed(0) + '%</span></div>' +
         '</div>';
     html += '<div class="dist-seg-legend">' +
-        '<div class="item"><span class="swatch" style="background:var(--dist-cat-1);"></span>' + d.fixoExecutores.map(e => (nomeExecutorExibicao(e.nome))).join(', ') + ' (fases sem apontamento) &mdash; <span class="dist-num">' + formatarMoeda(bonif.totalFixo) + '</span> fixo</div>' +
+        (bonif.totalFixo > 0.01 ? '<div class="item"><span class="swatch" style="background:var(--dist-cat-1);"></span>' + d.fixoExecutores.map(e => (nomeExecutorExibicao(e.nome))).join(', ') + ' (fases sem apontamento) &mdash; <span class="dist-num">' + formatarMoeda(bonif.totalFixo) + '</span> fixo</div>' : '') +
         '<div class="item"><span class="swatch" style="background:var(--dist-accent);"></span>Pool de horas de ' + d.poolExecutores.map(e => (nomeExecutorExibicao(e.nome))).join(' + ') + ' &mdash; or&ccedil;ado <span class="dist-num">' + formatarMoeda(bonif.poolVerba) + '</span></div>' +
-        '<div class="item"><span class="swatch" style="background:var(--dist-surface-2); border:1px solid var(--dist-border-strong);"></span>Margem do escrit&oacute;rio &mdash; <span class="dist-num">' + formatarMoeda(bonif.margemEscritorio) + '</span></div>' +
+        '<div class="item"><span class="swatch" style="background:' + corMargem + '; border:1px solid var(--dist-border-strong);"></span>' + rotuloMargem + ' &mdash; <span class="dist-num">' + formatarMoeda(bonif.margemEscritorio) + '</span></div>' +
         '</div>';
     html += '<div class="dist-tolerance"><span class="tag' + (foraTolerancia ? '' : ' ok') + '">' + (foraTolerancia ? 'Fora da toler&acirc;ncia' : 'Dentro da toler&acirc;ncia') + '</span> o pool de execu&ccedil;&atilde;o foi executado por <b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b> &mdash; ' + formatarMoeda(Math.abs(poolLucroTotal)) + (poolLucroTotal >= 0 ? ' abaixo' : ' acima') + ' do que este bloco or&ccedil;ava.</div>';
+
+    // --- Verba por Local (pedido do usuário, 2026-09-03): "Como a
+    // verba é dividida deveria aparecer cada um dos locais da tarefa
+    // com sua respectiva verba" — o Pool acima é um número só (soma de
+    // todos os Pavimentos da Etapa/projeto); esta tabela abre essa
+    // soma por Local, mesma fonte que a aba "Verba por Pavimento" de
+    // Distribuição de Custos usa (`valorVerba` já cascateado). Só
+    // aparece quando existe pelo menos 1 Local com Verba (Etapa sem
+    // execução granular não tem Pavimento, não haveria o que listar).
+    const pavimentosSegbar = (typeof calcularListaPavimentosComVerbaSalva === 'function') ? calcularListaPavimentosComVerbaSalva(nomeProjeto).pavimentos : [];
+    const pavimentosDoEscopo = (d.etapaFiltro ? pavimentosSegbar.filter(p => p.etapa === d.etapaFiltro) : pavimentosSegbar).slice().sort((a, b) => b.valorVerba - a.valorVerba);
+    if (pavimentosDoEscopo.length > 0) {
+        let linhasPav = '';
+        pavimentosDoEscopo.forEach(p => {
+            linhasPav += '<tr><td class="lbl">' + escapeHtml(p.nome) + '</td><td class="n">' + formatarMoeda(p.valorVerba) + '</td></tr>';
+        });
+        html += '<div class="dist-livro-book" style="margin-top:14px;"><div class="dist-livro-head">Verba por Local</div>' +
+            '<table class="dist-livro-tab"><thead><tr><td>Local</td><td>Verba</td></tr></thead><tbody>' + linhasPav + '</tbody></table></div>';
+    }
     html += '</div></div>';
 
     // --- Resumo financeiro (retomada 2026-08-25, parte 42: movido de

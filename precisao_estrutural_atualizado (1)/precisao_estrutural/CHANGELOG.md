@@ -5612,3 +5612,60 @@ como sempre. Dados de teste revertidos ao final (sessão removida,
 apontamento pendente removido) — sync com o Firebase estava desligado
 durante todo o teste, nada chegou à produção. `node --check` limpo nos
 2 arquivos, zero erro no console.
+
+## Retomada em 2026-09-03 (parte 81) — 3 correções + 1 pedido novo em "Como a Verba Global é dividida"
+
+Usuário testou a parte 79 (Financeira de Etapa com o formato rico) e
+mandou um print de "Como a Verba Global é dividida" pra DETALHAMENTO
+com 3 problemas reais + 1 pedido novo:
+
+- **"Margem do escritório" escopado é literalmente o Fundo de
+  Distribuição de Lucros** — `margemEscritorio` (calcularBonificacaoProjeto,
+  parte 79) já tinha virado só isso quando há `etapaFiltro`, mas o
+  rótulo continuava genérico "Margem do escritório" (nome que só fazia
+  sentido no Projeto Inteiro, onde é Fundo Garantidor + Fundo de
+  Lucros misturados). Corrigido: escopado, vira "Fundo de Distribuição
+  de Lucros" (segbar e legenda); Projeto Inteiro mantém "Margem do
+  escritório" sem mudança.
+- **Legenda "(fases sem apontamento)" aparecia sem nome nenhum na
+  frente** quando o Bloco Fixo é R$ 0,00 (`d.fixoExecutores` vazio —
+  caso de DETALHAMENTO, 100% granular) — a linha inteira `.map(...).join()`
+  virava string vazia e só sobrava "(fases sem apontamento) — R$ 0,00
+  fixo" solto, sem dizer de quem. Corrigido: a linha (e o segmento
+  "Bloco Fixo" na barra) só aparece quando `bonif.totalFixo > 0`.
+- **Segmento da Margem/Fundo praticamente invisível numa fatia
+  pequena** — usava `--dist-surface-2` (#E8ECE4, quase branco) contra
+  o fundo branco do card; numa fatia de 5% ficava imperceptível,
+  parecendo que a barra "não fechava em 100%" mesmo os números batendo
+  (0% + 95% + 5% = 100%, matemática já corrigida na parte 79 — o
+  problema era só visual). Corrigido: escopado a uma Etapa, o segmento
+  ganha cor de verdade (`--dist-cat-3`, roxo #7A4499) — Projeto Inteiro
+  mantém o cinza de sempre (lá não é uma categoria específica).
+- **Pedido novo: "Como a verba é dividida deveria aparecer cada um dos
+  locais da tarefa com sua respectiva verba"** — nova tabela "Verba
+  por Local" dentro da mesma seção, abrindo o bloco Pool por Pavimento
+  (mesma fonte que "Verba por Pavimento" em Distribuição de Custos —
+  `calcularListaPavimentosComVerbaSalva().pavimentos`, filtrado pela
+  Etapa quando escopado), ordenada do maior pro menor. Só aparece
+  quando há Pavimento (Etapa sem execução granular, ex: Análise
+  Estrutural, não mostra a tabela — nada pra listar).
+
+Testado ao vivo: DETALHAMENTO agora mostra barra "DETALHAMENTO · 95%"
++ "Fundo Lucros · 5%" (roxo, visível), sem a linha de Bloco Fixo vazia,
+legenda "Fundo de Distribuição de Lucros — R$ 547,40", e a nova tabela
+"Verba por Local" com os 6 pavimentos (TIPO 01/COBERTURA R$ 2.726,26
+cada, G1/LAZER R$ 1.541,87 cada, TÉRREO R$ 1.456,96, PAVIMENTOS
+TÉCNICOS R$ 407,32). Cor confirmada via `getComputedStyle` (não só a
+classe — mesma lição da parte 77). Regressão conferida: "🌐 Projeto
+Inteiro" mantém a barra cinza de sempre (Bloco Fixo 50%/Detalhamento
+38%/Margem 11%, sem mudança de números). "Análise Estrutural"
+continua sem a tabela "Verba por Local" (não tem Pavimento). `node
+--check` limpo, zero erro no console.
+
+**Pendente, não resolvido nesta rodada** (usuário mencionou "o relógio
+e apontamento de horas não apareceu" no mesmo print, mas o print é da
+tela Financeira/Distribuições — cronômetro e apontamento manual vivem
+só no Kanban, não nesta tela, e testado ao vivo como executor real na
+parte 80 funcionaram. Perguntado ao usuário onde exatamente ele
+testou, pra investigar — pode ser cache do navegador na produção
+(Netlify), ou um caso de uso diferente do testado).
