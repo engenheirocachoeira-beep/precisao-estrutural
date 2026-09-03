@@ -5295,3 +5295,93 @@ masthead); clicar no botão real da orelha "Desempenho" sempre volta
 pro Projeto Inteiro, mesmo vindo de outra Etapa/sub-aba. Zero erros no
 Console. `core.js`/`estilos.css` re-sincronizados nas 9 cópias de
 `modulos_isolados/`.
+
+## Retomada em 2026-09-02 (parte 76) — Cascata expansível, Índice/Desvio com regra de "sem previsto", Financeira escopada por Etapa
+
+5 pedidos acumulados e implementados juntos (`js/desempenho-projeto.js`
++ `estilos.css`):
+
+**1) Cascata expansível "Por Local" e "Por Etapa"** — nova
+`tabelaHierarquicaDesempenho()` (+ `construirNoHierarquicoDesempenho()`,
+que anda pela Árvore REAL calculando Previsto/Pontos e Realizado/soma
+de sessões recursivamente, qualquer que seja a profundidade —
+Produtividade não mexe com dinheiro, só horas, então não precisa
+passar pelo pipeline de Verba). "Por Local" mostra 1 linha por
+Pavimento, expansível pra ver as Tarefas dele; "Por Etapa" mostra 1
+linha por Etapa (ou só a escolhida nas orelhas de Etapa), expansível
+em cascata até onde a Árvore for (Sub-etapa → Pavimento → Tarefa).
+Estado de expandido/recolhido (`desempCascataExpandidos`, por
+`caminho`) sobrevive a re-renders. "Por Tarefa"/"Por Executor"
+continuam na tabela plana de sempre (não têm subárvore própria pra
+expandir). TOTAL agora soma as colunas de verdade (pedido do usuário),
+diferente do TOTAL "% consumido" herdado da planilha de referência
+antiga que `tabelaDesempenho()` (a tabela plana) ainda usa.
+
+**2) Índice > 100% em vermelho + destaque no maior desvio** — novo
+`.desemp-indice-ruim` (mesmo vermelho de `.desemp-desvio-ruim`) e
+`.desemp-linha-destaque` (fundo âmbar claro + borda), aplicados tanto
+na tabela plana quanto na cascata nova. "Maior desvio" é calculado
+entre as linhas de TOPO de cada tabela (não desce pra dentro de linhas
+recolhidas).
+
+**5) "Sem Previsto nem Realizado, considera que bateu com o
+programado"** — nova `calcularIndiceDesvio(previsto, realizado)`: se
+Previsto for 0, usa Realizado como "Previsto efetivo" (Índice vira
+100%, Desvio vira 0) em vez de uma divisão por zero sem sentido.
+Motivado por um caso real: as 4 Sub-etapas dentro de "Análise
+Estrutural" ("PRÉ-LANÇAMENTO"/"LANÇAMENTO"/"ANÁLISE"/"CARGAS") estão
+"Finalizada" mas sem Pontos nem apontamento nenhum — antes ficavam
+invisíveis (Índice 0/0); agora aparecem como 100%/sem desvio ("bateram
+com o programado"), tanto nos 3 cartões de KPI do topo (que tinham o
+mesmo problema — uma Etapa sem Pontos mostrava "&minus;100% do
+previsto", agora mostra "+0%") quanto na cascata "Por Etapa". Como
+consequência direta, **o estado vazio de Produtividade pra Etapa sem
+execução granular foi removido** (`carregarPainelDesempenho()) — antes
+bloqueava a tela inteira pra qualquer Etapa sem Pavimento (ex: "Análise
+Estrutural"); agora a cascata "Por Etapa" desce até Sub-etapa mesmo sem
+Pavimento, então não há mais motivo pra bloquear.
+
+**4) Financeira de uma Etapa usa só os dados dela** — `etapaFiltro`
+opcional adicionado a `calcularBonificacaoProjeto()` (filtra `linhas`
+por `etapaNome` antes dos Blocos 1/2/3) e `calcularDistribuicoesProjeto()`
+(repassa pra `calcularBonificacaoProjeto`/`calcularTabelasDesempenho`/
+`calcularConclusaoProjeto`/`calcularHorasCustoProjeto`, e escopa o
+Diagnóstico por atividade). Dentro de `calcularBonificacaoProjeto()`,
+"Verba Global para Produção" (base do gráfico "Como a Verba é
+dividida") vira a verbaLiquida só desta Etapa, e o Fundo de
+Distribuição de Lucros vira só a fatia dela (mesma conta que o
+livro-caixa isolado já usa) — antes dos dois, escolher uma Etapa
+específica mostrava o relatório inteiro com os números do PROJETO
+INTEIRO (coincidência: só existe 1 Etapa com execução granular hoje,
+"DETALHAMENTO", então nunca dava pra notar a diferença — ver
+[[project_precisao_estrutural_desempenho_seletor_etapa]]).
+`carregarPainelDistribuicoes()` agora repassa `etapaNome` pra
+`calcularDistribuicoesProjeto()` (antes chamava sem argumento nenhum,
+mesmo já com uma Etapa escolhida). Confirmado ao vivo: Financeira de
+"DETALHAMENTO" mostra "Verba Global p/ Produção" = R$ 10.947,95 (só a
+Etapa) contra R$ 27.369,87 no "🌐 Projeto Inteiro" (projeto inteiro) —
+antes desta correção os dois mostravam o mesmo R$ 27.369,87.
+
+**Achado colateral, não corrigido nesta rodada**: com a Verba Global
+escopada, o gráfico "Como a Verba é dividida" (Bloco Fixo/Pool/Margem)
+passou a somar mais que 100% quando visto por Etapa (ex:
+0%+95%+27%=122%) — o Fundo Garantidor (parte da Margem) continua
+sendo a sobra do PROJETO INTEIRO (100% − soma das Etapas de topo), um
+conceito que não tem uma fatia "só desta Etapa" limpa pra usar em
+lugar dele. Puramente visual (a barra não quebra, só os % não fecham
+100% matematicamente) — não fazia parte do pedido do usuário ("usar
+os dados acumulados da etapa" foi resolvido pro Pool/Resultado por
+técnico/Verba Global, que são os números que de fato importam aqui);
+decompor o Fundo Garantidor por Etapa exigiria uma decisão de design
+nova, não uma correção.
+
+Testado: `node --check` limpo. Testado ao vivo, dados reais (HOME
+GARDEN - SETOR C): "Por Local" expande "G" (319,0% em vermelho, maior
+desvio +87,58h, destacada) revelando as 6 Tarefas dela; "Por Etapa" em
+"DETALHAMENTO" expande revelando os 6 Locais; "Por Etapa" em "Análise
+Estrutural" expande revelando as 4 Sub-etapas, todas 100,0%/+0,00h
+(TOTAL também 100,0%/+0,00h); KPIs do topo de "Análise Estrutural"
+mostram "+0% do previsto" (antes "&minus;100%"); Financeira de
+"DETALHAMENTO" com Verba Global corretamente escopada (R$ 10.947,95).
+Zero erros no Console em qualquer ponto. Não precisou sincronizar
+`modulos_isolados/` — nenhuma cópia isolada tem o painel de Desempenho.

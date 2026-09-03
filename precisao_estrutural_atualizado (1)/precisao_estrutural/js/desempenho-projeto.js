@@ -364,9 +364,17 @@ function salvarPctBonificacao(nomeProjeto, pct) {
     localStorage.setItem('banco_pct_bonificacao', JSON.stringify(salvos));
 }
 
-function calcularBonificacaoProjeto(nomeProjeto) {
+// `etapaFiltro` opcional (pedido do usuário, 2026-09-02: "na aba
+// desempenho financeiro da etapa, usar apenas os dados acumulados da
+// etapa") — sem ele, os 3 blocos somam TODAS as Etapas com execução
+// granular juntas (comportamento antigo, ainda usado pelo Diagnóstico
+// e pela Financeira do "🌐 Projeto Inteiro"); com ele, ficam restritos
+// a UMA Etapa só — não muda nenhum número hoje (só existe uma Etapa
+// granular real, "DETALHAMENTO"), mas deixa de ser só uma coincidência
+// e passa a valer de verdade quando existir uma 2ª.
+function calcularBonificacaoProjeto(nomeProjeto, etapaFiltro) {
     const pctBonificacao = obterPctBonificacao(nomeProjeto);
-    const linhas = calcularLinhasFolhaComVerba(nomeProjeto);
+    const linhas = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => !etapaFiltro || l.etapaNome === etapaFiltro);
 
     // Bloco 1 — Fixo: linhas fora do Detalhamento (pavimentoNome nulo),
     // agrupadas por executor, SEM o filtro "sem hora, não lista" (aqui
@@ -425,7 +433,19 @@ function calcularBonificacaoProjeto(nomeProjeto) {
     const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
     const poolLucro = poolVerba - poolCusto;
     const valorFundoGarantidor = fin.valorFundoGarantidor + poolLucro;
-    const valorFundoLucros = fin.valorFundoLucros;
+
+    // Escopado (etapaFiltro): "Verba Global para Produção" vira a
+    // verbaLiquida só desta Etapa (não a soma de todas — senão o
+    // gráfico "Como a Verba é dividida" mostraria o Pool desta Etapa
+    // como uma fatia minúscula de um bolo bem maior que não é dela); o
+    // Fundo de Distribuição de Lucros também vira só a fatia desta
+    // Etapa (mesma conta que o livro-caixa isolado já usa, ver
+    // htmlLivroCaixaBlocoEtapa()), não a soma de todas as Etapas.
+    const infoEtapaEscopo = etapaFiltro ? fin.etapas.find(e => e.nome === etapaFiltro) : null;
+    const valorGlobalProducao = infoEtapaEscopo ? infoEtapaEscopo.verbaLiquida : fin.valorAnalista;
+    const valorFundoLucros = infoEtapaEscopo
+        ? ((typeof obterPctFundoLucrosPavimento === 'function' ? obterPctFundoLucrosPavimento(nomeProjeto, infoEtapaEscopo.no) : 0) / 100 * infoEtapaEscopo.verbaLiquida)
+        : fin.valorFundoLucros;
     const margemEscritorio = valorFundoGarantidor + valorFundoLucros;
 
     const totalCusto = executores.reduce((s, e) => s + e.custo, 0);
@@ -433,7 +453,7 @@ function calcularBonificacaoProjeto(nomeProjeto) {
 
     return {
         pctBonificacao: pctBonificacao,
-        valorGlobalProducao: fin.valorAnalista,
+        valorGlobalProducao: valorGlobalProducao,
         totalFixo: totalFixo,
         poolVerba: poolVerba, poolCusto: poolCusto, poolLucro: poolLucro,
         valorFundoGarantidor: valorFundoGarantidor, valorFundoLucros: valorFundoLucros,
@@ -468,12 +488,16 @@ function calcularMetaDistribuicoes(nomeProjeto) {
     return { cliente: projeto.cliente || '', area: parseFloat(projeto.area) || 0, pavimentos: projeto.pavimentos || '', periodo: periodo };
 }
 
-function calcularDistribuicoesProjeto(nomeProjeto) {
+// `etapaFiltro` opcional (pedido do usuário, 2026-09-02: Financeira de
+// uma Etapa usa só os dados dela) — repassado pra tudo que aceita;
+// `financeiro` (Resumo Financeiro do Contrato) continua de projeto
+// inteiro de propósito, é sobre o CONTRATO, não sobre uma Etapa.
+function calcularDistribuicoesProjeto(nomeProjeto, etapaFiltro) {
     const meta = calcularMetaDistribuicoes(nomeProjeto);
-    const bonif = calcularBonificacaoProjeto(nomeProjeto);
-    const tab = calcularTabelasDesempenho(nomeProjeto);
-    const pctConcluido = calcularConclusaoProjeto(nomeProjeto);
-    const horasCusto = calcularHorasCustoProjeto(nomeProjeto);
+    const bonif = calcularBonificacaoProjeto(nomeProjeto, etapaFiltro);
+    const tab = calcularTabelasDesempenho(nomeProjeto, etapaFiltro);
+    const pctConcluido = calcularConclusaoProjeto(nomeProjeto, etapaFiltro);
+    const horasCusto = calcularHorasCustoProjeto(nomeProjeto, etapaFiltro);
 
     const poolExecutores = bonif.executores.filter(e => !e.fixo);
     const fixoExecutores = bonif.executores.filter(e => e.fixo);
@@ -485,7 +509,7 @@ function calcularDistribuicoesProjeto(nomeProjeto) {
     // ou nenhum) — sempre pior primeiro.
     const negativos = poolExecutores.filter(e => e.lucro < 0);
     const diagExecutorNome = negativos.length === 1 ? negativos[0].nome : null;
-    const linhasDetalhamento = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome && l.horas > 0);
+    const linhasDetalhamento = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.pavimentoNome && l.horas > 0 && (!etapaFiltro || l.etapaNome === etapaFiltro));
     const linhasDiag = diagExecutorNome ? linhasDetalhamento.filter(l => l.executor === diagExecutorNome) : linhasDetalhamento;
     const diagPorAtividade = agruparLinhasDesempenho(linhasDiag, l => l.nome).sort((a, b) => a.lucro - b.lucro);
 
@@ -627,28 +651,39 @@ if (typeof module !== 'undefined' && module.exports) {
 let desempCacheFiltro = null;
 const DESEMP_DIMENSOES = {
     porEtapa: { titulo: 'Por Etapa', tag: null },
-    porPavimento: { titulo: 'Por Local', tag: 'só Detalhamento tem essa granularidade' },
+    porPavimento: { titulo: 'Por Local', tag: 'só Etapas com execução granular têm essa divisão' },
     porTarefa: { titulo: 'Por Tarefa', tag: 'atividade do Cadastro, somada em todos os locais' },
     porExecutor: { titulo: 'Por Executor', tag: null }
 };
 
+// "porPavimento"/"porEtapa" usam a tabela em cascata (expansível, ver
+// coletarRaizesCascataDesempenho()); "porTarefa"/"porExecutor" não têm
+// subárvore própria pra expandir, continuam na tabela plana de sempre.
 function trocarDimensaoDesempenho() {
     const sel = document.getElementById('desemp-filtro-dimensao');
     const area = document.getElementById('desemp-tabela-filtravel');
     if (!sel || !area || !desempCacheFiltro) return;
     const dim = sel.value;
     const info = DESEMP_DIMENSOES[dim];
-    area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag);
+    if (dim === 'porPavimento' || dim === 'porEtapa') {
+        const raizes = coletarRaizesCascataDesempenho(desempCacheFiltro.nomeProjeto, desempCacheFiltro.etapaFiltro, dim);
+        area.innerHTML = tabelaHierarquicaDesempenho(info.titulo, raizes, info.tag);
+    } else {
+        area.innerHTML = tabelaDesempenho(info.titulo, dim, desempCacheFiltro.tab[dim], desempCacheFiltro.tab.totais, info.tag);
+    }
 }
 
 // `etapaNome` opcional (reforma "Desempenho" com fileira de orelhas de
 // Etapa, 2026-09-02): sem ele (null/undefined — orelha "🌐 Projeto
 // Inteiro"), mostra a Produtividade agregada de todas as Etapas juntas
 // (comportamento ORIGINAL, `calcularDesempenhoProjeto` sem filtro);
-// com ele, mostra a Produtividade daquela Etapa sozinha — ou um estado
-// vazio explicando o motivo, se ela não tiver execução granular (sem
-// Pavimento/Tarefa, não há hora apontada pra medir aqui, ver decisão
-// do usuário).
+// com ele, mostra a Produtividade daquela Etapa sozinha. Revisão de
+// 2026-09-02: o estado vazio pra Etapa sem execução granular (ex:
+// "Análise Estrutural") foi removido — a cascata "Por Etapa" (ver
+// coletarRaizesCascataDesempenho()) agora desce até Sub-etapa mesmo
+// sem Pavimento, e a regra "sem Previsto, considera que bateu com o
+// programado" (calcularIndiceDesvio()) trata folhas sem apontamento
+// como 100%/sem desvio em vez de uma tela em branco.
 function carregarPainelDesempenho(nomeProjeto, etapaNome) {
     const area = document.getElementById('desemp-conteudo');
     if (!area) return;
@@ -659,15 +694,6 @@ function carregarPainelDesempenho(nomeProjeto, etapaNome) {
     if (!arv || !Array.isArray(arv.etapas) || arv.etapas.length === 0) {
         area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Este projeto ainda não tem Etapas cadastradas na Árvore — sem estrutura, não há desempenho pra calcular.</div>';
         return;
-    }
-
-    if (etapaNome) {
-        const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-        const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
-        if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
-            area.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">A Etapa "' + escapeHtml(etapaNome) + '" n&atilde;o tem Pavimento/Tarefa cadastrado — sem essa granularidade, n&atilde;o h&aacute; apontamento de horas pra medir Produtividade aqui. Veja a aba <b>Financeira</b> pra ver a Verba dela.</div>';
-            return;
-        }
     }
 
     const dados = calcularDesempenhoProjeto(nomeProjeto, etapaNome || undefined);
@@ -787,14 +813,16 @@ function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
     }
 
     // "🌐 Projeto Inteiro" (etapaNome null/undefined) e uma Etapa
-    // granular caem no MESMO relatório completo, sem filtro de Etapa —
-    // calcularBonificacaoProjeto() já pool­a todas as Etapas granulares
-    // juntas de qualquer forma (limitação conhecida, ver
-    // [[project_precisao_estrutural_desempenho_seletor_etapa]]), então
-    // hoje os dois são idênticos; só uma Etapa SEM execução granular
-    // foge dessa regra (mostra só o livro isolado dela, decisão do
-    // usuário — o resto do relatório, Pool de Horas/Resultado por
-    // técnico, não se aplica a ela).
+    // granular mostram o MESMO relatório completo — só que agora
+    // (2026-09-02) calcularDistribuicoesProjeto() recebe `etapaNome` e
+    // restringe de verdade o Pool/Resultado por técnico a essa Etapa
+    // sozinha (antes pool­ava todas as Etapas granulares juntas, sem
+    // diferença nenhuma pro "Projeto Inteiro" — coincidência, não
+    // Etapa escopada de verdade, ver
+    // [[project_precisao_estrutural_desempenho_seletor_etapa]]). Só
+    // uma Etapa SEM execução granular foge dessa regra (mostra só o
+    // livro isolado dela, decisão do usuário — o resto do relatório,
+    // Pool de Horas/Resultado por técnico, não se aplica a ela).
     if (etapaNome) {
         const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
         const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
@@ -804,7 +832,7 @@ function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
         }
     }
 
-    const dados = calcularDistribuicoesProjeto(nomeProjeto);
+    const dados = calcularDistribuicoesProjeto(nomeProjeto, etapaNome);
     area.innerHTML = renderizarDistribuicoesProjeto(nomeProjeto, dados);
 }
 
@@ -1229,12 +1257,18 @@ function renderizarDesempenhoProjeto(d) {
     const custoDetalhamento = etapaDet ? etapaDet.custo : hc.custoRealTotal;
     const infoEtapaFin = d.etapaFiltro ? fin.etapas.find(e => e.nome === d.etapaFiltro) : null;
     const verbaDetalhamento = infoEtapaFin ? infoEtapaFin.verbaLiquida : fin.verbaDetalhamentoBruta;
-    const pctHoras = horasPrevistoDet > 0 ? (horasRealizadoDet / horasPrevistoDet * 100) : 0;
+    // Regra "sem Previsto, considera que bateu com o programado"
+    // (pedido do usuário, 2026-09-02, mesma de calcularIndiceDesvio())
+    // — sem ela, uma Etapa sem Pontos cadastrados (ex: "Análise
+    // Estrutural") mostraria "−100% do previsto" aqui em cima, mesmo
+    // sem nada planejado nem executado.
+    const horasPrevistoEfetivoDet = horasPrevistoDet > 0 ? horasPrevistoDet : horasRealizadoDet;
+    const pctHoras = horasPrevistoEfetivoDet > 0 ? (horasRealizadoDet / horasPrevistoEfetivoDet * 100) : 100;
     const pctCustoVsVerbaDet = verbaDetalhamento > 0 ? ((custoDetalhamento - verbaDetalhamento) / verbaDetalhamento * 100) : 0;
     // "Saldo" = o que sobra do orçado (mesmo sentido de Saldo de
     // Verba = Verba − Custo): Previsto − Realizado, positivo = horas
     // sobrando (bom), negativo = estourou o previsto (ruim).
-    const saldoHorasDet = horasPrevistoDet - horasRealizadoDet;
+    const saldoHorasDet = horasPrevistoEfetivoDet - horasRealizadoDet;
     const saldoVerbaDet = verbaDetalhamento - custoDetalhamento;
 
     let html = '';
@@ -1301,7 +1335,7 @@ function renderizarDesempenhoProjeto(d) {
     // --- Tabela única com filtro de dimensão (pedido do usuário: 1
     // tabela só, com filtro suficiente pra ver os dados agrupados como
     // quem estiver manipulando quiser, em vez de 4 tabelas fixas) ---
-    desempCacheFiltro = { tab: tab };
+    desempCacheFiltro = { tab: tab, nomeProjeto: d.nomeProjeto, etapaFiltro: d.etapaFiltro };
     html += '<div class="desemp-painel"><p class="desemp-painel-titulo">Desempenho <span class="desemp-tag">previsto &times; realizado &times; índice &times; desvio</span></p>';
     html += '<p class="desemp-painel-legenda">Previsto = soma dos Pontos do Cadastro de Tarefas. Índice = Realizado &divide; Previsto. Linhas sem nenhuma hora realizada não entram na lista. Na linha TOTAL, "Horas Previsto" mostra o % de horas já consumidas.</p>';
     html += '<div class="desemp-filtro-linha"><label for="desemp-filtro-dimensao">Agrupar por:</label>' +
@@ -1344,29 +1378,193 @@ function renderizarDesempenhoProjeto(d) {
 // parâmetro `pctBonificacao` opcional pra uma 8ª coluna só na tabela
 // "Por Executor" — removido junto (só existia pra alimentar a coluna
 // de dinheiro que saiu).
+// Índice/Desvio com a regra "sem Previsto, considera que bateu com o
+// programado" (pedido do usuário, 2026-09-02) — sem essa regra, uma
+// folha sem Pontos cadastrados (ex: as 4 Sub-etapas dentro de "Análise
+// Estrutural" — "PRÉ-LANÇAMENTO"/"LANÇAMENTO"/"ANÁLISE"/"CARGAS",
+// finalizadas sem apontamento nenhum) mostraria um Índice sem sentido
+// (0 ÷ 0) em vez de "no alvo". Usada em toda tabela de Desempenho
+// desta orelha, não só na cascata nova.
+function calcularIndiceDesvio(previsto, realizado) {
+    const previstoEfetivo = previsto > 0 ? previsto : realizado;
+    const indice = previstoEfetivo > 0 ? (realizado / previstoEfetivo * 100) : 100;
+    const desvio = realizado - previstoEfetivo;
+    return { indice: indice, desvio: desvio };
+}
+
+// Pedido do usuário (2026-09-02): Índice > 100% em vermelho (mesmo
+// vermelho de `.desemp-desvio-ruim`) — aplica em toda tabela de
+// Desempenho (linhas e o TOTAL).
+function celulaIndiceDesempenho(indice) {
+    return '<td class="num' + (indice > 100 ? ' desemp-indice-ruim' : '') + '">' + indice.toFixed(1).replace('.', ',') + '%</td>';
+}
+function celulaDesvioDesempenho(desvio) {
+    return '<td class="num ' + (desvio >= 0 ? 'desemp-desvio-ruim' : 'desemp-desvio-bom') + '">' + (desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvio)) + ' h</td>';
+}
+
 function tabelaDesempenho(titulo, chave, linhas, totais, tag) {
     if (linhas.length === 0) return '';
-    const indiceTotal = totais.previsto > 0 ? (totais.realizado / totais.previsto * 100) : 0;
-    const desvioTotal = totais.realizado - totais.previsto;
+    const totalCalc = calcularIndiceDesvio(totais.previsto, totais.realizado);
+
+    // Pedido do usuário: destaca a linha com o MAIOR desvio (em
+    // módulo) — "aquele com maior desvio", não só a cor por sinal que
+    // já existia.
+    let maiorDesvioAbs = -1, nomeDestaque = null;
+    linhas.forEach(l => {
+        const d = Math.abs(calcularIndiceDesvio(l.previsto, l.realizado).desvio);
+        if (d > maiorDesvioAbs) { maiorDesvioAbs = d; nomeDestaque = l.nome; }
+    });
+    if (maiorDesvioAbs <= 0) nomeDestaque = null;
 
     let html = '<p class="desemp-subtitulo-bloco">' + escapeHtml(titulo) + (tag ? ' <span class="desemp-tag">' + escapeHtml(tag) + '</span>' : '') + '</p>';
     html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th></tr></thead><tbody>';
     linhas.forEach(l => {
-        const indice = l.previsto > 0 ? (l.realizado / l.previsto * 100) : 0;
-        const desvio = l.realizado - l.previsto;
+        const { indice, desvio } = calcularIndiceDesvio(l.previsto, l.realizado);
         const nomeExibicao = (chave === 'porExecutor' && typeof nomeParaExibicao === 'function') ? nomeParaExibicao(l.nome) : l.nome;
-        html += '<tr><td>' + escapeHtml(nomeExibicao) + '</td>' +
+        html += '<tr class="' + (l.nome === nomeDestaque ? 'desemp-linha-destaque' : '') + '"><td>' + escapeHtml(nomeExibicao) + '</td>' +
             '<td class="num">' + formatarNumero(l.previsto) + ' h</td>' +
             '<td class="num">' + formatarNumero(l.realizado) + ' h</td>' +
-            '<td class="num">' + indice.toFixed(1).replace('.', ',') + '%</td>' +
-            '<td class="num ' + (desvio >= 0 ? 'desemp-desvio-ruim' : 'desemp-desvio-bom') + '">' + (desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvio)) + ' h</td>' +
+            celulaIndiceDesempenho(indice) + celulaDesvioDesempenho(desvio) +
             '</tr>';
     });
     html += '</tbody><tfoot><tr><td>TOTAL</td>' +
-        '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '% consumido</td>' +
+        '<td class="num">' + totalCalc.indice.toFixed(1).replace('.', ',') + '% consumido</td>' +
         '<td class="num">' + formatarNumero(totais.realizado) + ' h</td>' +
-        '<td class="num">' + indiceTotal.toFixed(1).replace('.', ',') + '%</td>' +
-        '<td class="num">' + (desvioTotal >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(desvioTotal)) + ' h</td>' +
+        celulaIndiceDesempenho(totalCalc.indice) +
+        '<td class="num">' + (totalCalc.desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(totalCalc.desvio)) + ' h</td>' +
+        '</tr></tfoot>';
+    html += '</table>';
+    return html;
+}
+
+// --- CASCATA (pedido do usuário, 2026-09-02): "Por Local" e "Por
+// Etapa" ganham expandir/recolher, mostrando as Tarefas de cada Local
+// (Por Local) ou toda a subárvore Etapa→Sub-etapa→Pavimento→Tarefa,
+// qualquer que seja a profundidade real (Por Etapa) — reaproveita o
+// mesmo padrão .tree-toggle-icon (►/▼) já usado em arvore.js. Diferente
+// das tabelas agrupadas (que somam Verba/Custo via
+// calcularLinhasFolhaComVerba), a cascata calcula Previsto/Realizado
+// DIRETO da árvore real (Pontos + sessões de trabalho) — Produtividade
+// não mostra dinheiro, então não precisa passar pelo cálculo de Verba.
+let desempCascataExpandidos = {};
+function alternarNoCascataDesempenho(caminho) {
+    desempCascataExpandidos[caminho] = !desempCascataExpandidos[caminho];
+    if (typeof trocarDimensaoDesempenho === 'function') trocarDimensaoDesempenho();
+}
+
+// Constrói um nó hierárquico (Previsto/Realizado agregados da
+// subárvore inteira) a partir de um nó REAL da Árvore de Projeto —
+// funciona pra qualquer profundidade (Etapa, Sub-etapa, Pavimento ou
+// Tarefa), já que só olha `.filhos`/`.pontos`/`.sessoes_trabalho`.
+function construirNoHierarquicoDesempenho(no, caminho) {
+    const filhosReais = Array.isArray(no.filhos) ? no.filhos : [];
+    if (filhosReais.length === 0) {
+        const previsto = parseFloat(no.pontos) || 0;
+        const sessoes = Array.isArray(no.sessoes_trabalho) ? no.sessoes_trabalho : [];
+        const realizado = sessoes.reduce((s, sx) => s + (parseFloat(sx.duracao) || 0), 0);
+        return { nome: no.nome, nivel: no.nivel || 'etapa', caminho: caminho, previsto: previsto, realizado: realizado, filhos: [] };
+    }
+    const filhos = filhosReais.map((f, idx) => construirNoHierarquicoDesempenho(f, caminho + '-' + idx));
+    return {
+        nome: no.nome, nivel: no.nivel || 'etapa', caminho: caminho,
+        previsto: filhos.reduce((s, f) => s + f.previsto, 0),
+        realizado: filhos.reduce((s, f) => s + f.realizado, 0),
+        filhos: filhos
+    };
+}
+
+// Raízes da cascata pra uma dimensão — "porEtapa": 1 nó por Etapa
+// dentro do escopo (todas, no "🌐 Projeto Inteiro"; só 1, já escolhida
+// nas orelhas de Etapa); "porPavimento": 1 nó por Pavimento (Local)
+// encontrado dentro do escopo, cada um só com as Tarefas dele como
+// filhos (não desce mais fundo que isso — Local→Tarefa é só 1 nível,
+// pedido do usuário).
+function coletarRaizesCascataDesempenho(nomeProjeto, etapaFiltro, dimensao) {
+    const todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+    const arv = todas[nomeProjeto];
+    if (!arv || !Array.isArray(arv.etapas)) return [];
+
+    if (dimensao === 'porEtapa') {
+        return arv.etapas
+            .map((e, idx) => ({ etapa: e, idx: idx }))
+            .filter(x => !etapaFiltro || x.etapa.nome === etapaFiltro)
+            .map(x => construirNoHierarquicoDesempenho(x.etapa, '' + x.idx))
+            // Uma Etapa já escolhida nas orelhas de Etapa aparece sempre
+            // (é o que a pessoa está olhando de propósito, mesmo sem
+            // hora nenhuma ainda) — no "🌐 Projeto Inteiro", esconde
+            // quem não tem nada, mesma regra "sem hora, não lista" de
+            // sempre (evita lista cheia de Etapas nunca tocadas).
+            .filter(no => etapaFiltro || no.previsto > 0 || no.realizado > 0);
+    }
+
+    if (dimensao === 'porPavimento') {
+        const raizes = [];
+        function caminhar(no, caminho) {
+            if (no.nivel === 'pavimento') {
+                const construido = construirNoHierarquicoDesempenho(no, caminho);
+                if (construido.previsto > 0 || construido.realizado > 0) raizes.push(construido);
+                return;
+            }
+            (no.filhos || []).forEach((f, idx) => caminhar(f, caminho + '-' + idx));
+        }
+        arv.etapas.forEach((e, idx) => {
+            if (etapaFiltro && e.nome !== etapaFiltro) return;
+            caminhar(e, '' + idx);
+        });
+        return raizes;
+    }
+
+    return [];
+}
+
+function linhaHierarquicaDesempenho(no, profundidade, caminhoDestaque) {
+    const temFilhos = no.filhos.length > 0;
+    const expandido = !!desempCascataExpandidos[no.caminho];
+    const { indice, desvio } = calcularIndiceDesvio(no.previsto, no.realizado);
+    let html = '<tr class="' + (no.caminho === caminhoDestaque ? 'desemp-linha-destaque' : '') + '">' +
+        '<td style="padding-left:' + (8 + profundidade * 18) + 'px;">' +
+        (temFilhos
+            ? '<span class="tree-toggle-icon" onclick="alternarNoCascataDesempenho(\'' + no.caminho + '\')">' + (expandido ? '▼' : '►') + '</span> '
+            : '<span style="display:inline-block; width:14px;"></span> ') +
+        escapeHtml(no.nome) + '</td>' +
+        '<td class="num">' + formatarNumero(no.previsto) + ' h</td>' +
+        '<td class="num">' + formatarNumero(no.realizado) + ' h</td>' +
+        celulaIndiceDesempenho(indice) + celulaDesvioDesempenho(desvio) +
+        '</tr>';
+    if (temFilhos && expandido) {
+        no.filhos.forEach(f => { html += linhaHierarquicaDesempenho(f, profundidade + 1, caminhoDestaque); });
+    }
+    return html;
+}
+
+// Mesmas 5 colunas de tabelaDesempenho() (Dimensão/Previsto/Realizado/
+// Índice/Desvio), mas as linhas vêm de coletarRaizesCascataDesempenho()
+// (nós reais, expansíveis) em vez de agruparLinhasDesempenho() (grupo
+// plano). TOTAL soma as colunas de verdade (pedido do usuário —
+// diferente do TOTAL "% consumido" de tabelaDesempenho, herdado da
+// planilha de referência antiga).
+function tabelaHierarquicaDesempenho(titulo, nos, tag) {
+    if (nos.length === 0) return '';
+
+    let maiorDesvioAbs = -1, caminhoDestaque = null;
+    nos.forEach(no => {
+        const d = Math.abs(calcularIndiceDesvio(no.previsto, no.realizado).desvio);
+        if (d > maiorDesvioAbs) { maiorDesvioAbs = d; caminhoDestaque = no.caminho; }
+    });
+    if (maiorDesvioAbs <= 0) caminhoDestaque = null;
+
+    const totalPrevisto = nos.reduce((s, no) => s + no.previsto, 0);
+    const totalRealizado = nos.reduce((s, no) => s + no.realizado, 0);
+    const totalCalc = calcularIndiceDesvio(totalPrevisto, totalRealizado);
+
+    let html = '<p class="desemp-subtitulo-bloco">' + escapeHtml(titulo) + (tag ? ' <span class="desemp-tag">' + escapeHtml(tag) + '</span>' : '') + '</p>';
+    html += '<table class="desemp-tabela desemp-tabela-moldura"><thead><tr><th>' + escapeHtml(titulo.replace('Por ', '')) + '</th><th>Horas Previsto</th><th>Horas Realizado</th><th>Índice</th><th>Desvio (h)</th></tr></thead><tbody>';
+    nos.forEach(no => { html += linhaHierarquicaDesempenho(no, 0, caminhoDestaque); });
+    html += '</tbody><tfoot><tr><td>TOTAL</td>' +
+        '<td class="num">' + formatarNumero(totalPrevisto) + ' h</td>' +
+        '<td class="num">' + formatarNumero(totalRealizado) + ' h</td>' +
+        celulaIndiceDesempenho(totalCalc.indice) +
+        '<td class="num">' + (totalCalc.desvio >= 0 ? '+' : '&minus;') + formatarNumero(Math.abs(totalCalc.desvio)) + ' h</td>' +
         '</tr></tfoot>';
     html += '</table>';
     return html;

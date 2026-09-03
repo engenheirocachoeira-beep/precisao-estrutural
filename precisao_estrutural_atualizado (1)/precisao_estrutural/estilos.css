@@ -669,6 +669,12 @@
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-tabela tfoot td:not(:first-child) { text-align:right; border-left:1px solid #e2e8f0; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-desvio-bom { color:#0e8f6f; font-weight:600; }
         :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-desvio-ruim { color:#c1432a; font-weight:600; }
+        /* Pedido do usuário (2026-09-02): Índice > 100% em vermelho, e
+           destaque na linha com o maior desvio de cada tabela — nas
+           tabelas planas E na cascata expansível (Por Local/Por Etapa). */
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-indice-ruim { color:#c1432a; font-weight:700; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-destaque td { background:#fff7ed; }
+        :is(#panel-desempenho-projeto, #panel-bonificacao-projeto) .desemp-linha-destaque td:first-child { font-weight:700; border-left:3px solid #d97706; }
 
         /* 4ª orelha "Diagnóstico" — cards de leitura automática em cima
            das mesmas 4 tabelas acima (js/desempenho-projeto.js,
