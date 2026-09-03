@@ -613,6 +613,98 @@ function coletarTarefasDoExecutor(nomeExecutor) {
 // enriquecido com `dataInicioExibicao`/`dataFimExibicao` (strings
 // formatadas pra exibir) e `dataFimPrevista` (string YYYY-MM-DD, crua,
 // só pra corBordaCartaoKanban comparar).
+// Bloco de controle do cronômetro (ativo/bloqueado/pronto pra
+// iniciar) — extraído de dentro de construirCartaoKanbanHtml() (pedido
+// do usuário, 2026-09-03: "queria que fosse possível clicar no
+// cronômetro ou apontar manualmente as horas quando a visão é em
+// lista também"), pra ser reaproveitado por renderizarListaKanban()
+// sem duplicar a lógica de status.
+function htmlCronometroKanban(t, caminhoJs) {
+    if (t.sessaoAtivaInicio) {
+        return '<div class="kb-cartao-cronometro kb-cartao-cronometro-ativo">' +
+            '<span class="kb-cronometro-tempo" data-inicio="' + t.sessaoAtivaInicio + '">🔴 —</span>' +
+            '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); pausarSessaoKanban(\'' + caminhoJs + '\')">⏸ Pausar</button>' +
+            '</div>';
+    }
+    if (statusBloqueiaCronometro(t.status)) {
+        // Bloqueado por pedido explícito do usuário: "Aguardando
+        // Verificação" (já foi entregue pra revisão) e "Finalizada" (já
+        // terminou de vez) não contam tempo. "Apontada" deixou de
+        // bloquear em 2026-09-03 (pedido do usuário) — cai no `return`
+        // de baixo, com o botão ▶ Iniciar normal. Mensagem muda
+        // conforme o motivo.
+        let dica, rotulo;
+        if (t.status === 'Finalizada') {
+            dica = 'Tarefa já finalizada — não conta mais tempo';
+            rotulo = '✅ Finalizada';
+        } else {
+            dica = 'Tarefa em revisão — contagem fica bloqueada até voltar pra \'Em Desenvolvimento\' ou \'Para revisão\'';
+            rotulo = '🔒 Em revisão';
+        }
+        return '<div class="kb-cartao-cronometro" title="' + dica + '">' +
+            '<span class="kb-cronometro-tempo" style="color:#94a3b8;">' + rotulo + '</span>' +
+            '</div>';
+    }
+    return '<div class="kb-cartao-cronometro">' +
+        '<span class="kb-cronometro-tempo">Total: ' + t.horasReais.toFixed(2) + 'h</span>' +
+        '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); iniciarSessaoKanban(\'' + caminhoJs + '\')">▶ Iniciar</button>' +
+        '</div>';
+}
+
+// Bloco de apontamento manual — cobre as 2 trilhas (Execução: o
+// próprio Executor da tarefa; Revisão: quem tem autoridade de revisar
+// essa tarefa específica, com ela em "Aguardando Verificação") — mesma
+// extração/motivo de htmlCronometroKanban() acima. `usuarioAtual` é
+// `usuarioLogado` (passado explícito pra não depender de global dentro
+// da função — mais fácil de testar/reaproveitar).
+function htmlApontamentoManualKanban(t, caminhoJs, usuarioAtual) {
+    const souOExecutorDesteCartao = usuarioAtual && t.executor && usuarioAtual.nome === t.executor;
+
+    // Item 4 da "Frente Kanban avançado": só mostra o botão de anotar
+    // horas manualmente pra quem é DE VERDADE o Executor da tarefa
+    // (não só quem está vendo o cartão/linha — pode aparecer no Kanban
+    // de outra pessoa também, ex: sob responsabilidade). Sem isso, o
+    // botão apareceria pra gente que não pode usar ele, e a trava real
+    // em criarApontamentoManual() ia recusar de qualquer jeito — mesma
+    // filosofia do bloqueio de coluna do item 1. Status permitido:
+    // "Apontada" + "Em Desenvolvimento" + "Para revisão" (mesma régua
+    // do cronômetro, ver statusBloqueiaCronometro()).
+    if (souOExecutorDesteCartao && (t.status === 'Apontada' || t.status === 'Em Desenvolvimento' || t.status === 'Para revisão')) {
+        return '<div class="kb-cartao-apontamento-manual">' +
+            '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\')">📝 Apontar horas</button>' +
+            (t.apontamentosPendentes > 0 ? '<span class="kb-badge-apontamento-pendente">⏳ ' + t.apontamentosPendentes + '</span>' : '') +
+            '</div>';
+    }
+    if (t.apontamentosPendentes > 0) {
+        return '<div class="kb-cartao-apontamento-manual">' +
+            '<span class="kb-badge-apontamento-pendente">⏳ ' + t.apontamentosPendentes + ' apontamento(s) aguardando aprovação</span>' +
+            '</div>';
+    }
+
+    // Apontamento manual — trilha de REVISÃO. Só aparece pra quem TEM
+    // DE VERDADE autoridade de revisar essa tarefa específica
+    // (Responsável atribuído ou hierarquia — mesma checagem de
+    // podeRevisarTarefa() usada em todo o resto do sistema), com a
+    // tarefa especificamente em "Aguardando Verificação". Consulta o
+    // dado bruto (localizarTarefaPorCaminho) porque o objeto resumido
+    // `t` não carrega `tarefa.responsavel`.
+    if (!souOExecutorDesteCartao && t.status === 'Aguardando Verificação' && usuarioAtual) {
+        const todasParaRevisao = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
+        const tarefaRealParaRevisao = typeof localizarTarefaPorCaminho === 'function' ? localizarTarefaPorCaminho(todasParaRevisao, t.caminho) : null;
+        const nomeProjetoDoCartao = t.caminho.split('|')[0];
+        const funcionariosParaRevisao = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
+        const projetosParaRevisao = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+        const temAutoridadeDeRevisar = tarefaRealParaRevisao && typeof podeRevisarTarefa === 'function'
+            && podeRevisarTarefa(tarefaRealParaRevisao, nomeProjetoDoCartao, usuarioAtual, funcionariosParaRevisao, projetosParaRevisao);
+        if (temAutoridadeDeRevisar) {
+            return '<div class="kb-cartao-apontamento-manual">' +
+                '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\', \'revisao\')">📝 Apontar horas de revisão</button>' +
+                '</div>';
+        }
+    }
+    return '';
+}
+
 function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
     // Item 13 (ver feriados.js::corSemaforoPrioridade): não se aplica
     // se já passou da Data de Início sem começar (isso é "atraso",
@@ -638,95 +730,10 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
         ? '<div class="kb-cartao-vezes-revisao" style="font-size:10px; color:#b91c1c; margin-top:2px;">🔁 Já voltou ' + t.vezesEmRevisao + 'x pra correção</div>'
         : '';
 
-    let linhaCronometro;
-    if (t.sessaoAtivaInicio) {
-        linhaCronometro =
-            '<div class="kb-cartao-cronometro kb-cartao-cronometro-ativo">' +
-            '<span class="kb-cronometro-tempo" data-inicio="' + t.sessaoAtivaInicio + '">🔴 —</span>' +
-            '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); pausarSessaoKanban(\'' + caminhoJs + '\')">⏸ Pausar</button>' +
-            '</div>';
-    } else if (statusBloqueiaCronometro(t.status)) {
-        // Bloqueado por pedido explícito do usuário: "Aguardando
-        // Verificação" (já foi entregue pra revisão) e "Finalizada" (já
-        // terminou de vez) não contam tempo. "Apontada" deixou de
-        // bloquear em 2026-09-03 (pedido do usuário) — cai no `else` de
-        // baixo, com o botão ▶ Iniciar normal. Mensagem muda conforme o
-        // motivo.
-        let dica, rotulo;
-        if (t.status === 'Finalizada') {
-            dica = 'Tarefa já finalizada — não conta mais tempo';
-            rotulo = '✅ Finalizada';
-        } else {
-            dica = 'Tarefa em revisão — contagem fica bloqueada até voltar pra \'Em Desenvolvimento\' ou \'Para revisão\'';
-            rotulo = '🔒 Em revisão';
-        }
-        linhaCronometro =
-            '<div class="kb-cartao-cronometro" title="' + dica + '">' +
-            '<span class="kb-cronometro-tempo" style="color:#94a3b8;">' + rotulo + '</span>' +
-            '</div>';
-    } else {
-        linhaCronometro =
-            '<div class="kb-cartao-cronometro">' +
-            '<span class="kb-cronometro-tempo">Total: ' + t.horasReais.toFixed(2) + 'h</span>' +
-            '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); iniciarSessaoKanban(\'' + caminhoJs + '\')">▶ Iniciar</button>' +
-            '</div>';
-    }
+    const linhaCronometro = htmlCronometroKanban(t, caminhoJs);
 
-    // Item 4 da "Frente Kanban avançado": só mostra o botão de anotar
-    // horas manualmente pra quem é DE VERDADE o Executor da tarefa
-    // (não só quem está vendo o cartão — um cartão pode aparecer no
-    // Kanban de outra pessoa também, ex: na aba "Kanban" de quem tem
-    // essa tarefa sob responsabilidade). Sem isso, o botão apareceria
-    // pra gente que não pode usar ele, e a trava real em
-    // criarApontamentoManual() ia recusar de qualquer jeito — mesma
-    // filosofia do bloqueio de coluna do item 1.
-    //
-    // Status permitido: "Em Desenvolvimento" (sempre foi) + "Para
-    // revisão" (ciclo Executor↔Revisor, prompt_gemini.md §12.8/§12.13
-    // — o cronômetro já roda nesse status pro Executor corrigindo,
-    // faltava o apontamento manual acompanhar) + "Apontada" (pedido do
-    // usuário, 2026-09-03 — mesma régua do cronômetro, ver
-    // statusBloqueiaCronometro() em apontamento.js).
     const usuarioAtualParaBotaoManual = (typeof usuarioLogado !== 'undefined' && usuarioLogado) ? usuarioLogado : null;
-    const souOExecutorDesteCartao = usuarioAtualParaBotaoManual && t.executor && usuarioAtualParaBotaoManual.nome === t.executor;
-    let linhaApontamentoManual = '';
-    if (souOExecutorDesteCartao && (t.status === 'Apontada' || t.status === 'Em Desenvolvimento' || t.status === 'Para revisão')) {
-        linhaApontamentoManual =
-            '<div class="kb-cartao-apontamento-manual">' +
-            '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\')">📝 Apontar horas</button>' +
-            (t.apontamentosPendentes > 0 ? '<span class="kb-badge-apontamento-pendente">⏳ ' + t.apontamentosPendentes + '</span>' : '') +
-            '</div>';
-    } else if (t.apontamentosPendentes > 0) {
-        linhaApontamentoManual =
-            '<div class="kb-cartao-apontamento-manual">' +
-            '<span class="kb-badge-apontamento-pendente">⏳ ' + t.apontamentosPendentes + ' apontamento(s) aguardando aprovação</span>' +
-            '</div>';
-    }
-
-    // Apontamento manual — trilha de REVISÃO (pedido do usuário, mesmo
-    // botão do item 4 acima, agora também nessa trilha). Só aparece
-    // pra quem TEM DE VERDADE autoridade de revisar essa tarefa
-    // específica (Responsável atribuído ou hierarquia — mesma checagem
-    // de podeRevisarTarefa() usada em todo o resto do sistema), com a
-    // tarefa especificamente em "Aguardando Verificação". Consulta o
-    // dado bruto (localizarTarefaPorCaminho) porque o objeto resumido
-    // `t` usado pra montar o cartão não carrega `tarefa.responsavel`.
-    let linhaApontamentoManualRevisao = '';
-    if (!souOExecutorDesteCartao && t.status === 'Aguardando Verificação' && usuarioAtualParaBotaoManual) {
-        const todasParaRevisao = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
-        const tarefaRealParaRevisao = typeof localizarTarefaPorCaminho === 'function' ? localizarTarefaPorCaminho(todasParaRevisao, t.caminho) : null;
-        const nomeProjetoDoCartao = t.caminho.split('|')[0];
-        const funcionariosParaRevisao = JSON.parse(localStorage.getItem('banco_funcionarios')) || [];
-        const projetosParaRevisao = JSON.parse(localStorage.getItem('banco_projetos')) || [];
-        const temAutoridadeDeRevisar = tarefaRealParaRevisao && typeof podeRevisarTarefa === 'function'
-            && podeRevisarTarefa(tarefaRealParaRevisao, nomeProjetoDoCartao, usuarioAtualParaBotaoManual, funcionariosParaRevisao, projetosParaRevisao);
-        if (temAutoridadeDeRevisar) {
-            linhaApontamentoManualRevisao =
-                '<div class="kb-cartao-apontamento-manual">' +
-                '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\', \'revisao\')">📝 Apontar horas de revisão</button>' +
-                '</div>';
-        }
-    }
+    const linhaApontamentoManual = htmlApontamentoManualKanban(t, caminhoJs, usuarioAtualParaBotaoManual);
 
     // Item 5: cor de destaque na borda esquerda do cartão.
     const cor = corBordaCartaoKanban(t.status, t.dataFimPrevista, hojeISO);
@@ -807,7 +814,6 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
         linhaData +
         linhaCronometro +
         linhaApontamentoManual +
-        linhaApontamentoManualRevisao +
         linhaSessoesRevisaoPendentes +
         linhaSeloAprovacao +
         '</div>';
@@ -988,18 +994,25 @@ function alternarVisualizacaoKanban(modo) {
 
 // Visão Lista (item 14): uma linha por tarefa, agrupada por Status na
 // mesma ordem de KB_COLUNAS — mais densa que o Cartão, pensada pra
-// escanear muitas tarefas de uma vez (sem cronômetro, sem botão de
-// aprovação, sem arrastar-e-soltar; essas ações continuam exclusivas
-// da visão Cartão — ver aviso fixo no topo da lista). Reaproveita os
-// MESMOS campos que já chegam prontos em `t` pro Cartão (projeto,
-// localização, executor, pontos, datas previstas), sem cálculo
-// próprio nenhum.
+// escanear muitas tarefas de uma vez. Reaproveita os MESMOS campos que
+// já chegam prontos em `t` pro Cartão (projeto, localização, executor,
+// pontos, datas previstas), sem cálculo próprio nenhum.
+//
+// Revisão 2026-09-03 (pedido do usuário: "queria que fosse possível
+// clicar no cronômetro ou apontar manualmente as horas quando a visão
+// é em lista também") — ganhou a coluna "Ações", reaproveitando os
+// MESMOS blocos htmlCronometroKanban()/htmlApontamentoManualKanban()
+// que o Cartão já usa (mesma lógica de permissão/status, sem duplicar
+// nada) — continua sem arrastar-e-soltar/aprovação direto na linha
+// (essas duas continuam exclusivas do Cartão, aviso atualizado abaixo).
 function renderizarListaKanban(tarefas, hojeISO) {
     const wrapper = document.getElementById('kb-lista-wrapper');
     if (tarefas.length === 0) {
         wrapper.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:30px;">Nenhuma tarefa encontrada com os filtros atuais.</div>';
         return;
     }
+
+    const usuarioAtualParaLista = (typeof usuarioLogado !== 'undefined' && usuarioLogado) ? usuarioLogado : null;
 
     const linhas = KB_COLUNAS.map(col => {
         const tarefasDoStatus = tarefas
@@ -1012,6 +1025,11 @@ function renderizarListaKanban(tarefas, hojeISO) {
             const partesLocalizacao = t.localizacao.split(' › ');
             const localizacaoSemTarefa = partesLocalizacao.length > 1 ? partesLocalizacao.slice(0, -1).join(' › ') : '';
             const periodo = (t.dataInicioExibicao && t.dataFimExibicao) ? (t.dataInicioExibicao + ' → ' + t.dataFimExibicao) : '—';
+            const caminhoJsLista = t.caminho.replace(/'/g, "\\'");
+            const acoes = '<div class="kb-lista-acoes">' +
+                htmlCronometroKanban(t, caminhoJsLista) +
+                htmlApontamentoManualKanban(t, caminhoJsLista, usuarioAtualParaLista) +
+                '</div>';
             return '<tr>' +
                 '<td style="white-space:nowrap;">' + bolinhaSemaforo + '</td>' +
                 '<td>' +
@@ -1021,6 +1039,7 @@ function renderizarListaKanban(tarefas, hojeISO) {
                 '<td>' + escapeHtml(nomeParaExibicao(t.executor)) + '</td>' +
                 '<td class="col-centralizada">' + (t.pontos || '—') + '</td>' +
                 '<td style="white-space:nowrap;">' + periodo + '</td>' +
+                '<td style="min-width:170px;">' + acoes + '</td>' +
                 '</tr>';
         }).join('');
 
@@ -1029,14 +1048,14 @@ function renderizarListaKanban(tarefas, hojeISO) {
                 '<span>' + escapeHtml(col.status) + '</span><span style="color:#64748b;">' + tarefasDoStatus.length + '</span>' +
             '</div>' +
             '<div class="table-wrapper" style="max-height:none;"><table class="tabela-compacta">' +
-                '<thead><tr><th style="width:20px;"></th><th>Tarefa</th><th style="width:140px;">Executor</th><th class="col-centralizada" style="width:60px;">Pontos</th><th style="width:150px;">Previsto</th></tr></thead>' +
+                '<thead><tr><th style="width:20px;"></th><th>Tarefa</th><th style="width:140px;">Executor</th><th class="col-centralizada" style="width:60px;">Pontos</th><th style="width:150px;">Previsto</th><th>Ações</th></tr></thead>' +
                 '<tbody>' + linhasTarefas + '</tbody>' +
             '</table></div>' +
         '</div>';
     }).join('');
 
     wrapper.innerHTML =
-        '<div style="font-size:11px; color:#94a3b8; margin-bottom:10px;">Visão Lista é só consulta — pra mover status (arrastar), usar cronômetro ou aprovar finalização, use a visão Cartão.</div>' +
+        '<div style="font-size:11px; color:#94a3b8; margin-bottom:10px;">Cronômetro e apontamento manual funcionam aqui também — pra mover status (arrastar) ou aprovar finalização, use a visão Cartão.</div>' +
         (linhas || '<div style="text-align:center; color:#94a3b8; padding:30px;">Nenhuma tarefa encontrada com os filtros atuais.</div>');
 }
 

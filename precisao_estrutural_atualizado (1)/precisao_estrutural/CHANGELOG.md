@@ -5669,3 +5669,54 @@ só no Kanban, não nesta tela, e testado ao vivo como executor real na
 parte 80 funcionaram. Perguntado ao usuário onde exatamente ele
 testou, pra investigar — pode ser cache do navegador na produção
 (Netlify), ou um caso de uso diferente do testado).
+
+## Retomada em 2026-09-03 (parte 82) — Achado: cronômetro/apontamento não apareciam pq era a visão Lista
+
+Investigação da parte 81 fechada: pedi ao usuário um print, e ele
+mostrou que estava na visão **Lista** do Kanban — que desde sempre
+(item 14, revisão 2026-09-01) é só-consulta de propósito, sem
+cronômetro/apontamento/arrastar (só a visão Cartão tinha isso, com um
+aviso fixo dizendo exatamente isso no topo da lista). Não era bug
+nenhum das partes 79-80, era funcionamento pré-existente da tela.
+
+Usuário pediu, então: "queria que fosse possível clicar no cronômetro
+ou apontar manualmente as horas quando a visão é em lista também."
+
+- `js/kanban.js`: extraídas 2 funções novas — `htmlCronometroKanban(t,
+  caminhoJs)` e `htmlApontamentoManualKanban(t, caminhoJs,
+  usuarioAtual)` — de dentro de `construirCartaoKanbanHtml()` (mesma
+  lógica de sempre, sem duplicar nada: cronômetro ativo/bloqueado/
+  pronto pra iniciar, e apontamento manual nas 2 trilhas, Execução e
+  Revisão, com as mesmas travas de permissão). `construirCartaoKanbanHtml()`
+  passou a só CHAMAR essas 2 funções, não mudou de comportamento.
+- `renderizarListaKanban()` ganhou uma coluna nova "Ações" por linha,
+  chamando as MESMAS 2 funções — cada linha da Lista agora tem os
+  mesmos botões ▶ Iniciar/⏸ Pausar/📝 Apontar horas que o Cartão já
+  tinha, com as mesmas regras de permissão (só o Executor de verdade
+  vê o botão de apontar, cronômetro visível pra qualquer um que veja a
+  linha). O relógio ao vivo (`iniciarRelogioVivoKanban()`, já genérico
+  por classe CSS `.kb-cronometro-tempo[data-inicio]`, não por
+  cartão-específico) passou a atualizar os cronômetros ativos na Lista
+  também, de graça, sem mudança nenhuma nele.
+- `estilos.css`: nova classe `.kb-lista-acoes` — reaproveita
+  `.kb-cartao-cronometro`/`.kb-cartao-apontamento-manual` tal qual
+  (mesmos botões/badges), só tira a "borda de divisor de cartão"
+  (margin/border-top) que fazia sentido empilhado dentro de um cartão,
+  não lado a lado numa célula de tabela compacta.
+- Aviso fixo no topo da Lista atualizado: "Cronômetro e apontamento
+  manual funcionam aqui também — pra mover status (arrastar) ou
+  aprovar finalização, use a visão Cartão" (essas 2 continuam só no
+  Cartão — arrastar-e-soltar e aprovação de finalização não fazem
+  sentido numa lista sem colunas).
+
+Testado ao vivo, visão Lista, "Meu Kanban" do DETALHISTA (projeto
+LÚMEN): coluna "Ações" mostra "Total: 0.00h ▶ Iniciar" + "📝 Apontar
+horas" nas 4 tarefas "Apontada" + na "Para revisão"; "✅ Finalizada" na
+finalizada, sem botão (correto). Cliquei ▶ Iniciar numa linha: virou
+"🔴 0h00min ⏸ Pausar" na mesma célula, continuou na visão Lista (não
+pulou pro Cartão). Regressão conferida: visão Cartão continua com os
+mesmos botões de sempre após o refactor. Dado de teste revertido ao
+final (sessão removida). `node --check` limpo, zero erro no console.
+Sincronizado em `modulos_isolados/kanban/js/kanban.js` e nas 10 cópias
+de `estilos.css` (todas eram idênticas ao arquivo principal antes
+desta rodada — sync direto).
