@@ -490,6 +490,72 @@
             arv.soma_a_eq = somaAreaEquivalenteTotal;
         }
 
+        // Soma Área Física / Área Equivalente de toda a subárvore de UM
+        // nó (Etapa ou Sub-etapa), olhando os Pavimentos/Sub-etapas
+        // descendentes — pedido do usuário (2026-09-03: mostrar Área/
+        // Área Equivalente também no nível de Etapa, que não tem
+        // `area_fisica` próprio, só os filhos dela têm). Mesma
+        // convenção de recalcularAreaEquivalenteGlobalPavimentos()
+        // acima (só Pavimento `tipo_pavimento==='mestre'` conta — as
+        // réplicas já nascem com área 0, mas filtra explícito mesmo
+        // assim, pra não depender só disso).
+        function calcularAreaEAreaEqSubarvore(no) {
+            let area = 0, areaEq = 0;
+            function caminhar(n) {
+                if (n.nivel === 'subetapa' || (n.nivel === 'pavimento' && n.tipo_pavimento === 'mestre')) {
+                    const a = parseFloat(n.area_fisica) || 0;
+                    const p = parseFloat(n.peso_esforco) || 0;
+                    area += a;
+                    areaEq += a * p;
+                }
+                (n.filhos || []).forEach(caminhar);
+            }
+            caminhar(no);
+            return { area: area, areaEq: areaEq };
+        }
+
+        // Soma "Horas Limite" (Custo Máx ÷ valor-hora do Executor,
+        // mesma conta de cada Tarefa-folha individual) de toda a
+        // subárvore — pedido do usuário: Etapa/Sub-etapa/Local não têm
+        // um único Executor, então "Horas Limite" delas é a SOMA das
+        // Horas Limite de cada Tarefa-folha descendente (cada folha já
+        // sabe sua própria conta, certa pro seu próprio Executor — não
+        // inventa uma taxa "média" fictícia). Requer que
+        // distribuirVerbaRecursiva() já tenha rodado antes (preenche
+        // `no._verbaCalc` em CADA nó, folha inclusive).
+        function calcularHorasLimiteSubarvore(no, hojeISO) {
+            let total = 0;
+            function caminhar(n) {
+                if (ehNoFolha(n)) {
+                    const vHora = n.executor && typeof valorHoraVigente === 'function' ? valorHoraVigente(n.executor, hojeISO) : 0;
+                    if (vHora > 0) total += (n._verbaCalc || 0) / vHora;
+                    return;
+                }
+                (n.filhos || []).forEach(caminhar);
+            }
+            caminhar(no);
+            return total;
+        }
+
+        // Bloco de Custo Máx Teto/Horas Limite/Verba — reaproveitado
+        // por Etapa/Sub-etapa/Pavimento (pedido do usuário, 2026-09-03).
+        // Pra um nó CONTÊINER (não-folha), "Custo Máx Teto" e "Verba"
+        // são o MESMO número (a verba calculada dessa subárvore inteira,
+        // `no._verbaCalc`, já cascateada por distribuirVerbaRecursiva())
+        // — mesma equivalência que a Tarefa-folha já usa (ver bloco
+        // `ehNoDeExecucao` mais abaixo). "Horas Limite" é a soma das
+        // Horas Limite de cada Tarefa-folha descendente (ver
+        // calcularHorasLimiteSubarvore acima).
+        function htmlNumerosFinanceirosNo(no, hojeISO) {
+            const verbaCalc = no._verbaCalc || 0;
+            const horasLimite = calcularHorasLimiteSubarvore(no, hojeISO);
+            return '<div class="form-group col-12" style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; padding:6px 10px; border-radius:4px; font-size:11px; color:#1e40af; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;">' +
+                '<span>💵 <b>Custo Máx Teto:</b> ' + formatarMoeda(verbaCalc) + '</span>' +
+                '<span>⏱️ <b>Horas Limite:</b> ' + formatarNumero(horasLimite) + 'h</span>' +
+                '<span>💰 <b>Verba:</b> ' + formatarMoeda(verbaCalc) + '</span>' +
+                '</div>';
+        }
+
         function visualizarNo(path) {
             const pd = document.getElementById('painel-propriedades-lego');
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos'));
@@ -536,16 +602,16 @@
                            '<div class="form-group col-12" style="margin-top:14px;"><label>Nome Oficial da Obra:</label>' +
                            '<input type="text" value="' + escapeHtml(projetoSelecionadoAtivo) + '" readonly style="width:100%; background:#e2e8f0;">' +
                            '</div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Área Total Comercial (m²):</label><input type="number" value="'+(projCadastro ? (projCadastro.area || 0) : 0)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Área Total Comercial (m²):</label><input type="text" value="'+formatarNumero(parseFloat(projCadastro ? projCadastro.area : 0) || 0)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Valor Contratado Líquido (R$):</label><input type="text" value="'+formatarMoeda(valorContratadoLiquido)+'" readonly style="background:#e2e8f0;" title="Valor do contrato menos impostos (% definido na Distribuição de Custos deste projeto)"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Fator de Esbeltez ($F_{esb}$):</label><input type="number" id="edit-p-esb" step="0.1" value="'+(pObj.f_esb || 1.0)+'"></div>' +
-                           '<div class="form-group col-6" style="margin-top:10px;"><label>Sensibilidade Analista ($F_{analista}$):</label><input type="number" id="edit-p-sens" step="0.1" value="'+(pObj.f_analista || 1.0)+'"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Fator de Esbeltez:</label><input type="number" id="edit-p-esb" step="0.1" value="'+(pObj.f_esb || 1.0)+'"></div>' +
+                           '<div class="form-group col-6" style="margin-top:10px;"><label>Sensibilidade Analista:</label><input type="number" id="edit-p-sens" step="0.1" value="'+(pObj.f_analista || 1.0)+'"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Supervisor:</label><input type="text" value="'+escapeHtml(supervisorAtual)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Analista:</label><input type="text" value="'+escapeHtml(analistaAtual)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Detalhista:</label><input type="text" value="'+escapeHtml(detalhistaAtual)+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-6" style="margin-top:10px;"><label>Número de Pavimentos:</label><input type="text" value="'+escapeHtml(projCadastro ? (projCadastro.pavimentos || '—') : '—')+'" readonly style="background:#e2e8f0;" title="Editável no Cadastro de Projetos"></div>' +
                            '<div class="form-group col-12" style="font-size:10px; color:#94a3b8; margin-top:-4px;">Área, Valor, Analista, Supervisor, Detalhista e Número de Pavimentos são editados no Cadastro de Projetos — aqui é só visualização.</div>' +
-                           '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#00b4d8;">📐 Área Equivalente Total: '+(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
+                           '<div class="form-group col-12" style="margin-top:10px; background:#f8fafc; padding:8px; border-radius:4px; font-size:11px; font-weight:bold; color:#00b4d8;">📐 Área Equivalente Total: '+formatarNumero(pObj.soma_a_eq || 0)+' m² Equivalentes.</div>' +
                            '</div></div>' +
                            '<button class="btn-primary" style="width:100%; margin-top:20px;" onclick="salvarDadosMacroProjetoRaiz()">Atualizar Diretrizes do Projeto</button></div>';
                 pd.innerHTML = html;
@@ -558,18 +624,50 @@
             const nivel = path.indexOf('-') === -1 ? 'etapa' : no.nivel;
             const ehFolha = ehNoFolha(no);
 
-            let html = '<div class="form-panel" style="border:none; padding:0;">' +
-                       '<div class="form-section">' +
-                       '<div class="form-section-title">ℹ️ Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
-                       '<div class="form-grid" style="margin-top:8px;">' +
-                       '<div class="form-group col-12"><label>Componente Vinculado:</label><input type="text" value="' + escapeHtml(no.nome) + '" readonly style="background:#e2e8f0;"></div>';
+            // Cascata de Verba (item 10, prompt_gemini.md §14 leva 4) —
+            // ANTES rodava só dentro do bloco de Tarefa-folha (só ela
+            // usava `no._verbaCalc`). Hoisted pra cá (2026-09-03, pedido
+            // do usuário: mostrar Custo Máximo/Verba também em Etapa/
+            // Sub-etapa/Local) — `distribuirVerbaRecursiva` já escreve
+            // `_verbaCalc` em TODO nó da árvore, folha ou não (ver
+            // distribuicao-custos.js), só ninguém lia isso fora da
+            // folha até agora. Roda uma vez só aqui, disponível pro
+            // resto da função inteira.
+            if (typeof calcularVerbaPorEtapaSalvo === 'function' && typeof distribuirVerbaRecursiva === 'function' && Array.isArray(arv.etapas)) {
+                const verbasPorEtapaAgora = calcularVerbaPorEtapaSalvo(projetoSelecionadoAtivo);
+                const verbaPorNomeEtapaAgora = {};
+                verbasPorEtapaAgora.forEach(v => { verbaPorNomeEtapaAgora[v.nome] = v.verbaLiquida; });
+                arv.etapas.forEach(etapaNo => distribuirVerbaRecursiva(etapaNo, verbaPorNomeEtapaAgora[etapaNo.nome] || 0));
+            }
+            const hojeISOAgora = new Date().toISOString().slice(0, 10);
 
             // Coparticipação (Escritório/Supervisão) — opcional, por
             // Etapa ou Sub-etapa, não mais amarrada a nenhum nome
             // específico (ver CHANGELOG.md, reforma Setor→Sub-etapa).
-            if (nivel === 'etapa' || nivel === 'subetapa') {
-                html += '<div class="form-group col-12" style="margin-top:10px;"><label style="display:flex; align-items:center; gap:6px; font-weight:normal;"><input type="checkbox" id="edit-no-coparticipacao"' + (no.tem_coparticipacao ? ' checked' : '') + '> Habilitar Coparticipação (Escritório/Supervisão)</label></div>';
-            }
+            // Revisão 2026-09-03 (pedido do usuário: "poderia ser
+            // apresentado como um botão mais destacado e na mesma
+            // linha do nome") — sai do checkbox discreto numa linha
+            // própria embaixo, vira um botão-toggle na MESMA linha do
+            // nome do nó. Continua sendo um `<input type="checkbox">`
+            // por trás (mesmo `id`, mesma leitura em
+            // salvarAlteracoesNo() — zero mudança de lógica de save),
+            // só a apresentação visual muda: o checkbox fica invisível
+            // e um `<label for="...">` estilado como botão faz as
+            // vezes de UI (clicar no label já marca/desmarca o
+            // checkbox nativamente, sem precisar de JS extra pro clique).
+            const campoCoparticipacao = (nivel === 'etapa' || nivel === 'subetapa')
+                ? '<input type="checkbox" id="edit-no-coparticipacao" class="toggle-coparticipacao-input"' + (no.tem_coparticipacao ? ' checked' : '') + '>' +
+                  '<label for="edit-no-coparticipacao" class="toggle-coparticipacao-btn" title="Coparticipação de Escritório/Supervisão nesta Etapa/Sub-etapa">🤝 Coparticipação</label>'
+                : '';
+
+            let html = '<div class="form-panel" style="border:none; padding:0;">' +
+                       '<div class="form-section">' +
+                       '<div class="form-section-title">ℹ️ Detalhes - Componente ' + nivel.toUpperCase() + '</div>' +
+                       '<div class="form-grid" style="margin-top:8px;">' +
+                       '<div class="form-group col-12" style="display:flex; flex-direction:row; align-items:flex-end; gap:10px;">' +
+                       '<div style="flex:1; min-width:0;"><label>Componente Vinculado:</label><input type="text" value="' + escapeHtml(no.nome) + '" readonly style="background:#e2e8f0; width:100%;"></div>' +
+                       campoCoparticipacao +
+                       '</div>';
 
             if(nivel === 'subetapa') {
                 // Item 10 (prompt_gemini.md §14, leva 4): mesma lógica
@@ -590,9 +688,10 @@
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física (m²):</label><input type="number" id="edit-subetapa-area" value="' + (no.area_fisica || 0) + '"></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Peso de Esforço:</label><input type="number" id="edit-subetapa-peso" step="0.1" value="' + (no.peso_esforco || 0) + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span>📐 <b>Área Eq.:</b> ' + a_eq_subetapa + ' m²</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + formatarNumero(a_eq_subetapa) + ' m²</span>' +
                         '<span>💰 <b>Fração de Verba (entre Sub-etapas irmãs):</b> ' + pct_verba_subetapa + '%</span>' +
-                        '</div>';
+                        '</div>' +
+                        htmlNumerosFinanceirosNo(no, hojeISOAgora);
             }
 
             if(nivel === 'pavimento') {
@@ -603,9 +702,30 @@
                 html += '<div class="form-group col-6" style="margin-top:6px;"><label>Área Física Real (m²):</label><input type="number" id="edit-pav-area" value="' + no.area_fisica + '"></div>' +
                         '<div class="form-group col-6" style="margin-top:6px;"><label>Peso do Local:</label><input type="number" id="edit-pav-peso" step="0.1" value="' + no.peso_esforco + '"></div>' +
                         '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between;">' +
-                        '<span>📐 <b>Área Eq.:</b> ' + a_eq + ' m²</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + formatarNumero(a_eq) + ' m²</span>' +
                         '<span>💰 <b>Fração de Verba:</b> ' + pct_verba + '%</span>' +
-                        '</div>';
+                        '</div>' +
+                        htmlNumerosFinanceirosNo(no, hojeISOAgora);
+            }
+
+            // Etapa agindo como CONTÊINER (tem filhos — Sub-etapa ou
+            // Pavimento — mas ela mesma não é folha): não tem
+            // `area_fisica` própria (só Sub-etapa/Pavimento têm), então
+            // Área/Área Equivalente aqui são a SOMA de toda a subárvore
+            // (calcularAreaEAreaEqSubarvore, ver acima). Pedido do
+            // usuário, 2026-09-03: "apresentar... os dados das etapas,
+            // sub-etapas e local... área, área equivalente, custo
+            // máximo teto, horas limite, verba" — Sub-etapa/Pavimento já
+            // tinham Área Eq./Fração de Verba, ganharam Custo Máx/Horas
+            // Limite/Verba agora (htmlNumerosFinanceirosNo acima); Etapa
+            // não tinha NADA disso, ganha tudo aqui.
+            if (nivel === 'etapa' && !ehFolha) {
+                const agregadoEtapa = calcularAreaEAreaEqSubarvore(no);
+                html += '<div class="form-group col-12" style="margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; font-size:11px; color:#166534; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;">' +
+                        '<span>📐 <b>Área Física:</b> ' + formatarNumero(agregadoEtapa.area) + ' m²</span>' +
+                        '<span>📐 <b>Área Eq.:</b> ' + formatarNumero(agregadoEtapa.areaEq) + ' m²</span>' +
+                        '</div>' +
+                        htmlNumerosFinanceirosNo(no, hojeISOAgora);
             }
 
             const ehNoDeExecucao = (nivel === 'tarefa') || ehFolha;
@@ -620,31 +740,14 @@
                 // ESTA Tarefa especificamente, calculado AO VIVO
                 // (opção "b" escolhida pelo usuário — nunca fica
                 // desatualizado esperando alguém salvar a Distribuição
-                // de Custos de novo). Roda a cascata
-                // (distribuirVerbaRecursiva, de
-                // js/distribuicao-custos.js, carregada na mesma
-                // página) direto em CIMA da árvore `arv` já carregada
-                // aqui (mesmo objeto que `no` faz parte, via
-                // resolverNoPorPath acima) — assim `no._verbaCalc`
-                // fica disponível direto, sem precisar comparar
-                // objetos de duas leituras separadas do localStorage
-                // (que nunca bateriam por referência). "Horas Limite"
-                // continua sendo essa verba dividida pelo valor-hora
-                // do Executor (confirmado pelo usuário) — troquei a
-                // fonte do valor-hora pra `valorHoraVigente()`, a
-                // mesma que a Aba 5 de Distribuição de Custos já usa
-                // (antes lia `funcionario.hora`, um campo solto que
-                // não existe de verdade no Cadastro de Funcionários —
-                // sempre caía no fallback de 50, sem relação com o
-                // valor de hora real do funcionário).
-                if (typeof calcularVerbaPorEtapaSalvo === 'function' && typeof distribuirVerbaRecursiva === 'function' && Array.isArray(arv.etapas)) {
-                    const verbasPorEtapaAgora = calcularVerbaPorEtapaSalvo(projetoSelecionadoAtivo);
-                    const verbaPorNomeEtapaAgora = {};
-                    verbasPorEtapaAgora.forEach(v => { verbaPorNomeEtapaAgora[v.nome] = v.verbaLiquida; });
-                    arv.etapas.forEach(etapaNo => distribuirVerbaRecursiva(etapaNo, verbaPorNomeEtapaAgora[etapaNo.nome] || 0));
-                }
+                // de Custos de novo). Cascata (distribuirVerbaRecursiva)
+                // já rodou mais acima, no início de visualizarNo() —
+                // `no._verbaCalc` já está disponível aqui. "Horas
+                // Limite" continua sendo essa verba dividida pelo
+                // valor-hora do Executor (confirmado pelo usuário),
+                // via `valorHoraVigente()`, a mesma que a Aba 5 de
+                // Distribuição de Custos já usa.
                 const custoMaxCalculado = no._verbaCalc || 0;
-                const hojeISOAgora = new Date().toISOString().slice(0, 10);
                 let vHora = no.executor && typeof valorHoraVigente === 'function' ? valorHoraVigente(no.executor, hojeISOAgora) : 0;
                 let hLimiteMax = vHora > 0 ? (custoMaxCalculado / vHora).toFixed(1) : '0.0';
 

@@ -29,21 +29,37 @@
         <div id="panel-blank-state" class="content-panel" style="display:flex;">Escolha uma opção acima.</div>
 
 <div id="panel-etapas-lista" class="content-panel">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+                        <div class="search-container" style="flex:1; margin-bottom:0;"><input type="text" class="search-input" id="search-etapas" placeholder="🔍 Pesquisar Etapa..." oninput="filtrarTabela('etapas')"></div>
+                        <button type="button" id="btn-ordenar-etapas" class="btn-toggle-ordem" onclick="alternarOrdenacaoCatalogo('etapas')" title="Alternar entre ordem alfabética e ordem de cadastro">🔤 A-Z</button>
+                    </div>
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Etapa</th><th style="width:110px;">% Sugerido</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-etapas-body"></tbody></table></div>
                     <div class="footer-actions"><input type="text" id="add-etapas-nome" placeholder="Nova Etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('etapas')">Fabricar</button></div>
                 </div>
 
 <div id="panel-subetapas-lista" class="content-panel">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+                        <div class="search-container" style="flex:1; margin-bottom:0;"><input type="text" class="search-input" id="search-subetapas" placeholder="🔍 Pesquisar Sub-etapa..." oninput="filtrarTabela('subetapas')"></div>
+                        <button type="button" id="btn-ordenar-subetapas" class="btn-toggle-ordem" onclick="alternarOrdenacaoCatalogo('subetapas')" title="Alternar entre ordem alfabética e ordem de cadastro">🔤 A-Z</button>
+                    </div>
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Sub-etapa</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-subetapas-body"></tbody></table></div>
                     <div class="footer-actions"><input type="text" id="add-subetapas-nome" placeholder="Nova Sub-etapa..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('subetapas')">Fabricar</button></div>
                 </div>
 
 <div id="panel-pavimentos-lista" class="content-panel">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+                        <div class="search-container" style="flex:1; margin-bottom:0;"><input type="text" class="search-input" id="search-pavimentos" placeholder="🔍 Pesquisar Local..." oninput="filtrarTabela('pavimentos')"></div>
+                        <button type="button" id="btn-ordenar-pavimentos" class="btn-toggle-ordem" onclick="alternarOrdenacaoCatalogo('pavimentos')" title="Alternar entre ordem alfabética e ordem de cadastro">🔤 A-Z</button>
+                    </div>
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome do Local</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-pavimentos-body"></tbody></table></div>
                     <div class="footer-actions"><input type="text" id="add-pavimentos-nome" placeholder="Novo Local..." style="width:250px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('pavimentos')">Fabricar</button></div>
                 </div>
 
 <div id="panel-tarefas-lista" class="content-panel">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+                        <div class="search-container" style="flex:1; margin-bottom:0;"><input type="text" class="search-input" id="search-tarefas" placeholder="🔍 Pesquisar Tarefa..." oninput="filtrarTabela('tarefas')"></div>
+                        <button type="button" id="btn-ordenar-tarefas" class="btn-toggle-ordem" onclick="alternarOrdenacaoCatalogo('tarefas')" title="Alternar entre ordem alfabética e ordem de cadastro">🔤 A-Z</button>
+                    </div>
                     <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nome da Tarefa</th><th style="width:90px;">Pontos</th><th style="width:150px;">Unidade Física</th><th style="text-align:center;">Ações</th></tr></thead><tbody id="tabela-tarefas-body"></tbody></table></div>
                     <div class="footer-actions"><input type="text" id="add-tarefas-nome" placeholder="Nova Tarefa..." style="width:230px; padding:6px; margin-right:10px;"><input type="number" id="add-tarefas-pontos" placeholder="Pontos" step="0.1" value="1.0" style="width:80px; padding:6px; margin-right:10px;"><input type="text" id="add-tarefas-unidade" placeholder="Unidade (m², kg, m³, un)" style="width:170px; padding:6px; margin-right:10px;"><button class="btn-primary" onclick="adicionarCatalogoLego('tarefas')">Fabricar</button></div>
                 </div>

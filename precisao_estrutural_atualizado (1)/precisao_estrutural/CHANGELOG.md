@@ -5720,3 +5720,112 @@ final (sessão removida). `node --check` limpo, zero erro no console.
 Sincronizado em `modulos_isolados/kanban/js/kanban.js` e nas 10 cópias
 de `estilos.css` (todas eram idênticas ao arquivo principal antes
 desta rodada — sync direto).
+
+## Retomada em 2026-09-03 (parte 83) — Lote acumulado: busca/ordenação nos Cadastros, formatação em Propriedades Contratuais, números por nó na Árvore, botão de Coparticipação, correção real no Centro de Calibração BI
+
+Usuário pediu pra acumular vários pedidos pequenos e implementar tudo
+de uma vez ("Vai acumulando mais algumas para depois implementar" →
+"implemente agora e suba"). 6 itens implementados (o 7º, investigar
+variáveis que explicam desvio de horas pra fins estatísticos, ficou
+marcado como exploratório/futuro, não implementado agora):
+
+**1+2. Busca e ordenação alfabética opcional nos Cadastros** (Etapas,
+Sub-etapas, Locais, Tarefas, Projetos) — `js/catalogo-lego.js` ganhou
+`catalogoOrdenadoAlfabetico(modulo)`/`alternarOrdenacaoCatalogo(modulo)`/
+`atualizarBotaoOrdenacaoCatalogo(modulo)`, reaproveitados também por
+`renderizarTabelaProjetos()` (cadastros.js). Preferência por módulo,
+persistida em localStorage (tela, não dado de projeto) — Tarefas/
+Projetos já nasciam sempre alfabéticos (regra antiga, não opcional),
+viram o padrão inicial deles aqui também pra não mudar comportamento
+de quem já usa; Etapas/Sub-etapas/Locais nascem na ordem de cadastro,
+como sempre. Busca reaproveita `filtrarTabela()` (core.js), já
+genérica, só faltava o `<input>` nos 4 painéis que não tinham (Projetos
+já tinha). Botão "🔤 A-Z" novo (`.btn-toggle-ordem`, estilos.css) ao
+lado de cada busca. `abrirAbaCadastro()` (core.js) atualiza o estado
+visual do botão toda vez que a aba abre.
+
+**3. Propriedades Contratuais Macro (Árvore)**: "Fator de Esbeltez
+($F_{esb}$)"/"Sensibilidade Analista ($F_{analista}$)" — o `($F_{esb}$)`
+era LaTeX cru nunca renderizado, aparecia literal na tela; removido,
+sobra só o nome limpo. "Área Total Comercial" e "Área Equivalente
+Total" passam por `formatarNumero()` (thousand separator + 2 casas,
+pt-BR) — achado um bug real ao aplicar: `formatarNumero()` usa
+`.toLocaleString()`, que em uma STRING (o valor de `projCadastro.area`
+vem direto do Cadastro de Projetos, sempre string) não formata nada,
+só devolve a string original sem erro nem aviso — corrigido com
+`parseFloat()` antes de formatar.
+
+**4. Números por nó na Árvore** (Etapa/Sub-etapa/Local): pedido
+"apresentar, de acordo com o nível de permissão, os dados... área,
+área equivalente, custo máximo teto, horas limite, verba". A Árvore já
+é uma tela só de administrador/supervisor/analista (executor não tem
+acesso a `nav-arvore` nenhum, ver `MENU_POR_NIVEL`), então "de acordo
+com o nível de permissão" foi lido como "já satisfeito pelo controle
+de acesso existente da tela" — sem criar uma segunda camada de
+permissão dentro da Árvore (suposição registrada aqui, corrigir se o
+usuário quis um recorte mais fino, tipo esconder Verba de Analista).
+Sub-etapa/Local já mostravam Área/Área Eq./Fração de Verba — ganharam
+Custo Máx Teto/Horas Limite/Verba (novo bloco `htmlNumerosFinanceirosNo()`,
+reaproveitado pelos 3 níveis). Etapa (agindo como contêiner, não
+folha) não mostrava NADA disso antes — ganhou tudo, incluindo Área/
+Área Equivalente agregadas de toda a subárvore (`calcularAreaEAreaEqSubarvore()`,
+soma Sub-etapa/Pavimento `tipo_pavimento==='mestre'` descendentes, mesma
+convenção que `recalcularAreaEquivalenteGlobalPavimentos()` já usa pro
+total do projeto). "Horas Limite" de um nó contêiner é a SOMA das
+Horas Limite de cada Tarefa-folha descendente (`calcularHorasLimiteSubarvore()`)
+— não inventa uma taxa "média" fictícia, cada folha já sabe a sua
+própria conta certa pro seu próprio Executor. "Custo Máx Teto" e
+"Verba" são o MESMO número em nós não-folha (`no._verbaCalc`, já
+cascateado por `distribuirVerbaRecursiva()` em TODO nó da árvore,
+mesma equivalência que Tarefa-folha já tratava). A cascata de verba
+(antes só rodava dentro do bloco de Tarefa-folha) foi içada pro início
+de `visualizarNo()`, disponível pra função inteira agora.
+
+**5. Botão de Coparticipação mais destacado**: era um checkbox
+discreto numa linha própria embaixo do formulário; virou um
+botão-toggle (`.toggle-coparticipacao-btn`) na MESMA linha do nome do
+nó ("Componente Vinculado"). Continua sendo um `<input type="checkbox">`
+por trás (mesmo `id`, `salvarAlteracoesNo()` não mudou nada na leitura)
+— só a apresentação: checkbox escondido (`position:absolute; opacity:0`)
++ `<label for="...">` estilado como botão (clicar no label já
+liga/desliga o checkbox nativamente). Bug real achado testando: o
+`<div>` que envolve o campo de nome + o botão tinha `display:flex`
+inline, mas herdava `flex-direction:column` de `.form-grid .form-group`
+(estilos.css) — inline `display:flex` não sobrescreve `flex-direction`
+sozinho, então empilhava em vez de ficar lado a lado; corrigido
+adicionando `flex-direction:row` explícito + `min-width:0` no campo de
+nome (pra ele conseguir encolher e abrir espaço pro botão, em vez de
+travar no tamanho do texto).
+
+**6. Centro de Calibração Manual (BI) — bug real corrigido**: a coluna
+"Média Real Apurada" dependia de `t.k_real_calculado`, um campo só
+gravado num lugar bem específico (`arvore.js::salvarAlteracoesNo()`,
+só no instante exato em que o status muda pra "Finalizada" DIRETO no
+formulário da Árvore) — quem finaliza pelo Kanban (o caminho normal,
+arrastando o cartão) nunca passa por ali, então o campo quase nunca
+era gravado, e a coluna caía sempre no fallback (mesmo valor da coluna
+anterior), parecendo travada/quebrada. Corrigido: `renderizarPainelCalibracaoBI()`
+(bi.js) agora calcula direto de `horas_reais` (sempre presente em
+qualquer Tarefa finalizada, não importa por onde) ÷ `qtd_fisica` —
+mesma unidade "h/un" que `lego.base_h` já usa, sem os fatores de
+ajuste (peso do Pavimento/F_esb/F_analista) que `k_real_calculado`
+aplicava e que deixavam a régua inconsistente com `base_h` (que nunca
+teve ajuste nenhum). Cabeçalho "Média Real Apurada ($K_{real}$)" virou
+"Média Real Apurada" (mesmo padrão de limpeza do item 3).
+
+Testado ao vivo (HOME GARDEN - SETOR C, dados reais): busca+ordenação
+funcionando nos 5 Cadastros; Propriedades Contratuais mostrando
+"9.059,27" (antes "9059.27") e "Fator de Esbeltez:"/"Sensibilidade
+Analista:" limpos; Etapa "DETALHAMENTO" mostrando Área Física
+3.026,18 m², Área Eq. 4.652,10 m² (bate com o total do projeto — só
+essa Etapa tem Pavimento), Custo Máx Teto/Verba R$ 10.947,95 (bate com
+a Financeira da parte 79), Horas Limite 303,23h; Pavimento mostrando
+os mesmos 3 números escopados; botão de Coparticipação lado a lado com
+o nome, toggle funcionando; Calibração BI mostrando médias reais não-
+triviais com contagem de instâncias (ex: "DT_Vigas: 27.67 h/un (6
+un)", antes sempre "(0 un)"). `node --check` limpo nos 5 arquivos,
+zero erro no console em todas as 8 abas de Cadastro + Árvore + BI.
+Sincronizado em `modulos_isolados/{arvore,cadastros,catalogo,bi}/js/`
+e nas 9 cópias de `core.js`, mais os `index.html` de `cadastros`/
+`catalogo`/`bi` (painéis que existem nesses módulos isolados) e as 10
+cópias de `estilos.css`.

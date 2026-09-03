@@ -61,6 +61,41 @@
             renderizarListaLegoComum(modulo);
         }
 
+        // Preferência de ordenação por catálogo (pedido do usuário,
+        // 2026-09-03: "criar campo de busca e possibilidade de a lista
+        // de sub-etapas ser classificada por ordem alfabética... fazer
+        // o mesmo para etapas, locais, tarefas e projetos") — persiste
+        // em localStorage (preferência de tela, não dado de projeto),
+        // 1 flag por módulo, mesmo padrão de `kb_modo_visualizacao`
+        // (kanban.js). Tarefas/Projetos já nasciam sempre alfabéticos
+        // antes desta reforma (regra antiga, não era opcional) — viram
+        // o padrão inicial deles aqui também, pra não mudar o
+        // comportamento de quem já usa; Etapas/Sub-etapas/Locais
+        // nascem na ordem de cadastro, como sempre.
+        function catalogoOrdenadoAlfabetico(modulo) {
+            const v = localStorage.getItem('cat_ordem_alfabetica_' + modulo);
+            if (v !== null) return v === '1';
+            return modulo === 'tarefas' || modulo === 'projetos';
+        }
+
+        function alternarOrdenacaoCatalogo(modulo) {
+            const novo = !catalogoOrdenadoAlfabetico(modulo);
+            localStorage.setItem('cat_ordem_alfabetica_' + modulo, novo ? '1' : '0');
+            atualizarBotaoOrdenacaoCatalogo(modulo);
+            if (modulo === 'projetos') { if (typeof renderizarTabelaProjetos === 'function') renderizarTabelaProjetos(); }
+            else renderizarListaLegoComum(modulo);
+            // Reaplica o filtro de busca (se houver texto digitado) — o
+            // re-render acima reconstrói a tabela do zero, perdendo o
+            // `style.display:none` que filtrarTabela() tinha aplicado.
+            const buscaEl = document.getElementById('search-' + modulo);
+            if (buscaEl && buscaEl.value && typeof filtrarTabela === 'function') filtrarTabela(modulo);
+        }
+
+        function atualizarBotaoOrdenacaoCatalogo(modulo) {
+            const btn = document.getElementById('btn-ordenar-' + modulo);
+            if (btn) btn.classList.toggle('aprov-aba-ativa', catalogoOrdenadoAlfabetico(modulo));
+        }
+
         function renderizarListaLegoComum(modulo) {
             let lista = JSON.parse(localStorage.getItem('banco_' + modulo + '_lego')) || [];
             const tbody = document.getElementById('tabela-' + modulo + '-body');
@@ -70,7 +105,7 @@
             // Monta pares {item, idx} pra poder exibir em ordem alfabética sem
             // perder o índice real de armazenamento (usado por editar/excluir).
             let ordemExibicao = lista.map((item, idx) => ({ item: item, idx: idx }));
-            if (modulo === 'tarefas') {
+            if (catalogoOrdenadoAlfabetico(modulo)) {
                 ordemExibicao.sort((a, b) => a.item.nome.localeCompare(b.item.nome, 'pt-BR'));
             }
 

@@ -37,6 +37,26 @@
         .workspace-blank-icon { font-size: 48px; opacity: 0.4; }
         
         .search-container { margin-bottom: 14px; position: relative; }
+        /* Botão "🔤 A-Z" (pedido do usuário, 2026-09-03: ordenação
+           alfabética opcional nos Cadastros de Etapa/Sub-etapa/Local/
+           Tarefa/Projeto) — dedicado em vez de reaproveitar .aprov-aba
+           (que espera viver dentro de uma barra de abas com
+           border-bottom compartilhado; sozinho fora desse contexto
+           ficava sem contorno visível). */
+        .btn-toggle-ordem { padding:8px 14px; font-size:12px; white-space:nowrap; border:1px solid #cbd5e1; border-radius:4px; background:#fff; color:#475569; cursor:pointer; font-weight:600; }
+        .btn-toggle-ordem:hover { background:#f1f5f9; }
+        /* Botão de Coparticipação na Árvore (pedido do usuário,
+           2026-09-03: "botão mais destacado e na mesma linha do nome")
+           — checkbox real escondido + label estilado como botão (o
+           <label for="..."> já alterna o checkbox nativamente, sem JS
+           extra); salvarAlteracoesNo() continua lendo o checkbox como
+           sempre, só a apresentação mudou. */
+        .toggle-coparticipacao-input { position:absolute; opacity:0; width:0; height:0; }
+        .toggle-coparticipacao-btn { display:inline-flex; flex-shrink:0; align-items:center; padding:9px 14px; border:1px solid #cbd5e1; border-radius:4px; background:#fff; color:#64748b; font-weight:600; font-size:12px; cursor:pointer; white-space:nowrap; user-select:none; }
+        .toggle-coparticipacao-btn:hover { background:#f1f5f9; }
+        .toggle-coparticipacao-input:checked + .toggle-coparticipacao-btn { background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
+        .toggle-coparticipacao-input:focus-visible + .toggle-coparticipacao-btn { outline:2px solid #0ea5e9; outline-offset:2px; }
+        .btn-toggle-ordem.aprov-aba-ativa { background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
         .search-input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #ffffff; }
         
         .table-wrapper { flex: 1; overflow-y: auto; overflow-x: auto; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; max-height: 480px; }

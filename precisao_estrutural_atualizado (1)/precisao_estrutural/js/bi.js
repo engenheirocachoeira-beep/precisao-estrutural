@@ -4,6 +4,33 @@
 // lógica do index.html original.
 // =========================================================================
 
+        // Revisão 2026-09-03 (pedido do usuário: "o Centro de
+        // Calibração Manual parece não estar funcionando... a média de
+        // horas reais deve refletir a média de horas apontadas para
+        // concluir cada uma das tarefas"). Bug real encontrado: a
+        // coluna "Média Real Apurada" dependia de `t.k_real_calculado`,
+        // um campo só gravado em UM lugar específico do sistema
+        // (arvore.js::salvarAlteracoesNo(), e só no instante exato em
+        // que alguém muda o status pra "Finalizada" DIRETO no
+        // formulário da Árvore) — quem finaliza pelo Kanban (o
+        // caminho normal, arrastando o cartão) nunca passa por ali, e
+        // o campo nunca é gravado; a coluna então caía sempre no
+        // fallback (`lego.base_h`, o mesmo valor da coluna anterior),
+        // parecendo "não fazer nada". Também exigia que o pai imediato
+        // fosse um Pavimento de verdade, excluindo tarefas fora dessa
+        // estrutura.
+        //
+        // Corrigido: calcula direto de `horas_reais` (soma das sessões
+        // de trabalho já apontadas, sempre presente em qualquer Tarefa
+        // finalizada, não importa por onde foi finalizada) ÷
+        // `qtd_fisica` (mesma unidade "h/un" que `lego.base_h` já usa,
+        // pra comparação fazer sentido) — sem os fatores de ajuste
+        // (peso do Pavimento/F_esb/F_analista) que `k_real_calculado`
+        // aplicava, que deixavam a régua inconsistente com `base_h`
+        // (esse nunca teve ajuste nenhum). `is_outlier` continua
+        // excluído quando já estiver marcado (não inventa detecção
+        // nova de outlier aqui — isso é assunto pra depois, quando o
+        // usuário quiser investigar as variáveis que explicam desvio).
         function renderizarPainelCalibracaoBI() {
             const tbody = document.getElementById('tabela-bi-calibracao-body'); tbody.innerHTML = '';
             let tLego = JSON.parse(localStorage.getItem('banco_tarefas_lego')) || [];
@@ -14,29 +41,23 @@
             let arvores = obterArvoresProjetosAtivas();
 
             tLego.forEach((lego, idx) => {
-                let somaKReal = 0; let contagemDadosValidos = 0;
-                
+                let somaHorasPorUnidade = 0; let contagemDadosValidos = 0;
+
                 Object.keys(arvores).forEach(pKey => {
                     if(arvores[pKey].etapas) {
-                        // Só entra na calibração quem tem `k_real_calculado`
-                        // de verdade — isso só é gravado pra Tarefa cujo PAI
-                        // imediato é um Pavimento de verdade (depende do
-                        // `peso_esforco` dele — ver
-                        // arvore.js::salvarAlteracoesNo(), prompt_gemini.md
-                        // §12.31). Etapa/Setor/Pavimento agindo como folha
-                        // (sem Pavimento físico por trás) nunca ganham esse
-                        // campo — o filtro abaixo já exclui automaticamente,
-                        // sem precisar subir a árvore procurando o pai.
                         coletarNosFolhaDaArvore(arvores[pKey].etapas).forEach(({ no: t }) => {
-                            if (t.nivel === 'tarefa' && t.nome === lego.nome && t.status === "Finalizada" && !t.is_outlier && t.k_real_calculado !== undefined) {
-                                somaKReal += parseFloat(t.k_real_calculado || 0);
+                            if (t.nivel === 'tarefa' && t.nome === lego.nome && t.status === "Finalizada" && !t.is_outlier) {
+                                const horasReais = parseFloat(t.horas_reais) || 0;
+                                if (horasReais <= 0) return; // finalizada sem apontamento — não entra na média
+                                const qtdFisica = parseFloat(t.qtd_fisica) || 1;
+                                somaHorasPorUnidade += horasReais / qtdFisica;
                                 contagemDadosValidos++;
                             }
                         });
                     }
                 });
 
-                let mediaApurada = contagemDadosValidos > 0 ? (somaKReal / contagemDadosValidos).toFixed(2) : parseFloat(lego.base_h).toFixed(2);
+                let mediaApurada = contagemDadosValidos > 0 ? (somaHorasPorUnidade / contagemDadosValidos).toFixed(2) : parseFloat(lego.base_h).toFixed(2);
                 let desvio = (((mediaApurada - lego.base_h) / lego.base_h) * 100).toFixed(1);
 
                 tbody.innerHTML += '<tr>' +

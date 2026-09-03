@@ -369,7 +369,17 @@ function removerValorHoraFuncionario(indice) {
 
 // --- LÓGICA DE NEGÓCIO DE PROJETOS (recuperada do módulo órfão) ---
 function renderizarTabelaProjetos() {
-    let p = JSON.parse(localStorage.getItem('banco_projetos')) || []; p.sort((a, b) => a.nome.localeCompare(b.nome));
+    let p = JSON.parse(localStorage.getItem('banco_projetos')) || [];
+    // Ordenação alfabética opcional (pedido do usuário, 2026-09-03) —
+    // ver catalogoOrdenadoAlfabetico()/alternarOrdenacaoCatalogo() em
+    // catalogo-lego.js, mesmo mecanismo reaproveitado aqui pro módulo
+    // "projetos". Já nascia sempre alfabético antes desta reforma —
+    // catalogoOrdenadoAlfabetico() teria que devolver `true` por
+    // padrão pra "projetos" também, senão o comportamento mudaria pra
+    // quem já usa; ver default lá.
+    if (typeof catalogoOrdenadoAlfabetico !== 'function' || catalogoOrdenadoAlfabetico('projetos')) {
+        p.sort((a, b) => a.nome.localeCompare(b.nome));
+    }
     const t = document.getElementById('tabela-projetos-body'); if (!t) return; t.innerHTML = '';
     // Identifica pelo NOME, não pela posição na lista ordenada — ver
     // nota completa em renderizarTabelaClientes() (cadastros.js), mesmo

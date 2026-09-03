@@ -894,6 +894,14 @@ function abrirAbaCadastro(modulo) {
     // catálogo (Etapas/Sub-etapas/Pavimentos/Tarefas).
     else if (modulo === 'feriados') carregarPainelFeriados();
     else renderizarListaLegoComum(modulo); // etapas/subetapas/pavimentos/tarefas
+
+    // Botão "🔤 A-Z" (pedido do usuário, 2026-09-03) precisa refletir a
+    // preferência salva toda vez que a aba abre, não só quando alguém
+    // clica nele — senão reabrir a tela mostra o botão "apagado" mesmo
+    // com a ordenação alfabética ativa.
+    if (typeof atualizarBotaoOrdenacaoCatalogo === 'function' && ['etapas', 'subetapas', 'pavimentos', 'tarefas', 'projetos'].includes(modulo)) {
+        atualizarBotaoOrdenacaoCatalogo(modulo);
+    }
 }
 
 // Pedido do usuário: quando um Projeto está "aberto" (na Árvore/Estrutura

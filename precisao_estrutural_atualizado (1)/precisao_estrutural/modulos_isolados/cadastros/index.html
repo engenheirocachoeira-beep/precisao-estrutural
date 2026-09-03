@@ -94,7 +94,10 @@ body { display:block; padding: 20px; }
                 </div>
 
 <div id="panel-projetos-lista" class="content-panel">
-                    <div class="search-container"><input type="text" class="search-input" id="search-projetos" placeholder="🔍 Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+                        <div class="search-container" style="flex:1; margin-bottom:0;"><input type="text" class="search-input" id="search-projetos" placeholder="🔍 Pesquisar por Obra, Prefixo ou Cliente..." oninput="filtrarTabela('projetos')"></div>
+                        <button type="button" id="btn-ordenar-projetos" class="btn-toggle-ordem" onclick="alternarOrdenacaoCatalogo('projetos')" title="Alternar entre ordem alfabética e ordem de cadastro">🔤 A-Z</button>
+                    </div>
                     <div class="table-wrapper"><table><thead><tr><th>Prefixo</th><th>Nome da Obra</th><th>Cliente</th><th>Analista</th><th>Supervisor</th><th style="text-align:center; width:80px;">Ações</th></tr></thead><tbody id="tabela-projetos-body"></tbody></table></div>
                     <div class="footer-actions">
                         <button class="btn-primary" onclick="abrirFormulario('projetos', true)">+ Incluir Novo Projeto</button>
