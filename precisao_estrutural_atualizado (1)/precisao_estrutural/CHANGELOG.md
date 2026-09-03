@@ -5385,3 +5385,77 @@ mostram "+0% do previsto" (antes "&minus;100%"); Financeira de
 "DETALHAMENTO" com Verba Global corretamente escopada (R$ 10.947,95).
 Zero erros no Console em qualquer ponto. Não precisou sincronizar
 `modulos_isolados/` — nenhuma cópia isolada tem o painel de Desempenho.
+
+## Retomada em 2026-09-02 (parte 77) — Corrige cor vermelha (bug de especificidade CSS real) e reconstrói a Financeira de Etapa do zero
+
+Usuário testou a parte 76 e reportou 4 problemas — 3 eram lacunas
+reais, não confusão de cache:
+
+**1) Índice > 100% "não funcionou"** — achado real: `.desemp-indice-ruim`
+(e as `.desemp-desvio-bom/ruim` JÁ EXISTENTES, muito antes desta
+sessão) **nunca conseguiam pintar nada**, em NENHUMA tabela de
+Desempenho/Bonificação — não é regressão desta rodada, é um bug de
+especificidade CSS que sempre esteve lá. `:is(#panel-desempenho-projeto,
+#panel-bonificacao-projeto) .desemp-tabela td` (especificidade
+1 id + 1 classe + 1 elemento) sempre ganhava de
+`:is(...) .desemp-desvio-ruim` (1 id + 1 classe, sem elemento) — a cor
+cinza da célula sempre vencia a cor vermelha/verde da classe de
+estado, click não importa a ordem no arquivo. Corrigido incluindo
+`.desemp-tabela td` na própria regra das 3 classes
+(`.desemp-tabela td.desemp-indice-ruim` etc.) — especificidade
+1 id + 2 classes + 1 elemento, maior que a da tabela E maior ainda que
+a do `tfoot td` (mais específica que a de `tbody`). Confirmado com
+`getComputedStyle` de verdade desta vez (não só checando a classe CSS
+presente, que já estava certa) — antes: `rgb(71, 85, 105)` (cinza) em
+toda célula, mesmo com a classe aplicada; depois:
+`rgb(193, 67, 42)`/`rgb(14, 143, 111)` (vermelho/verde reais).
+
+**2) e 3) "Desempenho da Etapa deve apresentar somente os dados da
+etapa. Ainda está aparecendo o resumo financeiro contendo todas as
+etapas" / "Análise Estrutural deve ter a mesma formatação que
+Detalhamento"** — a correção da parte 76 só tinha escopado
+`calcularBonificacaoProjeto()` (Pool/Resultado por técnico/Verba
+Global) — mas `carregarPainelDistribuicoes()` continuava mandando
+qualquer Etapa granular pro relatório rico de sempre
+(`renderizarDistribuicoesProjeto`), que embute o livro-caixa do
+CONTRATO INTEIRO (`htmlLivroCaixaFinanceiro`, todas as Etapas juntas)
+como sua seção "Resumo financeiro" — exatamente o que o usuário via.
+Reescrito do zero: nova `renderizarFinanceiraEtapa(nomeProjeto, etapaNome)`
+substitui TANTO o relatório rico (pra Etapa granular) QUANTO o livro
+isolado (`htmlLivroCaixaEtapaIsolada`, pra Etapa sem execução granular)
+por UM formato só, igual pras duas — só "🌐 Projeto Inteiro" continua
+com o relatório rico de sempre (faz sentido lá, é sobre o projeto
+inteiro mesmo).
+
+**4) "Números do Contrato" vira "Números da Etapa"** — pedido do
+usuário, 5 cartões nesta ordem: Verba da Etapa → Fundo Distribuição de
+Lucros → Valor pra Execução (Verba − Fundo) → Custo Real → Desvio
+contra o orçado (nota: "fundo garantidor" no pedido do usuário —
+interpretado como o Fundo de Distribuição de Lucros DESTA Etapa, não o
+Fundo Garantidor do projeto inteiro, que é uma sobra sem fatia própria
+por Etapa; a sequência Verba→Fundo→Execução→Custo→Desvio só faz
+sentido matemático com essa leitura — a confirmar com o usuário se
+estiver errado). Etapa sem execução granular usa a regra "sem apontamento,
+Custo Real = Valor pra Execução" (mesma regra "sem hora, custo=verba"
+de sempre) — Desvio sai 0, "bateu com o programado", mesma filosofia
+do item 5 da parte 76. "Caixa por Executor" (tabela já existente)
+continua abaixo do quadro de KPIs, só pra quem tem execução granular.
+
+Mensagem do usuário no meio do trabalho ("No quadro 'Como a Verba
+Global é dividida', colocar a Verba da Tarefa. No resumo financeiro
+considerar apenas os dados relativos à tarefa") ficou resolvida por
+tabela — o quadro "Como a Verba Global é dividida" (gráfico de barra
+segmentada) não existe mais na Financeira de uma Etapa (era parte do
+relatório rico que foi substituído inteiro); o "resumo financeiro"
+(livro-caixa do contrato) também não aparece mais aí, só os 5 números
+desta Etapa.
+
+Testado: `node --check` limpo. Testado ao vivo, dados reais: cores
+vermelho/verde confirmadas via `getComputedStyle` (não só a classe);
+Financeira de "DETALHAMENTO" mostra só os 5 KPIs + Caixa por Executor
+(zero `.dist-livro-book`, zero masthead); Financeira de "Análise
+Estrutural" com o MESMO formato (Verba R$ 13.684,93, Fundo R$ 0,00,
+Custo Real = Valor pra Execução, Desvio R$ 0,00, sem tabela de
+Executor). `estilos.css` re-sincronizado nas 9 cópias de
+`modulos_isolados/` (a correção de especificidade vale pra qualquer
+tela que reaproveite `.desemp-tabela`, não só Desempenho).

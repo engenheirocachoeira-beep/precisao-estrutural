@@ -812,28 +812,84 @@ function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
         return;
     }
 
-    // "🌐 Projeto Inteiro" (etapaNome null/undefined) e uma Etapa
-    // granular mostram o MESMO relatório completo — só que agora
-    // (2026-09-02) calcularDistribuicoesProjeto() recebe `etapaNome` e
-    // restringe de verdade o Pool/Resultado por técnico a essa Etapa
-    // sozinha (antes pool­ava todas as Etapas granulares juntas, sem
-    // diferença nenhuma pro "Projeto Inteiro" — coincidência, não
-    // Etapa escopada de verdade, ver
-    // [[project_precisao_estrutural_desempenho_seletor_etapa]]). Só
-    // uma Etapa SEM execução granular foge dessa regra (mostra só o
-    // livro isolado dela, decisão do usuário — o resto do relatório,
-    // Pool de Horas/Resultado por técnico, não se aplica a ela).
+    // Revisão de 2026-09-02 (pedido do usuário, testando ao vivo: "Ainda
+    // está aparecendo o resumo financeiro contendo todas as etapas" —
+    // a versão anterior desta função mandava uma Etapa granular pro
+    // relatório rico de sempre, que embutia o livro-caixa do CONTRATO
+    // INTEIRO lá dentro; só uma Etapa SEM execução granular ficava
+    // isolada de verdade). Agora QUALQUER Etapa escolhida (granular ou
+    // não) usa o MESMO formato novo — só "🌐 Projeto Inteiro" continua
+    // com o relatório rico de sempre, que é sobre o projeto inteiro
+    // mesmo, faz sentido lá.
     if (etapaNome) {
-        const verbasPorEtapa = (typeof calcularVerbaPorEtapaSalvo === 'function') ? calcularVerbaPorEtapaSalvo(nomeProjeto) : [];
-        const infoEtapa = verbasPorEtapa.find(v => v.nome === etapaNome);
-        if (!infoEtapa || !infoEtapa.temExecucaoGranular) {
-            area.innerHTML = htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome);
-            return;
-        }
+        area.innerHTML = renderizarFinanceiraEtapa(nomeProjeto, etapaNome);
+        return;
     }
 
     const dados = calcularDistribuicoesProjeto(nomeProjeto, etapaNome);
     area.innerHTML = renderizarDistribuicoesProjeto(nomeProjeto, dados);
+}
+
+// Financeira de UMA Etapa (qualquer uma — pedido do usuário: mesmo
+// formato pra Etapa com execução granular e sem, ex: "Análise
+// Estrutural" igual "DETALHAMENTO"). Tira o livro-caixa do contrato
+// inteiro (só faz sentido em "🌐 Projeto Inteiro") e mostra só os 5
+// números desta Etapa, num quadro "Números da Etapa" (mesmo estilo
+// `distKpi()` do relatório rico) — Verba da Etapa → Fundo Distribuição
+// de Lucros → Valor pra Execução (Verba − Fundo) → Custo Real →
+// Desvio contra o orçado. Etapa sem execução granular usa a mesma
+// regra "sem apontamento, custo = valor pra execução" já usada em
+// outros lugares (calcularLinhasFolhaComVerba) — Custo Real = Valor
+// pra Execução, Desvio = 0 (bateu com o programado).
+function renderizarFinanceiraEtapa(nomeProjeto, etapaNome) {
+    const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
+    const etapa = fin.etapas.find(e => e.nome === etapaNome);
+    if (!etapa) return '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Etapa n&atilde;o encontrada.</div>';
+
+    const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, etapa.no) : 0;
+    const valorFundo = pctFundo / 100 * etapa.verbaLiquida;
+    const valorPool = etapa.verbaLiquida - valorFundo;
+
+    let custoReal = valorPool, horasRealizadas = 0, executores = [];
+    if (etapa.temExecucaoGranular) {
+        const linhasEtapa = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.etapaNome === etapaNome && l.pavimentoNome);
+        custoReal = linhasEtapa.reduce((s, l) => s + l.custo, 0);
+        horasRealizadas = linhasEtapa.reduce((s, l) => s + l.horas, 0);
+        const porExecutor = {}, ordem = [];
+        linhasEtapa.forEach(l => {
+            const ex = l.executor || '(sem executor)';
+            if (!porExecutor[ex]) { porExecutor[ex] = { verba: 0, custo: 0 }; ordem.push(ex); }
+            porExecutor[ex].verba += l.verba;
+            porExecutor[ex].custo += l.custo;
+        });
+        executores = ordem.map(ex => Object.assign({ nome: ex }, porExecutor[ex]));
+    }
+    const desvio = custoReal - valorPool;
+    const pctDesvio = valorPool > 0 ? (desvio / valorPool * 100) : 0;
+
+    let html = '<div class="dist-section"><div class="dist-section-head"><h2>N&uacute;meros da Etapa</h2><div class="dist-note">"' + escapeHtml(etapaNome) + '" sozinha, sem misturar com outras Etapas</div></div>';
+    html += '<div class="dist-kpis">';
+    html += distKpi('Verba da Etapa', formatarMoeda(etapa.verbaLiquida), etapa.pctEtapa.toFixed(1).replace('.0', '') + '% da Verba Global para Produ&ccedil;&atilde;o');
+    html += distKpi('Fundo Distribui&ccedil;&atilde;o de Lucros', formatarMoeda(valorFundo), pctFundo.toFixed(0) + '% da Verba da Etapa');
+    html += distKpi('Valor pra Execu&ccedil;&atilde;o', formatarMoeda(valorPool), 'Verba da Etapa &minus; Fundo');
+    html += distKpi('Custo Real', formatarMoeda(custoReal), etapa.temExecucaoGranular ? (formatarNumero(horasRealizadas) + ' h executadas') : 'sem apontamento de horas');
+    html += distKpi('Desvio contra o or&ccedil;ado', (desvio <= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(desvio)), (desvio <= 0 ? 'sobra' : 'estouro') + ' de ' + Math.abs(pctDesvio).toFixed(1).replace('.', ',') + '%', desvio > 0);
+    html += '</div></div>';
+
+    if (etapa.temExecucaoGranular && executores.length > 0) {
+        let linhasExec = '', totV = 0, totC = 0;
+        executores.forEach(e => {
+            const saldoEx = e.verba - e.custo;
+            totV += e.verba; totC += e.custo;
+            linhasExec += '<tr><td class="lbl">' + escapeHtml(nomeExecutorExibicao(e.nome)) + '</td><td class="n">' + formatarMoeda(e.verba) + '</td><td class="n">' + formatarMoeda(e.custo) + '</td><td class="n ' + (saldoEx >= 0 ? 'pos' : 'neg') + '">' + (saldoEx >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoEx)) + '</td></tr>';
+        });
+        const saldoTotal = totV - totC;
+        linhasExec += '<tr class="total"><td class="lbl">= Total do Pool</td><td class="n">' + formatarMoeda(totV) + '</td><td class="n">' + formatarMoeda(totC) + '</td><td class="n ' + (saldoTotal >= 0 ? 'pos' : 'neg') + '">' + (saldoTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoTotal)) + '</td></tr>';
+        html += '<div class="dist-section"><div class="dist-section-head"><h2>Caixa por Executor</h2></div>' +
+            '<div class="dist-livro-book"><table class="dist-livro-tab"><thead><tr><td>Executor</td><td>Or&ccedil;ado</td><td>Custo Real</td><td>Saldo</td></tr></thead><tbody>' + linhasExec + '</tbody></table></div></div>';
+    }
+
+    return html;
 }
 
 // Barra divergente genérica: `linhas` = [{label, valor, meta?, emph?}].
