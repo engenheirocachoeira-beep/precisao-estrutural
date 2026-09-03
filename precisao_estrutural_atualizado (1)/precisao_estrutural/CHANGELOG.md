@@ -5459,3 +5459,36 @@ Custo Real = Valor pra Execução, Desvio R$ 0,00, sem tabela de
 Executor). `estilos.css` re-sincronizado nas 9 cópias de
 `modulos_isolados/` (a correção de especificidade vale pra qualquer
 tela que reaproveite `.desemp-tabela`, não só Desempenho).
+
+## Retomada em 2026-09-02 (parte 78) — Fundo Garantidor: aviso de compensação quando a Etapa estoura
+
+Pedido do usuário, esclarecendo o que "Fundo Garantidor" significa
+nesta tela: não é uma fatia por Etapa (isso já era o "Fundo
+Distribuição de Lucros" da parte 77) — é a sobra de 10% do projeto
+inteiro (`fin.valorFundoGarantidor`, calculada no topo do livro-caixa,
+"Valor do Contrato → ... → Fundo Garantidor"), reservada justamente
+para cobrir estouro de QUALQUER Etapa. Pedido: "quando mostrar as
+etapas, caso ela tenha saldo negativo (custo maior que o previsto),
+colocar o Valor a compensar pelo fundo".
+
+`renderizarFinanceiraEtapa()` (`js/desempenho-projeto.js`) ganhou um
+`.dist-callout` (mesmo componente Δ já usado noutros pontos do
+arquivo) logo abaixo dos 5 KPIs — só aparece quando a Etapa estourou
+(`desvio > 0.01`). Mostra `Math.min(desvio, fin.valorFundoGarantidor)`
+como o quanto o Fundo cobre; se cobrir tudo, "cobre o estouro
+inteiro."; se não, "cobre R$ X dele — faltam R$ Y sem cobertura."
+Deliberadamente informativo, não uma reserva: o Fundo Garantidor
+continua um número só do projeto (sem fatia própria por Etapa,
+mesmo motivo já registrado na parte 76), então a mensagem responde
+"esse estouro específico cabe no que sobrou pro projeto todo?", não
+subtrai nada de fato do Fundo mostrado noutras telas.
+
+Testado: `node --check` limpo. Ao vivo, dados reais (HOME GARDEN -
+SETOR C): Financeira de "DETALHAMENTO" (desvio − R$ 356,02, estouro)
+mostra o callout "Esta Etapa estourou R$ 356,02 contra o orçado. O
+Fundo Garantidor do projeto (R$ 2.736,99 orçados) cobre o estouro
+inteiro." — correto, 356,02 < 2.736,99. Financeira de "Análise
+Estrutural" (desvio R$ 0,00, sem estouro) não mostra o callout.
+Nesting do HTML confirmado via DOM (`.dist-callout` é filho direto de
+`.dist-section`, irmão de `.dist-kpis`, não aninhado dentro dele).
+Zero erro no console.

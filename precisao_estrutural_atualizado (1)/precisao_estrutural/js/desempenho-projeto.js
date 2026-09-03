@@ -874,7 +874,27 @@ function renderizarFinanceiraEtapa(nomeProjeto, etapaNome) {
     html += distKpi('Valor pra Execu&ccedil;&atilde;o', formatarMoeda(valorPool), 'Verba da Etapa &minus; Fundo');
     html += distKpi('Custo Real', formatarMoeda(custoReal), etapa.temExecucaoGranular ? (formatarNumero(horasRealizadas) + ' h executadas') : 'sem apontamento de horas');
     html += distKpi('Desvio contra o or&ccedil;ado', (desvio <= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(desvio)), (desvio <= 0 ? 'sobra' : 'estouro') + ' de ' + Math.abs(pctDesvio).toFixed(1).replace('.', ',') + '%', desvio > 0);
-    html += '</div></div>';
+    html += '</div>';
+
+    // Pedido do usuário (2026-09-02): "O Fundo garantidor serve para
+    // eventual compensação de algum saldo negativo de alguma etapa...
+    // caso ela tenha saldo negativo, colocar o Valor a compensar pelo
+    // fundo". Só aparece quando ESTA Etapa estourou (desvio > 0) — o
+    // Fundo Garantidor é do PROJETO INTEIRO (`fin.valorFundoGarantidor`,
+    // orçado), não tem fatia própria por Etapa (mesmo motivo de não dar
+    // pra escopar ele nos KPIs acima) — mostrado aqui só pra responder
+    // "esse estouro específico cabe no Fundo?", não uma reserva
+    // exclusiva desta Etapa.
+    if (desvio > 0.01) {
+        const valorCompensar = Math.min(desvio, fin.valorFundoGarantidor);
+        const cobriuTudo = valorCompensar >= desvio - 0.01;
+        html += '<div class="dist-callout"><div class="dist-mark">&Delta;</div><p>Esta Etapa estourou <b>' + formatarMoeda(desvio) + '</b> contra o orçado. O Fundo Garantidor do projeto (' + formatarMoeda(fin.valorFundoGarantidor) + ' or&ccedil;ados) ' +
+            (cobriuTudo
+                ? 'cobre o estouro inteiro.'
+                : ('cobre <b>' + formatarMoeda(valorCompensar) + '</b> dele — faltam <b>' + formatarMoeda(desvio - valorCompensar) + '</b> sem cobertura.'))
+            + '</p></div>';
+    }
+    html += '</div>';
 
     if (etapa.temExecucaoGranular && executores.length > 0) {
         let linhasExec = '', totV = 0, totC = 0;
