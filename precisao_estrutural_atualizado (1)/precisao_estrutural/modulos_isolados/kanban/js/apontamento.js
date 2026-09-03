@@ -167,20 +167,18 @@ function pausarSessaoAtivaDaPessoa(nomePessoa) {
     return todas;
 }
 
-// Item 2 da "Frente Kanban avançado" (ver prompt_gemini.md §11): a
-// contagem de tempo é bloqueada em "Apontada" (tarefa nem começou de
-// verdade ainda) E em "Aguardando Verificação" (já foi entregue pelo
+// Item 2 da "Frente Kanban avançado" (ver prompt_gemini.md §11) —
+// revisado 2026-09-03 (pedido do usuário: "permitir apontamento de
+// horas e acionamento de cronômetro para as tarefas que estão
+// apontadas ou em desenvolvimento daquele executor"): a contagem de
+// tempo é bloqueada em "Aguardando Verificação" (já foi entregue pelo
 // executor pra revisão — não faz sentido continuar rodando cronômetro
-// numa tarefa que já saiu das mãos de quem executa). Os demais status
-// ("Em Desenvolvimento", "Para revisão", "Finalizada") continuam livres,
-// caso alguém precise retomar o cronômetro depois (ex: tarefa devolvida
-// do Kanban do Analista pra "Para revisão").
-// Executor só aponta horas em "Em Desenvolvimento" (trabalho normal) ou
-// "Para revisão" (corrigindo depois de reprovado — ver ciclo
-// Executor↔Revisor, prompt_gemini.md §12.8). "Apontada" (nem começou),
-// "Aguardando Verificação" (fora das mãos dele) e "Finalizada" (já
-// entregue de vez) ficam bloqueados.
-const APONTAMENTO_STATUS_SEM_CRONOMETRO = ['Apontada', 'Aguardando Verificação', 'Finalizada'];
+// numa tarefa que já saiu das mãos de quem executa) e em "Finalizada"
+// (já entregue de vez). "Apontada" deixou de bloquear — o Executor
+// agora pode iniciar o cronômetro direto de "Apontada" (decisão
+// revertida: antes exigia mover a tarefa pra "Em Desenvolvimento"
+// primeiro).
+const APONTAMENTO_STATUS_SEM_CRONOMETRO = ['Aguardando Verificação', 'Finalizada'];
 
 // Função pura, testável sem DOM (ver
 // /home/claude/testes/teste_status_bloqueia_cronometro.js).
@@ -193,7 +191,7 @@ function statusBloqueiaCronometro(status) {
 // agora decide em qual TRILHA gravar (Execução ou Revisão) de acordo com
 // quem está clicando (usuarioLogado, global de core.js):
 // - É o Executor da tarefa -> trilha Execução, mesma trava de sempre
-//   (bloqueado em "Apontada"/"Aguardando Verificação").
+//   (bloqueado em "Aguardando Verificação"/"Finalizada").
 // - Não é o Executor, mas tem autoridade de revisar (Responsável
 //   atribuído OU hierarquia, podeRevisarTarefa() em kanban.js) -> trilha
 //   Revisão, só com a tarefa especificamente em "Aguardando Verificação".
@@ -507,8 +505,12 @@ function criarApontamentoManual(caminho, data, horas, motivo) {
     // "Para revisão" liberado junto com "Em Desenvolvimento" — mesmo
     // status em que o cronômetro já roda pro Executor corrigindo
     // (ciclo Executor↔Revisor, prompt_gemini.md §12.8/§12.13).
-    if (tarefa.status !== 'Em Desenvolvimento' && tarefa.status !== 'Para revisão') {
-        return { ok: false, erro: 'Só é possível anotar horas manualmente com a tarefa em "Em Desenvolvimento" ou "Para revisão".' };
+    // "Apontada" liberado em 2026-09-03 (pedido do usuário) — mesma
+    // régua de statusBloqueiaCronometro(), o apontamento manual segue o
+    // cronômetro (se dá pra ligar o cronômetro nesse status, dá pra
+    // apontar manualmente também).
+    if (tarefa.status !== 'Apontada' && tarefa.status !== 'Em Desenvolvimento' && tarefa.status !== 'Para revisão') {
+        return { ok: false, erro: 'Só é possível anotar horas manualmente com a tarefa em "Apontada", "Em Desenvolvimento" ou "Para revisão".' };
     }
 
     // Trava real (a que vale de verdade — o botão no Kanban já só

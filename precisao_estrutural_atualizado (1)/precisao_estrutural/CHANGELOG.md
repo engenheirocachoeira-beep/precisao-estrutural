@@ -5571,3 +5571,44 @@ pavimento/diagnóstico — não tem dados pra isso — Bloco Fixo 100% após
 o fix acima). `node --check` limpo, zero erro no console. Sem
 `modulos_isolados/` a sincronizar (`desempenho-projeto.js` não tem
 cópia isolada).
+
+## Retomada em 2026-09-03 (parte 80) — Kanban do Executor libera cronômetro e apontamento manual em "Apontada"
+
+Pedido do usuário: "No Kanban do executor, permitir apontamento de
+horas e acionamento de cronômetro para as tarefas que estão apontadas
+ou em desenvolvimento daquele executor." Reverte uma trava deliberada
+anterior (item 2 da "Frente Kanban avançado", prompt_gemini.md §11) que
+bloqueava as duas coisas enquanto a tarefa estava em "Apontada" (recém
+atribuída, ainda não movida pro Kanban) — o Executor agora pode
+começar a contar/apontar hora direto, sem precisar arrastar o cartão
+pra "Em Desenvolvimento" primeiro.
+
+- `js/apontamento.js`: `APONTAMENTO_STATUS_SEM_CRONOMETRO` perdeu
+  `'Apontada'` (fica só `['Aguardando Verificação', 'Finalizada']`) —
+  usada tanto pelo botão do cronômetro quanto por `iniciarSessaoTrabalho()`.
+  `criarApontamentoManual()` (a trava REAL, não só cosmética do botão)
+  ganhou `'Apontada'` na lista de status permitidos, junto com "Em
+  Desenvolvimento"/"Para revisão" que já valiam.
+- `js/kanban.js`, `construirCartaoKanbanHtml()`: removido o ramo
+  "🔒 Mova pra iniciar" específico de "Apontada" (agora cai direto no
+  botão ▶ Iniciar normal, já que `statusBloqueiaCronometro('Apontada')`
+  virou `false`); o botão "📝 Apontar horas" passou a aparecer também
+  com a tarefa em "Apontada" (antes só em "Em Desenvolvimento"/"Para
+  revisão").
+- Sincronizado em `modulos_isolados/{atribuicao-tarefas,kanban,relatorios}/js/apontamento.js`
+  e `modulos_isolados/kanban/js/kanban.js` (as 4 cópias eram
+  byte-idênticas ao original antes desta rodada — sync direto, sem
+  merge manual).
+
+Testado ao vivo: logado como executor real ("DETALHISTA", projeto
+"LÚMEN") com 4 tarefas em "Apontada" — cartões passaram a mostrar
+"▶ Iniciar" + "📝 Apontar horas" nos 4 (antes: "🔒 Mova pra iniciar",
+sem botão de apontamento). `iniciarSessaoTrabalho()` chamado numa
+delas: sessão ativa gravada, cartão vira "⏸ Pausar" com o cronômetro
+rodando, tarefa continua em "Apontada" (mover de coluna continua sendo
+uma ação separada, arrastando o cartão). `criarApontamentoManual()`
+chamado na mesma: aceito (`{ok:true}`), fica pendente de aprovação
+como sempre. Dados de teste revertidos ao final (sessão removida,
+apontamento pendente removido) — sync com o Firebase estava desligado
+durante todo o teste, nada chegou à produção. `node --check` limpo nos
+2 arquivos, zero erro no console.

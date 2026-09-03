@@ -646,15 +646,14 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
             '<button class="kb-btn-cronometro" onclick="event.stopPropagation(); pausarSessaoKanban(\'' + caminhoJs + '\')">⏸ Pausar</button>' +
             '</div>';
     } else if (statusBloqueiaCronometro(t.status)) {
-        // Bloqueado por pedido explícito do usuário: "Apontada" (tarefa
-        // nem começou), "Aguardando Verificação" (já foi entregue pra
-        // revisão) e "Finalizada" (já terminou de vez) não contam
-        // tempo. Mensagem muda conforme o motivo.
+        // Bloqueado por pedido explícito do usuário: "Aguardando
+        // Verificação" (já foi entregue pra revisão) e "Finalizada" (já
+        // terminou de vez) não contam tempo. "Apontada" deixou de
+        // bloquear em 2026-09-03 (pedido do usuário) — cai no `else` de
+        // baixo, com o botão ▶ Iniciar normal. Mensagem muda conforme o
+        // motivo.
         let dica, rotulo;
-        if (t.status === 'Apontada') {
-            dica = 'Mova esta tarefa pra \'Em Desenvolvimento\' pra poder iniciar a contagem';
-            rotulo = '🔒 Mova pra iniciar';
-        } else if (t.status === 'Finalizada') {
+        if (t.status === 'Finalizada') {
             dica = 'Tarefa já finalizada — não conta mais tempo';
             rotulo = '✅ Finalizada';
         } else {
@@ -685,11 +684,13 @@ function construirCartaoKanbanHtml(t, hojeISO, nomeExecutorVisualizado) {
     // Status permitido: "Em Desenvolvimento" (sempre foi) + "Para
     // revisão" (ciclo Executor↔Revisor, prompt_gemini.md §12.8/§12.13
     // — o cronômetro já roda nesse status pro Executor corrigindo,
-    // faltava o apontamento manual acompanhar).
+    // faltava o apontamento manual acompanhar) + "Apontada" (pedido do
+    // usuário, 2026-09-03 — mesma régua do cronômetro, ver
+    // statusBloqueiaCronometro() em apontamento.js).
     const usuarioAtualParaBotaoManual = (typeof usuarioLogado !== 'undefined' && usuarioLogado) ? usuarioLogado : null;
     const souOExecutorDesteCartao = usuarioAtualParaBotaoManual && t.executor && usuarioAtualParaBotaoManual.nome === t.executor;
     let linhaApontamentoManual = '';
-    if (souOExecutorDesteCartao && (t.status === 'Em Desenvolvimento' || t.status === 'Para revisão')) {
+    if (souOExecutorDesteCartao && (t.status === 'Apontada' || t.status === 'Em Desenvolvimento' || t.status === 'Para revisão')) {
         linhaApontamentoManual =
             '<div class="kb-cartao-apontamento-manual">' +
             '<button class="kb-btn-apontamento-manual" onclick="event.stopPropagation(); abrirModalApontamentoManualKanban(\'' + caminhoJs + '\')">📝 Apontar horas</button>' +
