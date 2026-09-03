@@ -5492,3 +5492,82 @@ Estrutural" (desvio R$ 0,00, sem estouro) não mostra o callout.
 Nesting do HTML confirmado via DOM (`.dist-callout` é filho direto de
 `.dist-section`, irmão de `.dist-kpis`, não aninhado dentro dele).
 Zero erro no console.
+
+## Retomada em 2026-09-03 (parte 79) — Financeira de uma Etapa vira o MESMO relatório rico do Projeto Inteiro
+
+Pedido do usuário: "quero que mantenha a mesma formatação do
+desempenho do projeto inteiro. Somente os dados que devem ser os da
+referida etapa... tudo exatamente como na aba do projeto inteiro, só
+que com os números da etapa. Os números do projeto inteiro seria a
+soma dos números das etapas." A Financeira de uma Etapa (parte 77) até
+então usava um relatório simplificado próprio (`renderizarFinanceiraEtapa`
+— 5 KPIs + Caixa por Executor, sem masthead/segbar/gráficos/
+diagnóstico). Removida inteira; `renderizarDistribuicoesProjeto()`
+(o relatório rico de sempre) agora atende os dois casos — "🌐 Projeto
+Inteiro" e qualquer Etapa escolhida — porque `calcularDistribuicoesProjeto()`
+já escopava `bonif`/`tab`/`pctConcluido`/`horasCusto`/`diagPorAtividade`
+por `etapaFiltro` desde a parte 76; só faltava escopar o que vinha de
+`financeiro` e corrigir 2 bugs que só apareciam ao tentar reaproveitar
+o relatório rico pra uma Etapa só:
+
+- **`calcularResumoFinanceiroProjeto()` ganhou `etapaFiltro`**: os 3
+  campos derivados de Pavimento (`verbaDetalhamentoBruta`/
+  `valorFundoLucros`/`areaTotalEquivalente`, usados em "Índices
+  Globais") agora escopam pra Etapa escolhida (antes: sempre "a
+  primeira Etapa granular encontrada"/soma de todas). `valorContrato`/
+  impostos/parcelas continuam do CONTRATO inteiro, correto — não são
+  divisíveis por Etapa.
+- **Bug real: segbar "Como a Verba Global é dividida" não fechava em
+  100% pra uma Etapa só** — `margemEscritorio` (Bloco 3) misturava o
+  Fundo Garantidor do PROJETO INTEIRO (não é fatia de nenhuma Etapa)
+  com o Fundo de Distribuição de Lucros da Etapa. Corrigido em
+  `calcularBonificacaoProjeto()`: escopado, `margemEscritorio` vira só
+  o Fundo de Distribuição de Lucros da Etapa. Testado: DETALHAMENTO
+  fecha exatamente Bloco Fixo 0% + DETALHAMENTO 95% + Margem 5% = 100%.
+- **Bug real, pré-existente (não introduzido nesta rodada), achado
+  testando "Análise Estrutural"**: `calcularLinhasFolhaComVerba()`,
+  ramo de Etapa sem Pavimento — quando NENHUMA folha da Etapa tem
+  Pontos (comum numa Etapa "Finalizada" sem apontamento, mesmo caso já
+  tratado em `calcularIndiceDesvio()`) e a Etapa tem MAIS de 1 folha, a
+  regra antiga só dava a Verba inteira pra folha quando ela era a
+  ÚNICA da Etapa — com 2+ folhas, TODAS ficavam com Verba zero (a
+  Etapa inteira "desaparecia" do Bloco Fixo da Bonificação, mesmo
+  tendo Verba de verdade — Igor aparecia com R$ 0,00 "fixo" tanto na
+  Financeira do Projeto Inteiro quanto na de Análise Estrutural, com o
+  Bloco Fixo do segbar preso em 0%, inconsistente com os outros KPIs
+  da mesma tela mostrando R$ 13.684,93). Generalizado: sem Pontos pra
+  guiar o rateio, reparte a Verba em partes iguais entre as folhas —
+  mesma Verba total, só não concentrada arbitrariamente numa única
+  folha. Efeito colateral (correto, não é regressão): o segbar do "🌐
+  Projeto Inteiro" também mudou — Bloco Fixo foi de 0% pra 50% (Igor
+  R$ 13.684,93), já que usa o mesmo motor.
+- **`htmlLivroCaixaFinanceiro()` ganhou `etapaFiltro`**: pula o Livro 1
+  ("Do Contrato ao Fundo Garantidor" — sobre o CONTRATO inteiro,
+  decisão já tomada na parte 77 de não misturar isso numa Etapa só) e
+  restringe o livro por Etapa + Caixa por Executor + Saldo do Fundo de
+  Distribuição de Lucros a só a Etapa escolhida — reaproveita
+  `htmlLivroCaixaBlocoEtapa()`, substitui de vez o antigo
+  `htmlLivroCaixaEtapaIsolada()` (removida, dead code).
+- **Masthead/textos dinâmicos**: eyebrow mostra o nome da Etapa (ou
+  "Projeto Inteiro") em vez de "Detalhamento" fixo; "Índices Globais"
+  pula a seção inteira quando a Etapa não tem Pavimento (área
+  equivalente 0 — nada pra mostrar na linha "Detalhável"); textos que
+  diziam "detalhamento"/"pool de detalhamento" viraram genéricos
+  ("execução"/"pool de execução"), já que agora valem pra qualquer
+  Etapa. Quadro de KPIs do topo continua com a composição própria pra
+  Etapa (Verba da Etapa → Fundo Distribuição de Lucros → Valor pra
+  Execução → Custo Real → Desvio, pedido explícito da parte 77) — só
+  essa parte difere do "🌐 Projeto Inteiro" (Valor Contratado Bruto →
+  Verba Global → Orçamento → Custo Real → Desvio, sobre o CONTRATO).
+
+Testado ao vivo, dados reais (HOME GARDEN - SETOR C), os 3 escopos:
+"🌐 Projeto Inteiro" (regressão — todos os números idênticos aos já
+confirmados na parte 76/77, só o eyebrow e 2 frases mudaram de texto);
+"DETALHAMENTO" (agora com masthead, segbar 100%, Resumo financeiro,
+Índices Globais, Resultado por técnico/pavimento e Diagnóstico —
+tudo igual ao Projeto Inteiro, só os números da Etapa); "Análise
+Estrutural" (mesmo formato, degradado graciosamente: sem gráfico de
+pavimento/diagnóstico — não tem dados pra isso — Bloco Fixo 100% após
+o fix acima). `node --check` limpo, zero erro no console. Sem
+`modulos_isolados/` a sincronizar (`desempenho-projeto.js` não tem
+cópia isolada).

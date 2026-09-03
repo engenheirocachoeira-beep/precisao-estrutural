@@ -166,7 +166,18 @@ function calcularLinhasFolhaComVerba(nomeProjeto) {
         const totalPontosEtapa = folhas.reduce((s, f) => s + (parseFloat(f.no.pontos) || 0), 0);
         folhas.forEach(f => {
             const pontos = parseFloat(f.no.pontos) || 0;
-            const verba = totalPontosEtapa > 0 ? (pontos / totalPontosEtapa) * verbaEtapa : (folhas.length === 1 ? verbaEtapa : 0);
+            // Bug real (achado testando a Financeira de "Análise
+            // Estrutural", 2026-09-03): com 0 Pontos em TODAS as folhas
+            // (comum numa Etapa "Finalizada" sem apontamento — mesmo
+            // caso de calcularIndiceDesvio()) e mais de 1 folha, a regra
+            // antiga só dava a Verba inteira pra folha quando ela era a
+            // ÚNICA da Etapa — com 2+ folhas, todas ficavam com Verba
+            // ZERO (a Etapa inteira "desaparecia" do Bloco Fixo da
+            // Bonificação, mesmo tendo Verba de verdade). Generaliza:
+            // sem Pontos pra guiar o rateio, reparte em partes iguais
+            // entre as folhas (mesma Verba total no fim, só não
+            // concentrada arbitrariamente numa só).
+            const verba = totalPontosEtapa > 0 ? (pontos / totalPontosEtapa) * verbaEtapa : (verbaEtapa / (folhas.length || 1));
             const sessoes = Array.isArray(f.no.sessoes_trabalho) ? f.no.sessoes_trabalho : [];
             const horas = sessoes.reduce((s2, s) => s2 + (parseFloat(s.duracao) || 0), 0);
             const custo = horas > 0 ? ((typeof calcularCustoRealTarefa === 'function') ? calcularCustoRealTarefa(f.no, f.no.executor) : 0) : verba;
@@ -272,7 +283,17 @@ function calcularDesempenhoExecutoresProjeto(nomeProjeto, etapaFiltro) {
 }
 
 // --- 6) RESUMO FINANCEIRO (do Contrato até a Verba por Etapa) ---
-function calcularResumoFinanceiroProjeto(nomeProjeto) {
+// `etapaFiltro` opcional (reforma "Distribuições exatamente como o
+// Projeto Inteiro, só com os números da Etapa", 2026-09-03): `etapas`
+// continua sempre a lista INTEIRA (quem chama precisa poder achar
+// qualquer Etapa nela, escopada ou não — ex: pro livro-caixa/KPIs de
+// uma Etapa só) — só os 3 campos derivados de Pavimento
+// (`verbaDetalhamentoBruta`/`valorFundoLucros`/`areaTotalEquivalente`,
+// usados em "Índices Globais") passam a valer só pra Etapa escolhida
+// em vez de "a primeira Etapa granular encontrada"/"soma de todas".
+// `valorContrato`/impostos/parcelas continuam sempre do CONTRATO
+// inteiro — não são divisíveis por Etapa.
+function calcularResumoFinanceiroProjeto(nomeProjeto, etapaFiltro) {
     const projetos = JSON.parse(localStorage.getItem('banco_projetos')) || [];
     const projeto = projetos.find(p => p.nome === nomeProjeto);
     const valorContrato = projeto ? (parseFloat(projeto.valor) || 0) : 0;
@@ -301,12 +322,19 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
     const dadosPavimentos = (typeof calcularListaPavimentosComVerbaSalva === 'function') ? calcularListaPavimentosComVerbaSalva(nomeProjeto) : null;
     // Reforma Setor→Sub-etapa: `temExecucaoGranular` é estrutural (a
     // subárvore da Etapa tem Pavimento), não mais achado por nome
-    // "Detalhamento". Continua pegando só a PRIMEIRA etapa granular
-    // encontrada — esta tela (KPIs/Bonificação/Distribuições) ainda
-    // assume uma única etapa granular por projeto, igual sempre foi;
-    // generalizar pra somar várias fica pra uma rodada própria (ver
-    // CHANGELOG.md).
-    const etapaDetalhamento = etapas.find(e => e.temExecucaoGranular);
+    // "Detalhamento". Sem `etapaFiltro`, pega a PRIMEIRA etapa granular
+    // encontrada (comportamento antigo, ainda vale pro relatório de
+    // "🌐 Projeto Inteiro" — generalizar pra somar várias fica pra uma
+    // rodada própria, ver CHANGELOG.md); com `etapaFiltro`, é sempre
+    // ELA (granular ou não — "verba bruta" de uma Etapa sem Pavimento
+    // ainda é um número válido, só a área equivalente dela é que
+    // fica 0).
+    const etapaDetalhamento = etapaFiltro ? etapas.find(e => e.nome === etapaFiltro) : etapas.find(e => e.temExecucaoGranular);
+    // Mesma régua pros 2 campos abaixo: sem `etapaFiltro`, soma TODOS
+    // os pavimentos do projeto (comportamento antigo); com ele,
+    // restringe aos pavimentos daquela Etapa só (`p.etapa`, já
+    // presente em cada registro de listarPavimentosDoProjeto()).
+    const pavimentosConsiderados = !dadosPavimentos ? [] : (etapaFiltro ? dadosPavimentos.pavimentos.filter(p => p.etapa === etapaFiltro) : dadosPavimentos.pavimentos);
 
     return {
         valorContrato, pctImpostos, valorImpostos, valorLiquido,
@@ -317,12 +345,12 @@ function calcularResumoFinanceiroProjeto(nomeProjeto) {
         // pronto de Fundo de Lucros (só a variante "ao vivo" tem esse
         // campo) — soma a fatia por Pavimento (`.valorFundoLucros`,
         // essa sim sempre presente, calculada em listarPavimentosDoProjeto).
-        valorFundoLucros: dadosPavimentos ? dadosPavimentos.pavimentos.reduce((s, p) => s + (p.valorFundoLucros || 0), 0) : 0,
+        valorFundoLucros: pavimentosConsiderados.reduce((s, p) => s + (p.valorFundoLucros || 0), 0),
         // Item novo (Índices Globais, pedido do usuário): área
         // equivalente somada dos pavimentos da Etapa Detalhamento — a
         // MESMA régua que a aba "Verba por Pavimento" já usa pra
         // ratear a Verba entre pavimentos (não a área física bruta).
-        areaTotalEquivalente: dadosPavimentos ? dadosPavimentos.areaTotalEquivalente : 0
+        areaTotalEquivalente: pavimentosConsiderados.reduce((s, p) => s + p.areaEquivalente, 0)
     };
 }
 
@@ -446,7 +474,17 @@ function calcularBonificacaoProjeto(nomeProjeto, etapaFiltro) {
     const valorFundoLucros = infoEtapaEscopo
         ? ((typeof obterPctFundoLucrosPavimento === 'function' ? obterPctFundoLucrosPavimento(nomeProjeto, infoEtapaEscopo.no) : 0) / 100 * infoEtapaEscopo.verbaLiquida)
         : fin.valorFundoLucros;
-    const margemEscritorio = valorFundoGarantidor + valorFundoLucros;
+    // Escopado (etapaFiltro): a Margem do Escritório de UMA Etapa (pro
+    // segbar "Como a Verba Global é dividida" fechar em 100% dela
+    // mesma) é só o Fundo de Distribuição de Lucros dela —
+    // `valorFundoGarantidor` acima mistura o Fundo Garantidor do
+    // PROJETO INTEIRO (não é fatia de nenhuma Etapa, ver comentário
+    // dele) com o desempenho desta Etapa; útil pro cálculo do Fundo
+    // Garantidor em si (ver `htmlNumerosDaEtapa`/callout de
+    // compensação), mas não entra na divisão da verba desta Etapa —
+    // bug real encontrado ao reaproveitar renderizarDistribuicoesProjeto()
+    // pra Etapa: sem este `if`, o segbar somava mais de 100%.
+    const margemEscritorio = infoEtapaEscopo ? valorFundoLucros : (valorFundoGarantidor + valorFundoLucros);
 
     const totalCusto = executores.reduce((s, e) => s + e.custo, 0);
     const totalBonificacao = executores.reduce((s, e) => s + e.bonificacao, 0);
@@ -489,9 +527,11 @@ function calcularMetaDistribuicoes(nomeProjeto) {
 }
 
 // `etapaFiltro` opcional (pedido do usuário, 2026-09-02: Financeira de
-// uma Etapa usa só os dados dela) — repassado pra tudo que aceita;
-// `financeiro` (Resumo Financeiro do Contrato) continua de projeto
-// inteiro de propósito, é sobre o CONTRATO, não sobre uma Etapa.
+// uma Etapa usa só os dados dela) — repassado pra tudo que aceita,
+// incluindo `financeiro` (reforma 2026-09-03: os campos derivados de
+// Pavimento dele também escopam por Etapa agora, ver
+// calcularResumoFinanceiroProjeto() — `valorContrato`/impostos/
+// parcelas continuam do CONTRATO inteiro, não são divisíveis por Etapa).
 function calcularDistribuicoesProjeto(nomeProjeto, etapaFiltro) {
     const meta = calcularMetaDistribuicoes(nomeProjeto);
     const bonif = calcularBonificacaoProjeto(nomeProjeto, etapaFiltro);
@@ -513,9 +553,9 @@ function calcularDistribuicoesProjeto(nomeProjeto, etapaFiltro) {
     const linhasDiag = diagExecutorNome ? linhasDetalhamento.filter(l => l.executor === diagExecutorNome) : linhasDetalhamento;
     const diagPorAtividade = agruparLinhasDesempenho(linhasDiag, l => l.nome).sort((a, b) => a.lucro - b.lucro);
 
-    const financeiro = calcularResumoFinanceiroProjeto(nomeProjeto);
+    const financeiro = calcularResumoFinanceiroProjeto(nomeProjeto, etapaFiltro);
 
-    return { meta, bonif, tab, pctConcluido, horasCusto, poolExecutores, fixoExecutores, diagExecutorNome, diagPorAtividade, financeiro };
+    return { meta, bonif, tab, pctConcluido, horasCusto, poolExecutores, fixoExecutores, diagExecutorNome, diagPorAtividade, financeiro, etapaFiltro: etapaFiltro || null };
 }
 
 // --- ORQUESTRADOR --- `etapaFiltro` opcional (reforma "Desempenho"
@@ -792,14 +832,18 @@ function obterFormatoPct(v) {
 // =========================================================================
 
 // `etapaNome` opcional (reforma "Desempenho" com fileira de orelhas de
-// Etapa, 2026-09-02) — decisão do usuário: "🌐 Projeto Inteiro"
-// (null/undefined) e quem tem execução granular (ex: Detalhamento)
-// mostram o MESMO relatório rico de sempre (KPIs, "Como a Verba é
-// dividida", Resultado por técnico, Diagnóstico por atividade — sem
-// filtro de Etapa nenhum dos dois, já era assim antes desta reforma
-// toda); quem não tem execução granular (ex: Análise Estrutural)
-// mostra só o livro-caixa isolado dela, já que o resto do relatório
-// (Pool de Horas, Custo Real por técnico) não se aplica.
+// Etapa, 2026-09-02, generalizada em 2026-09-03 — pedido do usuário:
+// "quero que mantenha a mesma formatação do desempenho do projeto
+// inteiro... tudo exatamente como na aba do projeto inteiro, só que
+// com os números da etapa"): "🌐 Projeto Inteiro" e qualquer Etapa
+// escolhida usam o MESMO relatório rico (masthead, KPIs, "Como a Verba
+// é dividida", Resumo financeiro/livro-caixa, Índices Globais,
+// Resultado por técnico/pavimento, Diagnóstico por atividade) —
+// `calcularDistribuicoesProjeto`/`renderizarDistribuicoesProjeto` já
+// escopam tudo isso por `etapaFiltro` internamente (ver comentários
+// deles). Só o quadro de KPIs do topo muda de composição conforme o
+// escopo (ver htmlNumerosDaEtapa() abaixo) — o resto do relatório é
+// idêntico nos dois casos, só os números mudam.
 function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
     const area = document.getElementById('distribuicoes-conteudo');
     if (!area) return;
@@ -812,63 +856,40 @@ function carregarPainelDistribuicoes(nomeProjeto, etapaNome) {
         return;
     }
 
-    // Revisão de 2026-09-02 (pedido do usuário, testando ao vivo: "Ainda
-    // está aparecendo o resumo financeiro contendo todas as etapas" —
-    // a versão anterior desta função mandava uma Etapa granular pro
-    // relatório rico de sempre, que embutia o livro-caixa do CONTRATO
-    // INTEIRO lá dentro; só uma Etapa SEM execução granular ficava
-    // isolada de verdade). Agora QUALQUER Etapa escolhida (granular ou
-    // não) usa o MESMO formato novo — só "🌐 Projeto Inteiro" continua
-    // com o relatório rico de sempre, que é sobre o projeto inteiro
-    // mesmo, faz sentido lá.
-    if (etapaNome) {
-        area.innerHTML = renderizarFinanceiraEtapa(nomeProjeto, etapaNome);
-        return;
-    }
-
-    const dados = calcularDistribuicoesProjeto(nomeProjeto, etapaNome);
+    const dados = calcularDistribuicoesProjeto(nomeProjeto, etapaNome || undefined);
     area.innerHTML = renderizarDistribuicoesProjeto(nomeProjeto, dados);
 }
 
-// Financeira de UMA Etapa (qualquer uma — pedido do usuário: mesmo
-// formato pra Etapa com execução granular e sem, ex: "Análise
-// Estrutural" igual "DETALHAMENTO"). Tira o livro-caixa do contrato
-// inteiro (só faz sentido em "🌐 Projeto Inteiro") e mostra só os 5
-// números desta Etapa, num quadro "Números da Etapa" (mesmo estilo
-// `distKpi()` do relatório rico) — Verba da Etapa → Fundo Distribuição
-// de Lucros → Valor pra Execução (Verba − Fundo) → Custo Real →
-// Desvio contra o orçado. Etapa sem execução granular usa a mesma
-// regra "sem apontamento, custo = valor pra execução" já usada em
-// outros lugares (calcularLinhasFolhaComVerba) — Custo Real = Valor
-// pra Execução, Desvio = 0 (bateu com o programado).
-function renderizarFinanceiraEtapa(nomeProjeto, etapaNome) {
-    const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
+// KPIs do topo do relatório quando escopado a UMA Etapa (pedido
+// explícito do usuário sobre a composição exata destes 5 números:
+// Verba da Etapa → Fundo Distribuição de Lucros → Valor pra Execução
+// (Verba − Fundo) → Custo Real → Desvio contra o orçado — diferente
+// dos 5 KPIs do "🌐 Projeto Inteiro", que são sobre o CONTRATO, ver
+// renderizarDistribuicoesProjeto()). Etapa sem execução granular usa a
+// mesma regra "sem apontamento, custo = valor pra execução" já usada
+// em outros lugares (calcularLinhasFolhaComVerba) — Custo Real = Valor
+// pra Execução, Desvio = 0 (bateu com o programado). Devolve só o
+// `.dist-kpis` + o callout de compensação do Fundo Garantidor — a
+// "Caixa por Executor" já sai de graça do "Resumo financeiro"
+// (htmlLivroCaixaFinanceiro com etapaFiltro), não duplica aqui.
+function htmlNumerosDaEtapa(nomeProjeto, fin, etapaNome) {
     const etapa = fin.etapas.find(e => e.nome === etapaNome);
-    if (!etapa) return '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Etapa n&atilde;o encontrada.</div>';
+    if (!etapa) return '';
 
     const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, etapa.no) : 0;
     const valorFundo = pctFundo / 100 * etapa.verbaLiquida;
     const valorPool = etapa.verbaLiquida - valorFundo;
 
-    let custoReal = valorPool, horasRealizadas = 0, executores = [];
+    let custoReal = valorPool, horasRealizadas = 0;
     if (etapa.temExecucaoGranular) {
         const linhasEtapa = calcularLinhasFolhaComVerba(nomeProjeto).filter(l => l.etapaNome === etapaNome && l.pavimentoNome);
         custoReal = linhasEtapa.reduce((s, l) => s + l.custo, 0);
         horasRealizadas = linhasEtapa.reduce((s, l) => s + l.horas, 0);
-        const porExecutor = {}, ordem = [];
-        linhasEtapa.forEach(l => {
-            const ex = l.executor || '(sem executor)';
-            if (!porExecutor[ex]) { porExecutor[ex] = { verba: 0, custo: 0 }; ordem.push(ex); }
-            porExecutor[ex].verba += l.verba;
-            porExecutor[ex].custo += l.custo;
-        });
-        executores = ordem.map(ex => Object.assign({ nome: ex }, porExecutor[ex]));
     }
     const desvio = custoReal - valorPool;
     const pctDesvio = valorPool > 0 ? (desvio / valorPool * 100) : 0;
 
-    let html = '<div class="dist-section"><div class="dist-section-head"><h2>N&uacute;meros da Etapa</h2><div class="dist-note">"' + escapeHtml(etapaNome) + '" sozinha, sem misturar com outras Etapas</div></div>';
-    html += '<div class="dist-kpis">';
+    let html = '<div class="dist-kpis">';
     html += distKpi('Verba da Etapa', formatarMoeda(etapa.verbaLiquida), etapa.pctEtapa.toFixed(1).replace('.0', '') + '% da Verba Global para Produ&ccedil;&atilde;o');
     html += distKpi('Fundo Distribui&ccedil;&atilde;o de Lucros', formatarMoeda(valorFundo), pctFundo.toFixed(0) + '% da Verba da Etapa');
     html += distKpi('Valor pra Execu&ccedil;&atilde;o', formatarMoeda(valorPool), 'Verba da Etapa &minus; Fundo');
@@ -894,21 +915,6 @@ function renderizarFinanceiraEtapa(nomeProjeto, etapaNome) {
                 : ('cobre <b>' + formatarMoeda(valorCompensar) + '</b> dele — faltam <b>' + formatarMoeda(desvio - valorCompensar) + '</b> sem cobertura.'))
             + '</p></div>';
     }
-    html += '</div>';
-
-    if (etapa.temExecucaoGranular && executores.length > 0) {
-        let linhasExec = '', totV = 0, totC = 0;
-        executores.forEach(e => {
-            const saldoEx = e.verba - e.custo;
-            totV += e.verba; totC += e.custo;
-            linhasExec += '<tr><td class="lbl">' + escapeHtml(nomeExecutorExibicao(e.nome)) + '</td><td class="n">' + formatarMoeda(e.verba) + '</td><td class="n">' + formatarMoeda(e.custo) + '</td><td class="n ' + (saldoEx >= 0 ? 'pos' : 'neg') + '">' + (saldoEx >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoEx)) + '</td></tr>';
-        });
-        const saldoTotal = totV - totC;
-        linhasExec += '<tr class="total"><td class="lbl">= Total do Pool</td><td class="n">' + formatarMoeda(totV) + '</td><td class="n">' + formatarMoeda(totC) + '</td><td class="n ' + (saldoTotal >= 0 ? 'pos' : 'neg') + '">' + (saldoTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(saldoTotal)) + '</td></tr>';
-        html += '<div class="dist-section"><div class="dist-section-head"><h2>Caixa por Executor</h2></div>' +
-            '<div class="dist-livro-book"><table class="dist-livro-tab"><thead><tr><td>Executor</td><td>Or&ccedil;ado</td><td>Custo Real</td><td>Saldo</td></tr></thead><tbody>' + linhasExec + '</tbody></table></div></div>';
-    }
-
     return html;
 }
 
@@ -1007,11 +1013,11 @@ function distLivroBook(titulo, linhasHtml, memo) {
 // Livro "Dentro da Etapa X" (+ "Caixa por Executor" se tiver execução
 // granular) de UMA Etapa — extraído do laço de htmlLivroCaixaFinanceiro()
 // (reforma "Desempenho" com seletor de Etapa, 2026-09-01) pra ser
-// reaproveitado também pela Financeira isolada de uma Etapa só (ver
-// htmlLivroCaixaEtapaIsolada() logo abaixo). Devolve `{html, poolLucro}`
-// — `poolLucro` só é != 0 pra quem tem execução granular, usado pelo
-// chamador pra somar no "Fundo Garantidor restante" do livro-caixa do
-// projeto inteiro.
+// reaproveitado tanto pro relatório de todas as Etapas quanto (reforma
+// 2026-09-03) pro de uma Etapa só (`etapaFiltro` em
+// htmlLivroCaixaFinanceiro()). Devolve `{html, poolLucro}` — `poolLucro`
+// só é != 0 pra quem tem execução granular, usado pelo chamador pra
+// somar no "Fundo Garantidor restante" do livro-caixa.
 function htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e) {
     let saldoEtapa = e.verbaLiquida;
     let linhasEtapa = distLivroLinha('Verba recebida da Etapa', e.verbaLiquida, null, saldoEtapa);
@@ -1069,55 +1075,54 @@ function htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e) {
     return { html: html, poolLucro: poolLucro };
 }
 
-// Financeira isolada de UMA Etapa só (reforma "Desempenho" com
-// seletor de Etapa, 2026-09-01, decisão do usuário: mostrar só o
-// quadro daquela Etapa, não o livro-caixa do contrato inteiro).
-function htmlLivroCaixaEtapaIsolada(nomeProjeto, etapaNome) {
-    const fin = calcularResumoFinanceiroProjeto(nomeProjeto);
-    const e = fin.etapas.find(x => x.nome === etapaNome);
-    if (!e) return '<div style="text-align:center; color:#94a3b8; padding:60px 20px;">Etapa n&atilde;o encontrada.</div>';
+// `etapaFiltro` opcional (reforma "Distribuições exatamente como o
+// Projeto Inteiro, só com os números da Etapa", 2026-09-03): pula o
+// Livro 1 ("Do Contrato ao Fundo Garantidor" — é sobre o CONTRATO
+// inteiro, decisão já tomada antes de não misturar isso com uma Etapa
+// só, ver o antigo htmlLivroCaixaEtapaIsolada()) e restringe o resto
+// (livro por Etapa + Caixa por Executor + Saldo do Fundo de
+// Distribuição de Lucros) a só essa Etapa. Sem ele, comportamento
+// igual a sempre — todas as Etapas.
+function htmlLivroCaixaFinanceiro(nomeProjeto, fin, etapaFiltro) {
     const todasLinhas = (typeof calcularLinhasFolhaComVerba === 'function') ? calcularLinhasFolhaComVerba(nomeProjeto) : [];
-    return htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e).html;
-}
-
-function htmlLivroCaixaFinanceiro(nomeProjeto, fin) {
-    const todasLinhas = (typeof calcularLinhasFolhaComVerba === 'function') ? calcularLinhasFolhaComVerba(nomeProjeto) : [];
+    const etapasConsideradas = etapaFiltro ? fin.etapas.filter(e => e.nome === etapaFiltro) : fin.etapas;
     let html = '';
 
-    // --- Livro 1: Do Contrato ao Fundo Garantidor ---
-    let saldo = fin.valorContrato;
-    let linhas = distLivroLinha('Valor do Contrato', fin.valorContrato, null, saldo);
-    saldo -= fin.valorImpostos;
-    linhas += distLivroLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', null, fin.valorImpostos, saldo);
-    saldo -= fin.valorEscritorio;
-    linhas += distLivroLinha('Parcela Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', null, fin.valorEscritorio, saldo);
-    saldo -= fin.valorSupervisor;
-    linhas += distLivroLinha('Parcela Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', null, fin.valorSupervisor, saldo);
+    if (!etapaFiltro) {
+        // --- Livro 1: Do Contrato ao Fundo Garantidor ---
+        let saldo = fin.valorContrato;
+        let linhas = distLivroLinha('Valor do Contrato', fin.valorContrato, null, saldo);
+        saldo -= fin.valorImpostos;
+        linhas += distLivroLinha('Impostos (' + fin.pctImpostos.toFixed(0) + '%)', null, fin.valorImpostos, saldo);
+        saldo -= fin.valorEscritorio;
+        linhas += distLivroLinha('Parcela Escrit&oacute;rio (' + fin.pctEscritorio.toFixed(0) + '%)', null, fin.valorEscritorio, saldo);
+        saldo -= fin.valorSupervisor;
+        linhas += distLivroLinha('Parcela Supervis&atilde;o (' + fin.pctSupervisor.toFixed(0) + '%)', null, fin.valorSupervisor, saldo);
 
-    // Escritório + Supervisão + Produção deveriam somar 100% da Parcela
-    // Global (o app só avisa se não fechar, não bloqueia salvar — ver
-    // distribuicao-custos.js) — se não somarem, a diferença aparece
-    // aqui como um ajuste explícito, em vez de sumir silenciosamente e
-    // o livro-caixa não fechar com o resto da tela.
-    const ajusteProducao = saldo - fin.valorAnalista;
-    if (Math.abs(ajusteProducao) > 0.01) {
-        saldo -= ajusteProducao;
-        linhas += distLivroLinha('Ajuste (% n&atilde;o fecham 100%)', ajusteProducao < 0 ? -ajusteProducao : null, ajusteProducao > 0 ? ajusteProducao : null, saldo);
+        // Escritório + Supervisão + Produção deveriam somar 100% da Parcela
+        // Global (o app só avisa se não fechar, não bloqueia salvar — ver
+        // distribuicao-custos.js) — se não somarem, a diferença aparece
+        // aqui como um ajuste explícito, em vez de sumir silenciosamente e
+        // o livro-caixa não fechar com o resto da tela.
+        const ajusteProducao = saldo - fin.valorAnalista;
+        if (Math.abs(ajusteProducao) > 0.01) {
+            saldo -= ajusteProducao;
+            linhas += distLivroLinha('Ajuste (% n&atilde;o fecham 100%)', ajusteProducao < 0 ? -ajusteProducao : null, ajusteProducao > 0 ? ajusteProducao : null, saldo);
+        }
+
+        fin.etapas.forEach(e => {
+            saldo -= e.verbaLiquida;
+            linhas += distLivroLinha('Etapa "' + escapeHtml(e.nome) + '" (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', null, e.verbaLiquida, saldo);
+        });
+        linhas += distLivroLinha('= Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%)', null, null, saldo, 'saldo');
+        html += distLivroBook('Do Contrato ao Fundo Garantidor', linhas);
     }
-
-    fin.etapas.forEach(e => {
-        saldo -= e.verbaLiquida;
-        linhas += distLivroLinha('Etapa "' + escapeHtml(e.nome) + '" (' + e.pctEtapa.toFixed(1).replace('.0', '') + '%)', null, e.verbaLiquida, saldo);
-    });
-    linhas += distLivroLinha('= Fundo Garantidor (' + fin.pctFundoGarantidor.toFixed(0) + '%)', null, null, saldo, 'saldo');
-    html += distLivroBook('Do Contrato ao Fundo Garantidor', linhas);
 
     // --- Um livro por Etapa + "Caixa por Executor" pra quem tem
     // execução granular (Pavimento na subárvore) — corpo do laço
-    // vive em htmlLivroCaixaBlocoEtapa(), reaproveitado também pela
-    // Financeira isolada de uma Etapa só (ver htmlLivroCaixaEtapaIsolada()). ---
+    // vive em htmlLivroCaixaBlocoEtapa(). ---
     let poolLucroTotal = 0;
-    fin.etapas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
+    etapasConsideradas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
         const r = htmlLivroCaixaBlocoEtapa(nomeProjeto, todasLinhas, e);
         html += r.html;
         poolLucroTotal += r.poolLucro;
@@ -1138,7 +1143,7 @@ function htmlLivroCaixaFinanceiro(nomeProjeto, fin) {
     // --- Saldo do Fundo de Distribuição de Lucros (soma a contribuição
     // de cada Etapa — pedido do usuário) ---
     let linhasFundoLucros = '', totalFundoLucros = 0;
-    fin.etapas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
+    etapasConsideradas.filter(e => e.verbaLiquida > 0.01).forEach(e => {
         const pctFundo = (typeof obterPctFundoLucrosPavimento === 'function') ? obterPctFundoLucrosPavimento(nomeProjeto, e.no) : 0;
         const valorFundo = pctFundo / 100 * e.verbaLiquida;
         totalFundoLucros += valorFundo;
@@ -1160,9 +1165,13 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
 
     let html = '<div class="dist-page">';
 
-    // --- Masthead ---
+    // --- Masthead --- Pedido do usuário (2026-09-03): mesmo relatório
+    // pra "🌐 Projeto Inteiro" e pra uma Etapa só, com o eyebrow
+    // identificando qual dos dois está sendo mostrado (antes vinha
+    // sempre "Detalhamento" fixo, mesmo no Projeto Inteiro).
+    const rotuloEscopo = d.etapaFiltro || 'Projeto Inteiro';
     html += '<div class="dist-masthead"><div class="dist-masthead-top"><div>';
-    html += '<div class="dist-eyebrow">Relat&oacute;rio &middot; Detalhamento - An&aacute;lise Financeira</div>';
+    html += '<div class="dist-eyebrow">Relat&oacute;rio &middot; ' + escapeHtml(rotuloEscopo) + ' - An&aacute;lise Financeira</div>';
     html += '<h1>' + escapeHtml(nomeProjeto) + '</h1>';
     html += '<div class="dist-sub">' + (meta.cliente ? 'Cliente <b>' + escapeHtml(meta.cliente) + '</b> &middot; ' : '') +
         (meta.pavimentos ? escapeHtml(meta.pavimentos) + ' pavimentos, ' : '') + (meta.area ? formatarNumero(meta.area) + ' m&sup2;' : '') +
@@ -1170,21 +1179,34 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     html += '</div><div class="dist-meta-block">';
     html += '<div class="dist-meta-row"><span class="k">Horas apuradas</span><span class="v dist-num">' + formatarNumero(d.horasCusto.horasRealizadas) + ' h</span></div>';
     html += '<div class="dist-meta-row"><span class="k">Per&iacute;odo</span><span class="v dist-num">' + (meta.periodo ? escapeHtml(meta.periodo) : '&mdash;') + '</span></div>';
-    html += '<div class="dist-meta-row"><span class="k">Detalhistas</span><span class="v">' + d.poolExecutores.map(e => escapeHtml(nomeExecutorExibicao(e.nome))).join(' &middot; ') + '</span></div>';
+    if (d.poolExecutores.length > 0) {
+        html += '<div class="dist-meta-row"><span class="k">Detalhistas</span><span class="v">' + d.poolExecutores.map(e => escapeHtml(nomeExecutorExibicao(e.nome))).join(' &middot; ') + '</span></div>';
+    }
     html += '</div></div>';
     html += '<div class="dist-headline"><div class="dist-figure ' + (poolLucroTotal >= 0 ? 'good' : 'critical') + ' dist-num">' + (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)) + '</div>';
-    html += '<div class="dist-caption">O custo real das ' + formatarNumero(d.horasCusto.horasRealizadas) + 'h de detalhamento (<b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b>) ficou <b>' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '% ' + (pctDesvioPool >= 0 ? 'acima' : 'abaixo') + '</b> do or&ccedil;amento (<b class="dist-num">' + formatarMoeda(bonif.poolVerba) + '</b>).</div></div>';
+    html += '<div class="dist-caption">O custo real das ' + formatarNumero(d.horasCusto.horasRealizadas) + 'h de execu&ccedil;&atilde;o (<b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b>) ficou <b>' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '% ' + (pctDesvioPool >= 0 ? 'acima' : 'abaixo') + '</b> do or&ccedil;amento (<b class="dist-num">' + formatarMoeda(bonif.poolVerba) + '</b>).</div></div>';
     html += '</div>';
 
-    // --- Números do contrato ---
-    html += '<div class="dist-section"><div class="dist-section-head"><h2>N&uacute;meros do contrato</h2></div>';
-    html += '<div class="dist-kpis">';
-    html += distKpi('Valor contratado (bruto)', formatarMoeda(fin.valorContrato), (meta.area ? formatarNumero(fin.valorContrato / meta.area) + ' /m&sup2;' : ''));
-    html += distKpi('Verba Global p/ Produ&ccedil;&atilde;o', formatarMoeda(bonif.valorGlobalProducao), fin.pctAnalista.toFixed(0) + '% do valor l&iacute;quido');
-    html += distKpi('Or&ccedil;amento Detalhamento', formatarMoeda(bonif.poolVerba), 'pool de horas de ' + d.poolExecutores.map(e => (nomeExecutorExibicao(e.nome)).split(' ')[0]).join(' + '));
-    html += distKpi('Custo Real do Detalhamento', formatarMoeda(bonif.poolCusto), formatarNumero(d.horasCusto.horasRealizadas) + ' h executadas');
-    html += distKpi('Desvio contra o or&ccedil;ado', (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)), (pctDesvioPool >= 0 ? 'estouro' : 'sobra') + ' de ' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '%', poolLucroTotal < 0);
-    html += '</div></div>';
+    // --- Números do contrato / Números da Etapa --- Pedido do usuário
+    // (2026-09-03): "🌐 Projeto Inteiro" mostra os 5 KPIs de sempre
+    // (sobre o CONTRATO); uma Etapa escolhida mostra a composição
+    // diferente que o usuário pediu explicitamente antes (Verba da
+    // Etapa → Fundo Distribuição de Lucros → Valor pra Execução →
+    // Custo Real → Desvio), ver htmlNumerosDaEtapa().
+    if (d.etapaFiltro) {
+        html += '<div class="dist-section"><div class="dist-section-head"><h2>N&uacute;meros da Etapa</h2><div class="dist-note">"' + escapeHtml(d.etapaFiltro) + '" sozinha, sem misturar com outras Etapas</div></div>';
+        html += htmlNumerosDaEtapa(nomeProjeto, fin, d.etapaFiltro);
+        html += '</div>';
+    } else {
+        html += '<div class="dist-section"><div class="dist-section-head"><h2>N&uacute;meros do contrato</h2></div>';
+        html += '<div class="dist-kpis">';
+        html += distKpi('Valor contratado (bruto)', formatarMoeda(fin.valorContrato), (meta.area ? formatarNumero(fin.valorContrato / meta.area) + ' /m&sup2;' : ''));
+        html += distKpi('Verba Global p/ Produ&ccedil;&atilde;o', formatarMoeda(bonif.valorGlobalProducao), fin.pctAnalista.toFixed(0) + '% do valor l&iacute;quido');
+        html += distKpi('Or&ccedil;amento Detalhamento', formatarMoeda(bonif.poolVerba), 'pool de horas de ' + d.poolExecutores.map(e => (nomeExecutorExibicao(e.nome)).split(' ')[0]).join(' + '));
+        html += distKpi('Custo Real do Detalhamento', formatarMoeda(bonif.poolCusto), formatarNumero(d.horasCusto.horasRealizadas) + ' h executadas');
+        html += distKpi('Desvio contra o or&ccedil;ado', (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)), (pctDesvioPool >= 0 ? 'estouro' : 'sobra') + ' de ' + Math.abs(pctDesvioPool).toFixed(1).replace('.', ',') + '%', poolLucroTotal < 0);
+        html += '</div></div>';
+    }
 
     // --- Layout em 2 colunas (pedido do usuário, 2026-08-25: "na
     // coluna à esquerda todo o orçamento... na coluna à direita os
@@ -1201,7 +1223,7 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     html += '<div class="dist-section"><div class="dist-section-head"><h2>Como a Verba Global &eacute; dividida</h2><div class="dist-note">' + formatarMoeda(bonif.valorGlobalProducao) + ' em tr&ecirc;s blocos</div></div>';
     html += '<div class="dist-panel"><div class="dist-segbar">' +
         '<div class="dist-seg" style="width:' + pctFixo.toFixed(1) + '%; background:var(--dist-cat-1);"><span>Bloco Fixo &middot; ' + pctFixo.toFixed(0) + '%</span></div>' +
-        '<div class="dist-seg" style="width:' + pctPool.toFixed(1) + '%; background:var(--dist-accent);"><span>Detalhamento &middot; ' + pctPool.toFixed(0) + '%</span></div>' +
+        '<div class="dist-seg" style="width:' + pctPool.toFixed(1) + '%; background:var(--dist-accent);"><span>' + (d.etapaFiltro ? escapeHtml(d.etapaFiltro) : 'Detalhamento') + ' &middot; ' + pctPool.toFixed(0) + '%</span></div>' +
         '<div class="dist-seg dist-seg-margem" style="width:' + pctMargem.toFixed(1) + '%;"><span>Margem &middot; ' + pctMargem.toFixed(0) + '%</span></div>' +
         '</div>';
     html += '<div class="dist-seg-legend">' +
@@ -1209,7 +1231,7 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
         '<div class="item"><span class="swatch" style="background:var(--dist-accent);"></span>Pool de horas de ' + d.poolExecutores.map(e => (nomeExecutorExibicao(e.nome))).join(' + ') + ' &mdash; or&ccedil;ado <span class="dist-num">' + formatarMoeda(bonif.poolVerba) + '</span></div>' +
         '<div class="item"><span class="swatch" style="background:var(--dist-surface-2); border:1px solid var(--dist-border-strong);"></span>Margem do escrit&oacute;rio &mdash; <span class="dist-num">' + formatarMoeda(bonif.margemEscritorio) + '</span></div>' +
         '</div>';
-    html += '<div class="dist-tolerance"><span class="tag' + (foraTolerancia ? '' : ' ok') + '">' + (foraTolerancia ? 'Fora da toler&acirc;ncia' : 'Dentro da toler&acirc;ncia') + '</span> o pool de detalhamento foi executado por <b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b> &mdash; ' + formatarMoeda(Math.abs(poolLucroTotal)) + (poolLucroTotal >= 0 ? ' abaixo' : ' acima') + ' do que este bloco or&ccedil;ava.</div>';
+    html += '<div class="dist-tolerance"><span class="tag' + (foraTolerancia ? '' : ' ok') + '">' + (foraTolerancia ? 'Fora da toler&acirc;ncia' : 'Dentro da toler&acirc;ncia') + '</span> o pool de execu&ccedil;&atilde;o foi executado por <b class="dist-num">' + formatarMoeda(bonif.poolCusto) + '</b> &mdash; ' + formatarMoeda(Math.abs(poolLucroTotal)) + (poolLucroTotal >= 0 ? ' abaixo' : ' acima') + ' do que este bloco or&ccedil;ava.</div>';
     html += '</div></div>';
 
     // --- Resumo financeiro (retomada 2026-08-25, parte 42: movido de
@@ -1226,7 +1248,7 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     // `verbaDetalhamentoRealizada` continua calculada aqui (não migrou
     // pro livro-caixa) porque "Índices Globais", logo abaixo, ainda
     // depende dela pro "Preço por m² Detalhável Realizado".
-    const etapaDetTab = d.tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
+    const etapaDetTab = d.etapaFiltro ? d.tab.porEtapa[0] : d.tab.porEtapa.find(e => e.nome.toLowerCase().includes('detalhamento'));
     const horasPrevistoDetFin = etapaDetTab ? etapaDetTab.previsto : 0;
     const horasRealizadoDetFin = etapaDetTab ? etapaDetTab.realizado : 0;
     const pctExecucaoDet = horasPrevistoDetFin > 0 ? (horasRealizadoDetFin / horasPrevistoDetFin) : 1;
@@ -1234,20 +1256,28 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
 
     html += '<div class="dist-section"><div class="dist-section-head"><h2>Resumo financeiro</h2><div class="dist-note">Livro-caixa: Entradas e Sa&iacute;das at&eacute; a Verba de cada Etapa</div></div>';
     html += '<div class="dist-panel dist-orc-panel">';
-    html += htmlLivroCaixaFinanceiro(nomeProjeto, fin);
+    html += htmlLivroCaixaFinanceiro(nomeProjeto, fin, d.etapaFiltro);
     html += '</div></div>';
 
-    // --- Índices Globais (pedido do usuário) ---
-    html += '<div class="dist-section"><div class="dist-section-head"><h2>&Iacute;ndices Globais</h2><div class="dist-note">Valor por m&sup2;</div></div>';
-    html += '<div class="dist-panel dist-orc-panel">';
-    const precoM2Global = meta.area > 0 ? fin.valorContrato / meta.area : 0;
-    const precoM2DetPrevisto = fin.areaTotalEquivalente > 0 ? fin.verbaDetalhamentoBruta / fin.areaTotalEquivalente : 0;
-    const precoM2DetRealizado = fin.areaTotalEquivalente > 0 ? verbaDetalhamentoRealizada / fin.areaTotalEquivalente : 0;
-    html += tabelaOrcamentoBloco('Pre&ccedil;o por m&sup2;', [
-        { label: 'Global (Valor do Contrato &divide; &aacute;rea do projeto)', previsto: precoM2Global, realizado: precoM2Global },
-        { label: 'Detalh&aacute;vel (Verba Detalhamento &divide; &aacute;rea equivalente dos pavimentos)', previsto: precoM2DetPrevisto, realizado: precoM2DetRealizado }
-    ]);
-    html += '</div></div>';
+    // --- Índices Globais (pedido do usuário) --- Escopado
+    // (d.etapaFiltro): `fin.verbaDetalhamentoBruta`/`areaTotalEquivalente`
+    // já vêm só desta Etapa (calcularResumoFinanceiroProjeto com
+    // etapaFiltro) — pula a seção inteira só quando a Etapa não tem
+    // Pavimento nenhum (área equivalente 0, a linha "Detalhável" não
+    // teria o que mostrar; a linha "Global" continua igual, é sobre o
+    // CONTRATO inteiro, não muda por Etapa).
+    if (!d.etapaFiltro || fin.areaTotalEquivalente > 0) {
+        html += '<div class="dist-section"><div class="dist-section-head"><h2>&Iacute;ndices Globais</h2><div class="dist-note">Valor por m&sup2;</div></div>';
+        html += '<div class="dist-panel dist-orc-panel">';
+        const precoM2Global = meta.area > 0 ? fin.valorContrato / meta.area : 0;
+        const precoM2DetPrevisto = fin.areaTotalEquivalente > 0 ? fin.verbaDetalhamentoBruta / fin.areaTotalEquivalente : 0;
+        const precoM2DetRealizado = fin.areaTotalEquivalente > 0 ? verbaDetalhamentoRealizada / fin.areaTotalEquivalente : 0;
+        html += tabelaOrcamentoBloco('Pre&ccedil;o por m&sup2;', [
+            { label: 'Global (Valor do Contrato &divide; &aacute;rea do projeto)', previsto: precoM2Global, realizado: precoM2Global },
+            { label: (d.etapaFiltro ? escapeHtml(d.etapaFiltro) : 'Detalh&aacute;vel') + ' (Verba da Etapa &divide; &aacute;rea equivalente dos pavimentos)', previsto: precoM2DetPrevisto, realizado: precoM2DetRealizado }
+        ]);
+        html += '</div></div>';
+    }
 
     html += '</div><div class="dist-col-realizado">';
 
@@ -1269,7 +1299,7 @@ function renderizarDistribuicoesProjeto(nomeProjeto, d) {
     html += '</div></div>';
     if (d.poolExecutores.length > 1) {
         const pior = d.poolExecutores.slice().sort((a, b) => a.lucro - b.lucro)[0];
-        html += '<div class="dist-callout' + (poolLucroTotal >= 0 ? ' good' : '') + '"><div class="dist-mark">&Delta;</div><p>Juntos, ' + d.poolExecutores.map(e => nomeExecutorExibicao(e.nome)).join(' e ') + ' fecham em <b>' + (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)) + '</b> &mdash; exatamente o ' + (poolLucroTotal >= 0 ? 'saldo' : 'estouro') + ' do pool de detalhamento.' +
+        html += '<div class="dist-callout' + (poolLucroTotal >= 0 ? ' good' : '') + '"><div class="dist-mark">&Delta;</div><p>Juntos, ' + d.poolExecutores.map(e => nomeExecutorExibicao(e.nome)).join(' e ') + ' fecham em <b>' + (poolLucroTotal >= 0 ? '+ ' : '&minus; ') + formatarMoeda(Math.abs(poolLucroTotal)) + '</b> &mdash; exatamente o ' + (poolLucroTotal >= 0 ? 'saldo' : 'estouro') + ' do pool de execu&ccedil;&atilde;o.' +
             (pior.lucro < 0 ? ' A maior parte da perda do per&iacute;odo est&aacute; concentrada em ' + (nomeExecutorExibicao(pior.nome)) + '.' : '') + '</p></div>';
     }
     html += '</div>';
