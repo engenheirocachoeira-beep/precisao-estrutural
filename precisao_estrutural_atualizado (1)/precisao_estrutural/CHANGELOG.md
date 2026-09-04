@@ -5935,3 +5935,42 @@ usuário/UID (`auth != null`, sem regra por papel). Ambas eram
 limitações pré-existentes, não criadas por esta mudança; ligar o
 login do app não fecha essas duas portas, só adiciona a exigência de
 senha certa pra usar o sistema como aquele funcionário.
+
+## Retomada em 2026-09-04 (parte 86) — Administrador pode ver e trocar a senha de qualquer colaborador
+
+Pedido do usuário, seguindo direto da ativação do login real (parte
+85): o Administrador precisa conseguir enxergar a senha de qualquer
+colaborador, não só trocá-la.
+
+**Achado**: trocar já funcionava (campo editável, `salvarFuncionario()`
+grava o que estiver digitado). "Enxergar" também já funcionava
+parcialmente — `carregarFuncionarioParaEdicao()` já preenchia o campo
+com a senha real em texto puro — só ficava mascarado por pontinhos
+(`<input type="password">`), sem nenhum jeito embutido no app de
+revelar (dependia do ícone de "mostrar senha" do próprio navegador,
+inconsistente entre navegadores).
+
+**Implementado**: botão "👁" ao lado do campo Senha (Cadastro >
+Funcionários), `alternarVisibilidadeSenhaFuncionario()` (`js/cadastros.js`)
+alterna `type="password"`/`"text"` no mesmo input (ícone vira "🙈"
+quando revelado). Reseta pra oculto sempre que o formulário abre (novo
+funcionário ou edição de outro) — não fica revelado sem querer entre
+edições.
+
+**Acesso**: tela de Cadastro (e portanto este campo) já é visível só
+pro nível `administrador` (`MENU_POR_NIVEL`, core.js) — supervisor/
+analista/executor nem veem o item de menu. Não é uma trava "por baixo
+do pano" (um usuário logado poderia, em tese, chamar a função direto
+pelo console) — mesmo modelo de segurança já usado no resto do
+sistema, não uma lacuna nova desta mudança.
+
+Testado ao vivo (perfil ADMINISTRADOR de teste, funcionária real "Ana
+Claudia Cigerza"): campo abre oculto, botão revela o valor real
+("ana@precisao"), botão de novo oculta, layout lado a lado sem quebra.
+Zero erro no console. `node --check` limpo. Sincronizado em
+`modulos_isolados/cadastros/` (`js/cadastros.js` inteiro + o trecho
+equivalente do campo Senha em `index.html` — este módulo isolado já
+tinha uma divergência estrutural PRÉ-EXISTENTE não relacionada a esta
+mudança: usa um único campo `func-endereco` em vez do
+rua/número/bairro/cidade/UF do formulário principal; fora de escopo
+desta rodada, não corrigido).

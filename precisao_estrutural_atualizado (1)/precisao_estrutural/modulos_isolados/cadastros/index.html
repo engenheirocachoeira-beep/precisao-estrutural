@@ -79,7 +79,12 @@ body { display:block; padding: 20px; }
                             <div class="form-group col-6"><label>Endereço:</label><input type="text" id="func-endereco"></div>
                             <div class="form-group col-3"><label>Telefone:</label><input type="text" id="func-telefone"></div>
                             <div class="form-group col-6"><label>E-mail:</label><input type="text" id="func-email"></div>
-                            <div class="form-group col-6"><label>Senha:</label><input type="password" id="func-senha"></div>
+                            <div class="form-group col-6"><label>Senha:</label>
+                                <div style="display:flex; flex-direction:row; gap:6px; align-items:center;">
+                                    <input type="password" id="func-senha" style="flex:1; min-width:0;">
+                                    <button type="button" id="btn-toggle-senha-func" class="btn-secondary" style="flex-shrink:0; padding:6px 10px;" onclick="alternarVisibilidadeSenhaFuncionario()" title="Mostrar/ocultar senha">👁</button>
+                                </div>
+                            </div>
                         </div></div>
                         <div class="form-section"><div class="form-section-title">3. Calendário Semanal (horas disponíveis por dia)</div><div class="form-grid">
                             <div class="form-group col-2"><label>Segunda:</label><input type="number" id="func-cal-seg" step="0.5" value="8"></div>
