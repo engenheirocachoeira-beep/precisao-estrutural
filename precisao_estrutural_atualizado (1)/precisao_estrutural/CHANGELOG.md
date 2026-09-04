@@ -5874,3 +5874,64 @@ concluída"; nenhuma finalizada → "0% concluída"; sem verba nenhuma
 "Finalizada". Zero erro no console. `node --check` limpo. Sincronizado
 em `modulos_isolados/arvore/js/arvore.js` (única cópia isolada deste
 arquivo).
+
+## Retomada em 2026-09-04 (parte 85) — Login real ativado pra teste com a equipe
+
+Pedido do usuário: colocar o sistema em teste com os demais usuários,
+com login/senha e as limitações de acesso por nível de cada um.
+
+**Achado**: o login real (CPF/nome + senha) já existia inteiro e
+funcional — `tentarLogin()`/`autenticarFuncionario()` (`js/core.js`) —
+só estava desligado por um flag de conveniência de desenvolvimento,
+`MODO_TESTE_SEM_LOGIN = true` (linha ~1430), que pulava a tela de
+login e trocava de identidade por um `<select>` sem senha nenhuma. O
+controle de permissão por nível (`MENU_POR_NIVEL`) já era o mesmo
+usado por esse dropdown de teste — não precisou de nenhuma lógica
+nova, só religar o caminho normal.
+
+**Antes de ligar**, conferi os dados reais de produção: a maioria dos
+funcionários cadastrados de verdade (Filipe, Ana, David, Julia,
+Leonardo, Luiza, Andrey, João, Daniel, Gesse, Pedro, Gustavo, Pablo,
+Lucas) estava **sem senha definida** — só os 4 perfis de teste
+genéricos (ADMINISTRADOR, EXECUTOR, ANALISTA, DETALHISTA) tinham.
+Decisão combinada com o usuário: ele preenche a senha de cada
+funcionário manualmente em Cadastro > Funcionários (sem geração
+automática); a senha continua em texto puro (sem hash) pra esta fase
+de teste — decisão já documentada antes como aceitável sem servidor
+por trás; os 4 perfis de teste genéricos continuam ativos como contas
+de teste válidas.
+
+**Implementado**: `MODO_TESTE_SEM_LOGIN = false` em `js/core.js`,
+comentário do flag atualizado (histórico do porquê existiu +
+quando/porquê foi desligado). Sincronizado nas 9 cópias de `core.js`
+em `modulos_isolados/*` (mesmo flag, sem efeito ali — nenhum harness
+isolado tem `#tela-login` na própria página, então o bloco inteiro já
+era pulado antes por causa disso, não pelo flag).
+
+**Testado ao vivo** (servidor num processo/porta nova, sem cache de
+navegador de sessões anteriores, pra garantir que era o código
+realmente atualizado sendo executado): tela de login aparece; CPF +
+senha corretos → autentica, esconde a tela de login, aplica
+`MENU_POR_NIVEL` certo (testado com um perfil `executor`: só o item
+Kanban aparece no menu, igual o dropdown de teste já mostrava);
+"Sair" volta pra tela de login; senha errada e funcionário sem senha
+cadastrada → ambos caem em "Senha incorreta." (mesma mensagem, não
+revela se a senha existe — comportamento correto de
+`autenticarFuncionario()`). Zero erro no console.
+
+**Achado real nos dados de teste** (não é bug de código): os perfis
+ADMINISTRADOR e DETALHISTA têm o MESMO CPF fictício cadastrado
+(`494.803.839-34`) — login por esse CPF sempre resolve pro primeiro
+do array (`DETALHISTA`, nível `executor`), nunca pro `ADMINISTRADOR`.
+Documentado em `prompt_gemini.md` §12. Pra logar como o perfil de
+teste Administrador, usar o nome ("ADMINISTRADOR") em vez do CPF, ou
+o usuário pode corrigir o CPF duplicado no Cadastro quando quiser.
+
+**Pendências que o usuário decidiu conscientemente deixar de fora
+desta rodada** (documentadas, não esquecidas): senha em texto puro
+(sem hash) e regras do Firebase Realtime Database abertas pra
+qualquer autenticado — inclusive anônimo — sem amarração por
+usuário/UID (`auth != null`, sem regra por papel). Ambas eram
+limitações pré-existentes, não criadas por esta mudança; ligar o
+login do app não fecha essas duas portas, só adiciona a exigência de
+senha certa pra usar o sistema como aquele funcionário.

@@ -218,10 +218,14 @@ valor de hora utilizável na mesma sessão.
 
 ## 3.1. Login e Sessão
 
-**⚠️ MODO TESTE SEM LOGIN ATIVO (julho/2026) — `MODO_TESTE_SEM_LOGIN =
-true` no topo de `core.js`.** Pedido explícito do usuário: chato digitar
-login/senha a cada teste e ter que lembrar nome de analista/executor
-pra testar restrição de acesso. Enquanto o flag estiver `true`:
+**⚠️ MODO TESTE SEM LOGIN — DESLIGADO EM 2026-09-04 (`MODO_TESTE_SEM_LOGIN
+= false` no topo de `core.js`).** O sistema entrou em fase de teste com
+pessoas reais da equipe e cada uma agora loga com CPF/nome + senha de
+verdade (login real, `tentarLogin()`/`autenticarFuncionario()`). Ficou
+`true` de julho a 2026-09-04 — pedido explícito do usuário na época:
+chato digitar login/senha a cada teste e ter que lembrar nome de
+analista/executor pra testar restrição de acesso. Enquanto o flag
+esteve `true`:
 - A tela de login (`#tela-login`) nunca aparece — o sistema entra
   direto com a última identidade escolhida
   (`localStorage['banco_identidade_teste_atual']`), ou o primeiro
@@ -1685,9 +1689,18 @@ outro lugar do código com nome ligeiramente diferente (ex: `cidade` vs
 
 ## 12. Estado atual conhecido
 
-- **⚠️ MODO TESTE SEM LOGIN ATIVO** (`MODO_TESTE_SEM_LOGIN = true` em
-  `core.js`) — ver §3.1 pro detalhe completo. Lembrar de reverter antes
-  de qualquer uso real/multiusuário.
+- **Login real ATIVO desde 2026-09-04** (`MODO_TESTE_SEM_LOGIN = false`
+  em `core.js`) — sistema em fase de teste com pessoas reais da equipe,
+  cada uma loga com seu próprio CPF/nome + senha. Ver §3.1 pro detalhe
+  completo e pro histórico do modo de teste que ficou ligado até essa
+  data. Achado no dia da ativação: os perfis de teste genéricos
+  ADMINISTRADOR e DETALHISTA (mantidos como contas de teste válidas, a
+  pedido do usuário) têm o MESMO CPF fictício cadastrado
+  (`494.803.839-34`) — login por esse CPF sempre resolve pro primeiro
+  do array (`DETALHISTA`, nível `executor`), nunca pro `ADMINISTRADOR`.
+  Pra logar como o perfil de teste Administrador, usar o nome
+  ("ADMINISTRADOR") em vez do CPF, ou corrigir o CPF duplicado no
+  Cadastro de Funcionários.
 - **"Rodada de Comentários da Gerência" (julho/2026) — CONCLUÍDA, exceto
   1 item grande.** 20 itens discutidos, ver bloco dedicado mais abaixo
   nesta seção (logo antes de §12.1). Implementados e testados: os 3

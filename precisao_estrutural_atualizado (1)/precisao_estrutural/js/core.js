@@ -1403,31 +1403,24 @@ function migrarValorHoraParaHistorico() {
 // consegue ler ou contornar) — é uma trava de conveniência/organização,
 // consistente com o resto do sistema (nada tinha proteção nenhuma até
 // =========================================================================
-// ⚠️ MODO TESTE SEM LOGIN — TEMPORÁRIO, REVERTER ANTES DE QUALQUER USO
-// REAL/MULTIUSUÁRIO ⚠️
+// ⚠️ MODO TESTE SEM LOGIN — DESLIGADO EM 2026-09-04, login real ativo ⚠️
 //
-// Pedido explícito do usuário: chato digitar login/senha a cada teste e
-// ter que lembrar nome de analista/executor pra testar restrição de
-// acesso. Enquanto `true`:
-// - A tela de login (#tela-login) nunca aparece.
-// - O sistema entra automaticamente com a última identidade escolhida
-//   (`banco_identidade_teste_atual` no localStorage), ou o primeiro
-//   Administrador cadastrado se não houver nenhuma escolha salva ainda.
-// - O nome no canto superior direito vira um <select> com TODOS os
-//   funcionários cadastrados — trocar a seleção troca `usuarioLogado`
-//   de verdade (aplicando as restrições normais por nível) e recarrega
-//   a página, SEM PEDIR SENHA NENHUMA.
+// Existiu enquanto `true` (julho-set/2026), a pedido do usuário, pra não
+// precisar digitar login/senha a cada teste nem lembrar nome de
+// analista/executor pra testar restrição de acesso: a tela de login
+// (#tela-login) nunca aparecia, o sistema entrava sozinho com a última
+// identidade escolhida (`banco_identidade_teste_atual`), e o nome no
+// canto superior direito virava um <select> que trocava `usuarioLogado`
+// sem pedir senha nenhuma.
 //
-// Isso contradiz uma decisão explícita anterior (ver comentário logo
-// abaixo, em `usuarioLogado`: "o sistema SEMPRE pede login de novo a
-// cada abertura da página, não 'lembra' quem estava logado antes") —
-// por isso esse flag único, fácil de reverter (`false`) quando o teste
-// acabar, sem precisar desfazer nada manualmente.
-//
-// **NUNCA implantar em produção/multiusuário com esse flag em `true`**
-// — qualquer pessoa com acesso ao navegador vira qualquer funcionário
-// instantaneamente, sem senha nenhuma.
-const MODO_TESTE_SEM_LOGIN = true;
+// Desligado (`false`) porque o sistema entrou em fase de teste com as
+// pessoas reais da equipe — cada funcionário agora loga com seu próprio
+// CPF/nome + senha (cadastrados em Cadastro > Funcionários) e cai só nas
+// telas que seu `nivel` permite (`MENU_POR_NIVEL` abaixo). **Não religar
+// esse flag pra `true` com o sistema em uso real** — qualquer pessoa com
+// acesso ao navegador viraria qualquer funcionário instantaneamente, sem
+// senha nenhuma.
+const MODO_TESTE_SEM_LOGIN = false;
 
 // essa rodada). Ciente e combinado com o usuário.
 //
