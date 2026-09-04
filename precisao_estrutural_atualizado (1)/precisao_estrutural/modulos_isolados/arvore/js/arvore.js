@@ -244,6 +244,32 @@
                    '<span class="badge-status '+badgeClass+'" style="font-size:8px; margin-left:6px;">'+(no.status || 'Apontada')+'</span>';
         }
 
+        // Etapa/Sub-etapa como CONTAINER (tem filhos) não tinha nenhuma
+        // indicação de andamento na árvore — só a folha (Tarefa, ou
+        // Etapa/Sub-etapa/Pavimento agindo como folha) ganhava o badge de
+        // status via infoInlineNoFolha() acima. Pedido do usuário
+        // (2026-09-04): mostrar "Finalizada" quando TODA a subárvore
+        // estiver concluída, senão a % concluída — mesma fórmula
+        // ponderada por verba que a tela Desempenho/Painel de Progresso
+        // já usa (calcularProgressoSubarvore, painel-progresso.js), pra
+        // não inventar um segundo critério de "concluído" divergente.
+        function todasFolhasFinalizadas(no) {
+            if (ehNoFolha(no)) return no.status === 'Finalizada';
+            return no.filhos.every(todasFolhasFinalizadas);
+        }
+
+        function infoInlineNoContainer(no, path, nivel) {
+            if (todasFolhasFinalizadas(no)) {
+                return '<span class="badge-status status-finalizada" style="font-size:8px; margin-left:8px;">Finalizada</span>';
+            }
+            if (typeof calcularProgressoSubarvore !== 'function') return '';
+            const mapas = _cacheProgressoArvoreAtual || { verbaPorCaminhoPavimento: {}, verbaPorCaminhoQualquerFolha: {} };
+            const r = calcularProgressoSubarvore(no, path, nivel, mapas.verbaPorCaminhoPavimento, mapas.verbaPorCaminhoQualquerFolha);
+            const pct = r.verbaTotal > 0 ? (r.verbaFinalizada / r.verbaTotal) * 100 : 0;
+            const pctExibicao = Math.max(0, Math.min(100, Math.round(pct)));
+            return '<span style="font-size:9px; color:#64748b; margin-left:8px; white-space:nowrap;">'+pctExibicao+'% concluída</span>';
+        }
+
         // Botões "+ Set"/"+ Pav"/"+ Tar" — só os níveis que ainda cabem
         // como filho deste nó (ordem obrigatória, mas puláveis). Nó
         // 'tarefa' nunca tem filho — sem botão nenhum.
@@ -281,7 +307,9 @@
                         ? '<span class="tree-toggle-icon" style="color:#cbd5e1;">' + seta + '</span>'
                         : '<span onclick="event.stopPropagation(); alternarRecolhimentoNo(\''+nKey+'\')" class="tree-toggle-icon">' + seta + '</span>') +
                     '<span>'+icone+'</span> <span style="font-weight:600; color:#334155;">'+escapeHtml(no.nome)+'</span>' +
-                    (ehFolha ? infoInlineNoFolha(no) : '') +
+                    (ehFolha
+                        ? infoInlineNoFolha(no)
+                        : ((nivel === 'etapa' || nivel === 'subetapa') ? infoInlineNoContainer(no, path, nivel) : '')) +
                     '<span style="margin-left:auto; display:flex; flex-shrink:0;">' + botoesAdicionar(path, nivel) + '</span>' +
                     '</div>';
 
@@ -296,13 +324,40 @@
             return html;
         }
 
+        // Mapas de verba por caminho (path -> valor), recalculados a cada
+        // carregamento da árvore, pra infoInlineNoContainer() poder achar
+        // a % concluída de qualquer Etapa/Sub-etapa sem recalcular a
+        // cascata inteira por nó — mesmos mapas que calcularProgressoProjeto()
+        // (painel-progresso.js) monta, reaproveitados aqui pra bater com
+        // o número que a tela Desempenho mostra pro mesmo projeto.
+        let _cacheProgressoArvoreAtual = { verbaPorCaminhoPavimento: {}, verbaPorCaminhoQualquerFolha: {} };
+
+        function recalcularCacheProgressoArvoreAtual() {
+            const mapas = { verbaPorCaminhoPavimento: {}, verbaPorCaminhoQualquerFolha: {} };
+            if (!projetoSelecionadoAtivo) { _cacheProgressoArvoreAtual = mapas; return; }
+            if (typeof calcularListaPavimentosComVerbaSalva === 'function') {
+                (calcularListaPavimentosComVerbaSalva(projetoSelecionadoAtivo).pavimentos || []).forEach(p => {
+                    mapas.verbaPorCaminhoPavimento[p.caminho] = p.valorVerba;
+                });
+            }
+            if (typeof calcularVerbaCascataCompleta === 'function' && typeof calcularVerbaPorEtapaSalvo === 'function' && typeof coletarNosFolhaDaArvore === 'function') {
+                const verbasPorEtapaCascata = calcularVerbaPorEtapaSalvo(projetoSelecionadoAtivo);
+                const { etapas: etapasCascata } = calcularVerbaCascataCompleta(projetoSelecionadoAtivo, verbasPorEtapaCascata);
+                coletarNosFolhaDaArvore(etapasCascata).forEach(({ no: noFolha, path: pathFolha }) => {
+                    mapas.verbaPorCaminhoQualquerFolha[pathFolha] = noFolha._verbaCalc || 0;
+                });
+            }
+            _cacheProgressoArvoreAtual = mapas;
+        }
+
         function carregarArvoreProjetoAtual() {
             const corpo = document.getElementById('corpo-arvore-eberick');
             if (!projetoSelecionadoAtivo) return;
 
             let todas = JSON.parse(localStorage.getItem('banco_arvores_projetos')) || {};
             const arv = todas[projetoSelecionadoAtivo];
-            
+            recalcularCacheProgressoArvoreAtual();
+
             let isRaizRecolhida = nosRecolhidosEstado['raiz'];
             let setaRaiz = isRaizRecolhida ? '►' : '▼';
 

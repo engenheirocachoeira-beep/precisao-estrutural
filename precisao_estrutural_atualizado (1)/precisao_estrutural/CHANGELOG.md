@@ -5829,3 +5829,48 @@ Sincronizado em `modulos_isolados/{arvore,cadastros,catalogo,bi}/js/`
 e nas 9 cópias de `core.js`, mais os `index.html` de `cadastros`/
 `catalogo`/`bi` (painéis que existem nesses módulos isolados) e as 10
 cópias de `estilos.css`.
+
+## Retomada em 2026-09-04 (parte 84) — "Finalizada" / % concluída para Etapa e Sub-etapa na Árvore
+
+Pedido do usuário: assim como uma Tarefa já mostrava "Finalizada" ao
+lado do nome quando concluída, Etapa e Sub-etapa deveriam mostrar o
+mesmo — e, enquanto não finalizadas, a % concluída ao lado do nome.
+
+**Contexto encontrado**: qualquer nó agindo como FOLHA (sem filhos —
+Tarefa, ou Etapa/Sub-etapa/Pavimento sem nada dentro) já ganhava esse
+badge de status (`infoInlineNoFolha()`, `js/arvore.js`) — isso não é
+exclusivo de Tarefa, é estrutural (`ehNoFolha()` só olha se `filhos`
+está vazio). O que faltava de verdade era o caso contrário: uma Etapa
+ou Sub-etapa que É um CONTAINER (tem filhos) não mostrava indicação
+nenhuma de andamento — nem "Finalizada", nem percentual.
+
+**Implementado** (`js/arvore.js`): nova `infoInlineNoContainer(no, path, nivel)`,
+chamada só para nós `nivel === 'etapa'` ou `'subetapa'` que NÃO são
+folha (Pavimento container fica de fora — não foi pedido, e ele já
+tem sua barra própria em outras telas):
+- `todasFolhasFinalizadas(no)`: percorre a subárvore recursivamente;
+  se TODA folha descendente tem `status === 'Finalizada'`, mostra
+  "Finalizada" (mesma classe CSS `badge-status status-finalizada` do
+  badge de Tarefa — visual idêntico).
+- Senão, calcula a % concluída chamando `calcularProgressoSubarvore()`
+  (já existia em `js/painel-progresso.js`, reaproveitada sem
+  duplicar fórmula) — a MESMA fórmula ponderada por verba que a tela
+  Desempenho/Painel de Progresso usa, pra não inventar um segundo
+  critério de "% concluída" divergente entre telas. Precisa de dois
+  mapas (verba por Pavimento, verba por qualquer folha) que antes só
+  eram montados dentro de `calcularProgressoProjeto()`; extraídos
+  numa `recalcularCacheProgressoArvoreAtual()` nova, chamada uma vez
+  por carregamento da árvore (`carregarArvoreProjetoAtual()`), não a
+  cada nó — evita recalcular a cascata financeira inteira dezenas de
+  vezes por render.
+
+Testado ao vivo (HOME GARDEN - SETOR C): "Análise Estrutural" e
+"DETALHAMENTO" (ambas Etapas-container, 100% finalizadas de verdade)
+mostrando "FINALIZADA" corretamente. Casos de percentual parcial
+testados com nós fabricados em memória (sem tocar `localStorage` nem
+dado real): 2 tarefas-folha com verba igual, 1 finalizada → "50%
+concluída"; nenhuma finalizada → "0% concluída"; sem verba nenhuma
+(divisão por zero) → "0% concluída" (não quebra); ambas finalizadas →
+"Finalizada". Zero erro no console. `node --check` limpo. Sincronizado
+em `modulos_isolados/arvore/js/arvore.js` (única cópia isolada deste
+arquivo).
